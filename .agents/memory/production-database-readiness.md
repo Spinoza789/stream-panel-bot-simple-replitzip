@@ -29,3 +29,15 @@ prevent startup before the driver has attempted a connection.
 **How to apply:** Honor the runtime-managed connection and verify actual production
 provisioning and connectivity; keep errors secret-safe and avoid copied development
 connection strings.
+
+Compare actual table catalogs when a schema readiness error contradicts the
+Publish schema-diff report.
+
+**Why:** The schema-diff helper reported no changes while read-only catalog queries
+showed reseller and notification tables present in development but absent from
+managed production. A no-diff result alone did not establish schema parity.
+
+**How to apply:** Check both environments in the application's private schema.
+If the Publish dialog also omits the missing tables, investigate the migration
+failure rather than promising that another unchanged publish will fix it. Do not
+bypass the managed production migration rules or overwrite production data.
