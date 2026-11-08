@@ -165,10 +165,17 @@ class CheckoutService:
                     raise ValueError('Panel account confirmation mismatch')
                 self.store.update(order['id'],status='fulfilled',credentials=account,message='Your account is ready.')
             except Exception as exc:
+                if generation is None and not credentials and isinstance(exc,PanelError):
+                    # prepare_generation failed before any business POST. Preserve
+                    # this proof so retry can requeue this order, not a new trial.
+                    self.store.update(order['id'],credentials=dict(
+                        generation_mode='panel',package_id=str(order['plan']['package_id']),
+                        post_attempted=False,failure_stage='generation_preflight'))
                 if generation and isinstance(exc,PanelError) and not isinstance(exc,ProvisioningUncertain):
                     generation['post_attempted']=False
                     self.store.update(order['id'],credentials=generation)
-                reason = exc.reason if isinstance(exc,ProvisioningUncertain) else 'unclassified_error'
+                reason = exc.reason if isinstance(exc,ProvisioningUncertain) else (
+                    'generation_preflight' if generation is None and not credentials else 'unclassified_error')
                 log.error('Panel provisioning requires review for order %s (%s, %s)',order['id'],type(exc).__name__,reason)
                 self.store.update(order['id'],status='review',message='Your order needs a manual account check. Do not pay again. Contact support with your order ID.')
                 if order['kind']=='trial':

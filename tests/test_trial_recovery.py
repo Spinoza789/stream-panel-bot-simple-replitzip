@@ -184,6 +184,40 @@ class TrialRecoveryTests(unittest.TestCase):
         self.assertEqual(self.service.retry_trial(42)['status'],'paid')
         self.assertIsNone(self.store.trial(42)['credentials'])
 
+    def test_snapshot_failure_saves_pre_post_proof_and_retries_same_trial(self):
+        self.store.update(self.order['id'],status='paid',credentials=None)
+        self.panel.prepare_generation.side_effect=PanelError('Panel listing changed during lookup')
+        self.service.provision_pending()
+        saved=self.store.trial(42)
+        self.assertEqual(saved['status'],'review')
+        self.assertFalse(saved['credentials']['post_attempted'])
+        self.assertEqual(saved['credentials']['failure_stage'],'generation_preflight')
+        self.panel.create_account.assert_not_called()
+        with self.assertRaisesRegex(CheckoutError,'Please wait'):
+            self.service.retry_trial(42)
+        self.store.metadata('trial_recheck_after:'+self.order['id'],0)
+        self.assertEqual(self.service.retry_trial(42)['id'],self.order['id'])
+        self.panel.prepare_generation.side_effect=lambda package:dict(
+            generation_mode='panel',package_id=package,before_ids=[],
+            prepared_at=int(time.time()),post_attempted=True)
+        self.service.provision_pending()
+        self.assertEqual(self.store.trial(42)['status'],'fulfilled')
+        self.panel.create_account.assert_called_once()
+        self.assertEqual(self.service.create_trial(42)['id'],self.order['id'])
+
+    def test_old_missing_details_remain_blocked_without_durable_pre_post_proof(self):
+        self.store.update(self.order['id'],status='review',credentials=None)
+        with self.assertRaisesRegex(CheckoutError,'stored account details'):
+            self.service.retry_trial(42)
+        self.panel.create_account.assert_not_called()
+
+    def test_failed_legacy_lookup_keeps_existing_credentials(self):
+        self.store.update(self.order['id'],status='paid')
+        self.panel.find_account.side_effect=PanelError('Panel temporarily unavailable')
+        self.service.provision_pending()
+        self.assertEqual(self.store.trial(42)['credentials'],self.credentials)
+        self.panel.create_account.assert_not_called()
+
     def test_all_paid_plans_and_new_trials_submit_only_blank_fields(self):
         asset=self.config['assets']['usdc-ethereum']
         for plan in self.config['plans']:
