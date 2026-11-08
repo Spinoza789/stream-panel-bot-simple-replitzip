@@ -2,3 +2,4 @@
 - [Telegram callback expiry](telegram-callback-expiry.md) — expired click acknowledgements must not block newer messages after restarts.
 - [Custom crypto checkout](custom-crypto-checkout.md) — user explicitly requested a wallet-and-TXID backend rather than Telegram Stars.
 - [Production database readiness](production-database-readiness.md) — development connectivity and a present database URL do not prove a live database is provisioned.
+- [Panel provisioning contract](panel-provisioning-contract.md) — follow the panel's browser submission format; login success alone does not prove account creation works.

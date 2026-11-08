@@ -26,6 +26,13 @@ Keep its existing structure and stack.
   The backend worker verifies payment; a submitted hash alone never marks it paid.
   My orders or `/orders` returns to invoices. Quotes, ownership, TXID entry, and
   delivery receipts persist in the existing store. No new database schema is required.
+- A trial in review offers Check / retry trial, also available as `/retrytrial`.
+  Recovery looks up the existing panel username first and verifies saved credentials.
+  Matching accounts are delivered without another creation; confirmed absence queues
+  the same trial order with the same credentials. Ownership, atomic state checks,
+  cooldowns and rate limits prevent duplicate queued requests.
+- Never automatically retry uncertain panel creation. Preserve the review state
+  until an explicit recovery action checks the existing account.
 - The current demo uses simulated exchange rates and nonpayable wallets. Its
   simulation button is explicitly labeled and unavailable in live mode.
 - Telegram requires Stars for digital-goods sales in bots. The requested custom

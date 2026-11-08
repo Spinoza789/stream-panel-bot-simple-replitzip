@@ -171,8 +171,16 @@ class TelegramBot:
             if credentials.get('server_url'): text+='\nServer: '+credentials['server_url']
             if credentials.get('expires_at'): text+='\nExpires: '+str(credentials['expires_at'])
             return text+'\nKeep these details private.'
-        if order['status']=='review': return 'Your trial needs a manual account check. '+self.service.config['support']
+        if order['status']=='review':
+            return ('Your trial could not be confirmed. Tap Check / retry trial to check for an existing account '
+                    'before retrying this same request, or use /retrytrial. '+self.service.config['support'])
         return 'Your trial is being prepared. I will send the details here when it is ready. You can also use /trial to check.'
+
+    def trial_keyboard(self,order):
+        if order['status']=='review':
+            return {'inline_keyboard':[[{'text':'Check / retry trial','callback_data':'menu:retrytrial'}],
+                                       [{'text':'Back to main menu','callback_data':'menu'}]]}
+        return self.menu_keyboard()
 
     def handle_callback(self,query):
         callback_id=query.get('id')
@@ -191,7 +199,7 @@ class TelegramBot:
                                             'text':'Please wait a minute before trying again.'})
             return
         action=query.get('data','')
-        allowed={'menu','menu:plans','menu:trial','menu:status','menu:contact','menu:about','menu:privacy'}
+        allowed={'menu','menu:plans','menu:trial','menu:retrytrial','menu:status','menu:contact','menu:about','menu:privacy'}
         if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:'))):
             self.answer_callback({'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
@@ -210,8 +218,9 @@ class TelegramBot:
             elif action=='menu:plans':
                 text,markup=('🌐 MEMBERSHIP PLANS\n\nChoose a subscription length:',
                              self.duration_keyboard())
-            elif action=='menu:trial':
-                text=self.trial_text(self.service.create_trial(uid))
+            elif action in ('menu:trial','menu:retrytrial'):
+                order=self.service.retry_trial(uid) if action=='menu:retrytrial' else self.service.create_trial(uid)
+                text,markup=self.trial_text(order),self.trial_keyboard(order)
             elif action=='menu:status':
                 text=self.status_text(uid)
             elif action=='menu:contact':
@@ -255,13 +264,19 @@ class TelegramBot:
         text=message.get('text','').strip()
         parts=text.split(maxsplit=1);command=(parts[0].split('@')[0].lower() if parts else '')
         try:
+            if command=='/retrytrial':
+                self.checkout.clear_session(uid)
+                order=self.service.retry_trial(uid)
+                self.send(uid,self.trial_text(order),self.trial_keyboard(order))
+                if order['status']=='fulfilled': self.store.metadata('trial_sent:'+order['id'],'1')
+                return
             if self.checkout.handle_message(message,command):return
             if self.support.handle(message,command,parts[1] if len(parts)>1 else ''):return
             if command in ('/start','/help') or not command:
                 self.send(uid,self.menu_text(),self.menu_keyboard())
             elif command=='/trial':
                 order=self.service.create_trial(uid)
-                self.send(uid,self.trial_text(order),self.menu_keyboard())
+                self.send(uid,self.trial_text(order),self.trial_keyboard(order))
                 if order['status']=='fulfilled': self.store.metadata('trial_sent:'+order['id'],'1')
             elif command=='/link':
                 if len(parts)!=2: self.send(uid,'Use /link CODE with the one-time code from your account page.');return

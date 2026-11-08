@@ -21,6 +21,10 @@ class PanelError(RuntimeError):
 class ProvisioningUncertain(PanelError):
     """A create may have reached the panel; reconcile instead of retrying."""
 
+    def __init__(self, message, reason='confirmation_failed'):
+        super().__init__(message)
+        self.reason = reason if re.fullmatch(r'[a-z0-9_]{1,40}',reason) else 'confirmation_failed'
+
 
 class CreationDisabled(PanelError):
     """Account creation was not explicitly enabled."""
@@ -49,7 +53,9 @@ class PanelClient:
         except requests.RequestException:
             raise PanelError('Panel request failed') from None
         if response.status_code >= 400:
-            raise PanelError('Panel returned an unsuccessful response')
+            error = PanelError('Panel returned an unsuccessful response')
+            error.http_status = response.status_code
+            raise error
         if getattr(response, 'url', ''):
             self._url(response.url)
         return response
@@ -366,6 +372,9 @@ class PanelClient:
         bouquets = details['bouquets']
         if not isinstance(bouquets, list) or not bouquets or any(not isinstance(x, (str, int)) for x in bouquets):
             raise PanelError('Package bouquet selection is unknown')
+        bouquets = list(map(str, bouquets))
+        if any(not re.fullmatch(r'[0-9]+',item) for item in bouquets):
+            raise PanelError('Package bouquet selection is unknown')
         try:
             remaining = Decimal(str(details['credits_left']))
             price = Decimal(str(details['price']))
@@ -381,7 +390,7 @@ class PanelClient:
         data.update({'_token': self._token(soup), 'package': str(package_id), 'username': username,
                      'password': password, 'description': description, 'line_type': 'line',
                      'bouquets[]': list(map(str, bouquets)), 'bouquets_main[]': list(map(str, bouquets)),
-                     'current_bouquets': json.dumps(list(map(str, bouquets)))})
+                     'current_bouquets': ','.join(bouquets)})
         # Once this call begins, every failure is uncertain. Never submit it again.
         try:
             response = self._request('POST', action, data=data, allow_redirects=False)
@@ -401,5 +410,7 @@ class PanelClient:
             # this is the package submitted, rather than independent confirmation.
             result.setdefault('package_id', str(package_id))
             return result
-        except PanelError:
-            raise ProvisioningUncertain('Account creation may have reached the panel; operator reconciliation is required') from None
+        except PanelError as exc:
+            status = getattr(exc,'http_status',None)
+            reason = 'http_'+str(status) if type(status) is int and 400<=status<=599 else 'confirmation_failed'
+            raise ProvisioningUncertain('Account creation may have reached the panel; operator reconciliation is required',reason) from None

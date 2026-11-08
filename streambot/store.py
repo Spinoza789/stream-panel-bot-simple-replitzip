@@ -171,6 +171,21 @@ class Store:
         with self.connection() as db:
             return db.execute("UPDATE orders SET status='provisioning' WHERE id=? AND status='paid'", (order_id,)).rowcount == 1
 
+    def resolve_trial_review(self, order_id, telegram_id, account=None):
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if account is not None:
+                db.execute("UPDATE orders SET status='fulfilled',credentials=?,message='Your account is ready.' "
+                           "WHERE id=? AND telegram_id=? AND kind='trial' AND status='review'",
+                           (self.seal(account),order_id,telegram_id))
+            else:
+                changed = db.execute("UPDATE orders SET status='paid',message='Existing trial retry queued after a panel account check.' "
+                                     "WHERE id=? AND telegram_id=? AND kind='trial' AND status='review'",
+                                     (order_id,telegram_id)).rowcount
+                if changed:
+                    db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',
+                               ('trial_recheck_after:'+order_id,str(int(time.time())+300)))
+
     def select(self, status, limit=50):
         with self.connection() as db:
             extra = ' AND txid IS NOT NULL' if status == 'pending' else ''

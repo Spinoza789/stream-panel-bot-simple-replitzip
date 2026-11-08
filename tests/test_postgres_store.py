@@ -120,3 +120,22 @@ class PostgresIntegrationTests(unittest.TestCase):
         candidates = self.store.telegram_orders(limit=1000)
         self.assertNotIn(order['id'], [candidate['id'] for candidate in candidates])
         self.panel.create_account.assert_not_called()
+
+    def test_trial_review_recovery_is_owner_scoped_and_atomic(self):
+        self.config['panel_writes'] = True
+        trial = self.service.create_trial(self.owner)
+        credentials = dict(username='test-user', password='test-secret',
+                           package_id=str(self.config['trial_package_id']))
+        self.store.update(trial['id'], status='review', credentials=credentials)
+        self.store.metadata('trial_recheck_after:' + trial['id'], 0)
+        self.store.resolve_trial_review(trial['id'], self.owner + 1)
+        self.assertEqual(self.store.trial(self.owner)['status'], 'review')
+        self.panel.find_account.return_value = None
+        self.assertEqual(self.service.retry_trial(self.owner)['status'], 'paid')
+        self.store.resolve_trial_review(trial['id'], self.owner, credentials)
+        self.assertEqual(self.store.trial(self.owner)['status'], 'paid')
+        self.store.update(trial['id'], status='review')
+        self.store.metadata('trial_recheck_after:' + trial['id'], 0)
+        self.panel.find_account.return_value = credentials
+        self.assertEqual(self.service.retry_trial(self.owner)['status'], 'fulfilled')
+        self.panel.create_account.assert_not_called()

@@ -137,8 +137,12 @@ class CheckoutService:
                     raise ValueError('Panel account confirmation mismatch')
                 self.store.update(order['id'],status='fulfilled',credentials=account,message='Your account is ready.')
             except Exception as exc:
-                log.error('Panel provisioning requires review for order %s (%s)',order['id'],type(exc).__name__)
+                from .panel import ProvisioningUncertain
+                reason = exc.reason if isinstance(exc,ProvisioningUncertain) else 'unclassified_error'
+                log.error('Panel provisioning requires review for order %s (%s, %s)',order['id'],type(exc).__name__,reason)
                 self.store.update(order['id'],status='review',message='Your order needs a manual account check. Do not pay again. Contact support with your order ID.')
+                if order['kind']=='trial':
+                    self.store.metadata('trial_recheck_after:'+order['id'],int(time.time())+120)
 
     def recover_interrupted(self):
         for order in self.store.select('provisioning',10000):
@@ -168,6 +172,30 @@ class CheckoutService:
     def trial_status(self, telegram_id):
         order = self.store.trial(telegram_id)
         return self.public(order) if order else None
+
+    def retry_trial(self, telegram_id):
+        if type(telegram_id) is not int or telegram_id<=0: raise CheckoutError('Invalid Telegram user.')
+        order = self.store.trial(telegram_id)
+        if not order: raise CheckoutError('Start your trial first with /trial.')
+        if order['status']!='review': return self.public(order)
+        credentials = order['credentials']
+        if not credentials or not credentials.get('username') or not credentials.get('password'):
+            raise CheckoutError('This trial needs support to check its stored account details.')
+        retry_after = int(self.store.metadata('trial_recheck_after:'+order['id']) or order['created_at']+120)
+        if time.time()<retry_after or not self.store.limit('trial-recheck:'+str(telegram_id),2,3600):
+            raise CheckoutError('Please wait before checking this trial again. Contact support if it remains unavailable.')
+        try: account = self.panel.find_account(credentials['username'])
+        except Exception:
+            raise CheckoutError('The panel could not be checked safely. No retry was queued; please contact support.') from None
+        if account is not None:
+            if (account.get('username')!=credentials['username'] or
+                    account.get('password')!=credentials['password'] or
+                    account.get('package_id',str(order['plan']['package_id']))!=str(order['plan']['package_id'])):
+                raise CheckoutError('The existing panel account needs support to verify it. No retry was queued.')
+        elif self.config['mode']=='live' and not self.config['panel_writes']:
+            raise CheckoutError('Panel account creation is disabled. No retry was queued.')
+        self.store.resolve_trial_review(order['id'],telegram_id,account)
+        return self.public(self.store.get(order['id']))
 
     def create_link_code(self, token):
         order = self.store.by_token(token)

@@ -1,5 +1,16 @@
 # Live settings for the Simple Replit edition
 
+## Trial recovery
+
+After publishing an updated connector, use `/trial` to view the original request.
+For a request needing review, tap **Check / retry trial** or send `/retrytrial`.
+Recovery checks the panel before requeueing: an existing matching account is
+delivered without creating another; a missing account reuses the original order
+and stored credentials. Lookup failures or credential mismatches remain in review.
+Short cooldowns and hourly limits apply. This does not grant a second free trial.
+Actual panel creation still requires a controlled live test; read-only login and
+package inspection alone do not verify delivery.
+
 Start with the demo in README.md. Add sensitive values individually in Replit's Secrets tool, preserving any other settings. Public settings/flags can go in its Configurations section. Wallets and prices are already set in `config.json`.
 
 ## Production database required before publishing live
