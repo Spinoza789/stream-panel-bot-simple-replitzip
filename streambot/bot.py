@@ -10,9 +10,10 @@ log=logging.getLogger(__name__)
 
 
 class TelegramError(RuntimeError):
-    def __init__(self,code=0):
+    def __init__(self,code=0,method=''):
         super().__init__('Telegram request failed')
         self.code=code
+        self.method=method
 
 
 class TelegramBot:
@@ -27,14 +28,22 @@ class TelegramBot:
         try:
             response=self.http.post('https://api.telegram.org/bot'+self.service.config['bot_token']+'/'+method,json=payload,timeout=35)
             result=response.json()
-            if not response.ok or not result.get('ok'): raise TelegramError(result.get('error_code',response.status_code))
+            if not response.ok or not result.get('ok'): raise TelegramError(result.get('error_code',response.status_code),method)
             return result['result']
-        except (requests.RequestException,ValueError): raise TelegramError() from None
+        except (requests.RequestException,ValueError): raise TelegramError(method=method) from None
 
     def send(self,chat_id,text,reply_markup=None):
         payload={'chat_id':chat_id,'text':text,'link_preview_options':{'is_disabled':True}}
         if reply_markup: payload['reply_markup']=reply_markup
         return self.api('sendMessage',payload)
+
+    def answer_callback(self,payload):
+        try:
+            self.api('answerCallbackQuery',payload)
+        except TelegramError as exc:
+            # Telegram expires callback acknowledgements quickly. An old click
+            # must not block this update and every newer message in the queue.
+            if exc.code!=400: raise
 
     def menu_keyboard(self):
         return {'inline_keyboard':[
@@ -106,7 +115,7 @@ class TelegramBot:
         parts=action.split(':')
         if parts==['plan','back','duration']:
             return '🌐 MEMBERSHIP PLANS\n\nChoose a subscription length:',self.duration_keyboard()
-        if len(parts)>=3 and parts[:2]==['plan','duration']:
+        if len(parts)==3 and parts[:2]==['plan','duration']:
             months=int(parts[2])
             if months not in {p.get('months') for p in self.service.config.get('plans',[])}:
                 raise CheckoutError('That membership length is unavailable.')
@@ -169,20 +178,20 @@ class TelegramBot:
         if (not isinstance(callback_id,str) or not isinstance(uid,int) or uid<=0
                 or chat.get('type')!='private' or chat.get('id')!=uid):
             if isinstance(callback_id,str):
-                self.api('answerCallbackQuery',{'callback_query_id':callback_id,
+                self.answer_callback({'callback_query_id':callback_id,
                                                 'text':'Open this menu in a private chat.'})
             return
         if not self.store.limit('telegram:'+str(uid),20,60):
-            self.api('answerCallbackQuery',{'callback_query_id':callback_id,
+            self.answer_callback({'callback_query_id':callback_id,
                                             'text':'Please wait a minute before trying again.'})
             return
         action=query.get('data','')
         allowed={'menu','menu:plans','menu:trial','menu:status','menu:contact','menu:about','menu:privacy'}
         if not isinstance(action,str) or (action not in allowed and not action.startswith('plan:')):
-            self.api('answerCallbackQuery',{'callback_query_id':callback_id,
+            self.answer_callback({'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
             return
-        self.api('answerCallbackQuery',{'callback_query_id':callback_id})
+        self.answer_callback({'callback_query_id':callback_id})
         try:
             markup=self.menu_keyboard()
             if action.startswith('plan:'):
@@ -212,9 +221,12 @@ class TelegramBot:
                 text=('This assistant stores your Telegram ID, trial history and accounts you choose to link. '
                       'Login details are encrypted. Using contact support shares your identity and messages '
                       'with support. Use /contact for data requests.')
-            self.send(uid,text,self.menu_keyboard())
+            self.send(uid,text,markup)
         except CheckoutError as exc:
             self.send(uid,str(exc),self.menu_keyboard())
+        except ValueError:
+            self.send(uid,'That membership option is invalid. Please choose Membership plans to start again.',
+                      self.menu_keyboard())
 
     def handle(self,update):
         if update.get('callback_query'):
@@ -289,7 +301,7 @@ class TelegramBot:
                 self.notify_trials()
             except Exception as exc:
                 if isinstance(exc,TelegramError):
-                    log.warning('Telegram assistant paused (Telegram API code %s); retrying.',exc.code)
+                    log.warning('Telegram assistant paused (%s, Telegram API code %s); retrying.',exc.method or 'request',exc.code)
                     stop.wait(5)
                     continue
                 log.warning('Telegram assistant paused (%s); retrying.',type(exc).__name__)

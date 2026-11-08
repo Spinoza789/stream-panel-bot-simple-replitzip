@@ -1,0 +1,296 @@
+{
+  "brand": "Streamline",
+  "support": "Message @InterRamit for account help and support.",
+  "trial_package_id": "275",
+  "trial_daily_limit": 20,
+  "quote_minutes": 60,
+  "panel_base_url": "https://pppnc-xi7y162dn7.mobazzz.com",
+  "assets": {
+    "usdc-ethereum": {
+      "network": "ethereum",
+      "symbol": "USDC",
+      "decimals": 6,
+      "wallet": "0xccE7222fc10430d3cAf105e67a849d2BBD047d89",
+      "rpc_env": "ETHEREUM_RPC_URL",
+      "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "confirmations": 12,
+      "require_finalized": true
+    },
+    "usdt-ethereum": {
+      "network": "ethereum",
+      "symbol": "USDT",
+      "decimals": 6,
+      "wallet": "0xccE7222fc10430d3cAf105e67a849d2BBD047d89",
+      "rpc_env": "ETHEREUM_RPC_URL",
+      "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "confirmations": 12,
+      "require_finalized": true
+    },
+    "eth": {
+      "network": "ethereum",
+      "symbol": "ETH",
+      "decimals": 18,
+      "wallet": "0xccE7222fc10430d3cAf105e67a849d2BBD047d89",
+      "rpc_env": "ETHEREUM_RPC_URL",
+      "token": null,
+      "confirmations": 12,
+      "require_finalized": true
+    },
+    "usdc-solana": {
+      "network": "solana",
+      "symbol": "USDC",
+      "decimals": 6,
+      "wallet": "BK64bvZDt1EgkbEcf64dMyV4frzC5qFBetWCBNZqSTXt",
+      "rpc_env": "SOLANA_RPC_URL",
+      "token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    },
+    "usdt-solana": {
+      "network": "solana",
+      "symbol": "USDT",
+      "decimals": 6,
+      "wallet": "BK64bvZDt1EgkbEcf64dMyV4frzC5qFBetWCBNZqSTXt",
+      "rpc_env": "SOLANA_RPC_URL",
+      "token": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+    },
+    "btc": {
+      "network": "bitcoin",
+      "symbol": "BTC",
+      "decimals": 8,
+      "wallet": "bc1q8spul0e3qcj5hzg049fp80aj6g408xpk9d0tz4",
+      "rpc_env": "BITCOIN_ESPLORA_URL",
+      "token": null,
+      "confirmations": 3
+    }
+  },
+  "plans": [
+    {
+      "id": "month-1",
+      "name": "1 month",
+      "months": 1,
+      "connections": 1,
+      "package_id": "137",
+      "detail": "1 connection \u00b7 No adult content",
+      "gbp_price": "10.00"
+    },
+    {
+      "id": "month-1-2",
+      "name": "1 month",
+      "months": 1,
+      "connections": 2,
+      "package_id": "138",
+      "detail": "2 connections \u00b7 No adult content",
+      "gbp_price": "12.00"
+    },
+    {
+      "id": "month-1-3",
+      "name": "1 month",
+      "months": 1,
+      "connections": 3,
+      "package_id": "139",
+      "detail": "3 connections \u00b7 No adult content",
+      "gbp_price": "14.00"
+    },
+    {
+      "id": "month-3",
+      "name": "3 months",
+      "months": 3,
+      "connections": 1,
+      "package_id": "131",
+      "detail": "1 connection \u00b7 No adult content",
+      "gbp_price": "15.00"
+    },
+    {
+      "id": "month-3-2",
+      "name": "3 months",
+      "months": 3,
+      "connections": 2,
+      "package_id": "132",
+      "detail": "2 connections \u00b7 No adult content",
+      "gbp_price": "19.00"
+    },
+    {
+      "id": "month-3-3",
+      "name": "3 months",
+      "months": 3,
+      "connections": 3,
+      "package_id": "133",
+      "detail": "3 connections \u00b7 No adult content",
+      "gbp_price": "23.00"
+    },
+    {
+      "id": "month-6",
+      "name": "6 months",
+      "months": 6,
+      "connections": 1,
+      "package_id": "125",
+      "detail": "1 connection \u00b7 No adult content",
+      "gbp_price": "30.00"
+    },
+    {
+      "id": "month-6-2",
+      "name": "6 months",
+      "months": 6,
+      "connections": 2,
+      "package_id": "126",
+      "detail": "2 connections \u00b7 No adult content",
+      "gbp_price": "34.00"
+    },
+    {
+      "id": "month-6-3",
+      "name": "6 months",
+      "months": 6,
+      "connections": 3,
+      "package_id": "127",
+      "detail": "3 connections \u00b7 No adult content",
+      "gbp_price": "38.00"
+    },
+    {
+      "id": "month-12",
+      "name": "12 months",
+      "months": 12,
+      "connections": 1,
+      "package_id": "113",
+      "detail": "1 connection \u00b7 No adult content",
+      "gbp_price": "40.00"
+    },
+    {
+      "id": "month-12-2",
+      "name": "12 months",
+      "months": 12,
+      "connections": 2,
+      "package_id": "114",
+      "detail": "2 connections \u00b7 No adult content",
+      "gbp_price": "50.00"
+    },
+    {
+      "id": "month-12-3",
+      "name": "12 months",
+      "months": 12,
+      "connections": 3,
+      "package_id": "115",
+      "detail": "3 connections \u00b7 No adult content",
+      "gbp_price": "60.00"
+    },
+    {
+      "id": "adult-month-1",
+      "name": "1 month",
+      "months": 1,
+      "connections": 1,
+      "package_id": "140",
+      "adult_content": true,
+      "detail": "1 connection \u00b7 Adult content",
+      "gbp_price": "10.00"
+    },
+    {
+      "id": "adult-month-1-2",
+      "name": "1 month",
+      "months": 1,
+      "connections": 2,
+      "package_id": "141",
+      "adult_content": true,
+      "detail": "2 connections \u00b7 Adult content",
+      "gbp_price": "12.00"
+    },
+    {
+      "id": "adult-month-1-3",
+      "name": "1 month",
+      "months": 1,
+      "connections": 3,
+      "package_id": "142",
+      "adult_content": true,
+      "detail": "3 connections \u00b7 Adult content",
+      "gbp_price": "14.00"
+    },
+    {
+      "id": "adult-month-3",
+      "name": "3 months",
+      "months": 3,
+      "connections": 1,
+      "package_id": "134",
+      "adult_content": true,
+      "detail": "1 connection \u00b7 Adult content",
+      "gbp_price": "15.00"
+    },
+    {
+      "id": "adult-month-3-2",
+      "name": "3 months",
+      "months": 3,
+      "connections": 2,
+      "package_id": "135",
+      "adult_content": true,
+      "detail": "2 connections \u00b7 Adult content",
+      "gbp_price": "19.00"
+    },
+    {
+      "id": "adult-month-3-3",
+      "name": "3 months",
+      "months": 3,
+      "connections": 3,
+      "package_id": "136",
+      "adult_content": true,
+      "detail": "3 connections \u00b7 Adult content",
+      "gbp_price": "23.00"
+    },
+    {
+      "id": "adult-month-6",
+      "name": "6 months",
+      "months": 6,
+      "connections": 1,
+      "package_id": "128",
+      "adult_content": true,
+      "detail": "1 connection \u00b7 Adult content",
+      "gbp_price": "30.00"
+    },
+    {
+      "id": "adult-month-6-2",
+      "name": "6 months",
+      "months": 6,
+      "connections": 2,
+      "package_id": "129",
+      "adult_content": true,
+      "detail": "2 connections \u00b7 Adult content",
+      "gbp_price": "34.00"
+    },
+    {
+      "id": "adult-month-6-3",
+      "name": "6 months",
+      "months": 6,
+      "connections": 3,
+      "package_id": "130",
+      "adult_content": true,
+      "detail": "3 connections \u00b7 Adult content",
+      "gbp_price": "38.00"
+    },
+    {
+      "id": "adult-month-12",
+      "name": "12 months",
+      "months": 12,
+      "connections": 1,
+      "package_id": "116",
+      "adult_content": true,
+      "detail": "1 connection \u00b7 Adult content",
+      "gbp_price": "40.00"
+    },
+    {
+      "id": "adult-month-12-2",
+      "name": "12 months",
+      "months": 12,
+      "connections": 2,
+      "package_id": "117",
+      "adult_content": true,
+      "detail": "2 connections \u00b7 Adult content",
+      "gbp_price": "50.00"
+    },
+    {
+      "id": "adult-month-12-3",
+      "name": "12 months",
+      "months": 12,
+      "connections": 3,
+      "package_id": "118",
+      "adult_content": true,
+      "detail": "3 connections \u00b7 Adult content",
+      "gbp_price": "60.00"
+    }
+  ],
+  "support_username": "InterRamit"
+}

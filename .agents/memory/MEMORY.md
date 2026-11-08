@@ -1,0 +1,2 @@
+- [Membership pricing](membership-pricing.md) — adult and no-adult memberships share customer prices but use separate verified panel packages.
+- [Telegram callback expiry](telegram-callback-expiry.md) — expired click acknowledgements must not block newer messages after restarts.
