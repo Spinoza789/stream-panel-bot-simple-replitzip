@@ -10,7 +10,6 @@ import re
 import threading
 
 import psycopg
-from psycopg import sql
 from cryptography.fernet import Fernet
 
 from .store import Store
@@ -95,37 +94,12 @@ class PostgresStore(Store):
         self._transaction_lock = self._lock_id('transaction')
         self._instance_lock = self._lock_id('instance')
         self._instance_lock_lost = threading.Event()
+        # Schema changes belong to development + Publish, never runtime startup.
+        # Keep this validation read-only, including when a table is missing.
         with self.connection() as db:
-            db.execute('BEGIN IMMEDIATE')
-            db.execute(sql.SQL('CREATE SCHEMA IF NOT EXISTS {}').format(sql.Identifier(self.schema)))
-            for statement in (
-                '''CREATE TABLE IF NOT EXISTS orders (
-                    id TEXT PRIMARY KEY, token_hash TEXT UNIQUE, kind TEXT NOT NULL,
-                    telegram_id BIGINT UNIQUE, plan_json TEXT NOT NULL, asset_json TEXT NOT NULL,
-                    amount_units TEXT NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'pending', txid TEXT, message TEXT NOT NULL DEFAULT '',
-                    credentials TEXT, attempts INTEGER NOT NULL DEFAULT 0, last_check BIGINT NOT NULL DEFAULT 0
-                )''',
-                '''CREATE TABLE IF NOT EXISTS payments (
-                    network TEXT NOT NULL, txid TEXT NOT NULL, order_id TEXT NOT NULL UNIQUE REFERENCES orders(id),
-                    proof TEXT NOT NULL, PRIMARY KEY(network,txid)
-                )''',
-                '''CREATE TABLE IF NOT EXISTS links (
-                    code_hash TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id), expires_at BIGINT NOT NULL
-                )''',
-                '''CREATE TABLE IF NOT EXISTS account_links (
-                    telegram_id BIGINT NOT NULL, order_id TEXT NOT NULL REFERENCES orders(id),
-                    PRIMARY KEY(telegram_id,order_id), UNIQUE(order_id)
-                )''',
-                'CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
-                'CREATE TABLE IF NOT EXISTS limits (bucket TEXT NOT NULL, at BIGINT NOT NULL)',
-                'CREATE INDEX IF NOT EXISTS limits_bucket ON limits(bucket,at)',
-                'CREATE INDEX IF NOT EXISTS orders_state ON orders(status,last_check,created_at)',
-                "CREATE INDEX IF NOT EXISTS orders_asset_expiry ON orders ((asset_json::jsonb ->> 'id'),expires_at)",
-                'CREATE INDEX IF NOT EXISTS orders_trial_created ON orders(created_at) WHERE kind=\'trial\'',
-                'CREATE INDEX IF NOT EXISTS links_order ON links(order_id)',
-            ):
-                db.execute(statement)
+            for table in ('orders','payments','links','account_links','metadata','limits'):
+                if db.execute('SELECT to_regclass(?)',(self.schema+'.'+table,)).fetchone()[0] is None:
+                    raise RuntimeError('PostgreSQL application schema is missing. Prepare sql/schema.sql in development and publish the schema before starting.')
 
     def _lock_id(self, purpose):
         value = ('stream-panel-bot:' + purpose + ':' + self.schema).encode()

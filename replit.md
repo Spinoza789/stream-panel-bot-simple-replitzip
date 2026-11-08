@@ -6,11 +6,12 @@ Keep its existing structure and stack.
 - Click **Run** to start the `Start application` workflow, which runs `bash run.sh`.
 - Checkout is at `/`, listening on `0.0.0.0:5000`. Health is at `/healthz`.
 - Dependencies are installed in Replit's managed Python environment from
-  `requirements.txt`. `install.sh` installs the supplied exact lock for builds;
-  neither script creates a virtual environment.
-- The preview workflow explicitly selects demo mode with Telegram polling enabled;
-  live payments and panel writes remain disabled. Telegram uses the bot token and
-  support administrator ID stored in Secrets. Run only one poller per bot token.
+  `requirements.txt` before Build. `install.sh` checks imports and compiles Python;
+  it must not run pip against the immutable Nix system directory.
+- The preview workflow explicitly selects demo mode with Telegram polling disabled;
+  live payments and panel writes remain disabled. Publishing enables Telegram
+  using the bot token and support administrator ID in Secrets.
+  Run only one poller per bot token.
 - Select a plan and currency, create a quote, then use the demo payment button.
   It generates sample account credentials without contacting blockchains or the panel.
 - Demo state and its generated encryption key are kept in the ignored `data/`
@@ -32,6 +33,15 @@ Keep its existing structure and stack.
 - `config.json` is the public catalog and must be retained with the project.
   Store credentials only in Secrets, never in that file.
 - Run isolated menu and payment tests with `python3 -m unittest discover -s tests -v`.
+- PostgreSQL schema source is `sql/schema.sql`. Apply changes in development;
+  Replit Publish migrates managed production. Store startup only validates schema,
+  never runs DDL. Opt-in PostgreSQL tests run with `STREAMBOT_TEST_POSTGRES=true`;
+  sample writes are rolled back and panel/blockchain providers are mocked.
+- Production uses `STREAMBOT_DATABASE_SOURCE=managed`, selecting Replit's runtime
+  `DATABASE_URL` rather than a copied development URL in Secrets. Explicit external
+  database connections remain available with `STREAMBOT_DATABASE_SOURCE=external`.
+- The prepared Reserved VM publishing settings enable live payments, Telegram
+  polling and panel writes on the next publish. The preview remains a separate demo.
 - Real-payment setup and publication remain separate from this demo
   setup. Consult `LIVE_SETUP.md` before any live configuration. Do not enable live
   payments or panel writes without the user's explicit request.

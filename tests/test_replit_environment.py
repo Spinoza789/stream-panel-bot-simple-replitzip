@@ -32,3 +32,23 @@ class ReplitEnvironmentTests(unittest.TestCase):
     def test_live_requires_explicit_origin(self):
         with self.assertRaises(ValueError):
             prepare_environment({'STREAMBOT_MODE': 'live'})
+
+    def test_managed_live_uses_runtime_database_not_copied_development_url(self):
+        source = {
+            'STREAMBOT_MODE': 'live',
+            'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
+            'STREAMBOT_DATABASE_SOURCE': 'managed',
+            'STREAMBOT_DATABASE_URL': 'postgresql://example.invalid/copied-development',
+            'DATABASE_URL': 'postgresql://example.invalid/production',
+        }
+        env = prepare_environment(source)
+        self.assertEqual(env['STREAMBOT_DATABASE_URL'], source['DATABASE_URL'])
+        self.assertEqual(source['STREAMBOT_DATABASE_URL'], 'postgresql://example.invalid/copied-development')
+
+    def test_managed_live_fails_when_runtime_database_is_missing(self):
+        with self.assertRaises(ValueError):
+            prepare_environment({
+                'STREAMBOT_MODE': 'live',
+                'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
+                'STREAMBOT_DATABASE_SOURCE': 'managed',
+            })

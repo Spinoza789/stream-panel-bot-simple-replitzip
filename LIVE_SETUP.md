@@ -12,7 +12,8 @@ Start with the demo in README.md. Add sensitive values individually in Replit's 
 | STREAMBOT_PANEL_USERNAME | Reseller panel username |
 | STREAMBOT_PANEL_PASSWORD | Reseller panel password |
 | STREAMBOT_CREDENTIAL_KEY | Stable encryption key generated below |
-| STREAMBOT_DATABASE_URL | Direct/session PostgreSQL connection URL |
+| STREAMBOT_DATABASE_SOURCE | managed for Replit's database; external for your own connection |
+| STREAMBOT_DATABASE_URL | Direct/session PostgreSQL URL when using external mode |
 | STREAMBOT_ETHEREUM_RPC_URL | Ethereum mainnet RPC supporting finalized blocks |
 | STREAMBOT_SOLANA_RPC_URL | Solana mainnet RPC supporting finalized transaction history |
 | STREAMBOT_BITCOIN_ESPLORA_URL | https://blockstream.info/api or your mainnet Esplora service |
@@ -33,7 +34,11 @@ Save the output as STREAMBOT_CREDENTIAL_KEY, keep a private backup, and never ch
 
 ## Database
 
-Live Replit operation requires PostgreSQL; local SQLite is for the demo only. Add a direct PostgreSQL URL as STREAMBOT_DATABASE_URL. Do not use a transaction pooler: the app holds a session advisory lock to prevent two instances processing the same state. A session-pooled endpoint is also suitable if session semantics are guaranteed. The standalone PostgreSQL adapter uses separate schemas `stream_panel_bot_demo` and `stream_panel_bot_live`; PostgreSQL needs a stable encryption key. The Replit launcher always isolates demo mode on its existing SQLite database and local demo key, even after live Secrets have been added. Replit-managed production schema changes must be prepared in development and applied through Publish, not startup-time DDL.
+Live Replit operation requires PostgreSQL; local SQLite is for the demo only. For Replit's database, set STREAMBOT_DATABASE_SOURCE=managed: the launcher uses the runtime DATABASE_URL, which points to production after publishing. Do not pin production to a copied development connection string. External databases use STREAMBOT_DATABASE_SOURCE=external and STREAMBOT_DATABASE_URL. Do not use a transaction pooler: the app holds a session advisory lock to prevent two instances processing the same state. A session-pooled endpoint is suitable only if session semantics are guaranteed.
+
+The schema source of truth is `sql/schema.sql`. Apply it in development using the database tools; Publish applies the schema diff to managed production. Do not run schema mutations in the deploy build or at runtime. Store startup validates the six required tables and fails closed if they are absent. External database owners must prepare their schema separately through their authorized migration process.
+
+PostgreSQL requires a stable encryption key. The Replit launcher isolates demo mode on its existing SQLite database and local demo key, even after live Secrets have been added. No demo orders or account credentials are migrated into the live database.
 
 Keep the database and encryption key across republishes. Replacing the database loses order history, used-TXID protection and trial limits. Local demo data is not automatically migrated.
 
@@ -48,7 +53,7 @@ The second command logs in and lists packages without creating an account. It re
 
 ## Publish
 
-Select Reserved VM > Web server with one instance, use build `bash install.sh` and run `bash run.sh`. Expose only port 5000 as external 80. Review Production secrets and use the verified published HTTPS origin for STREAMBOT_PUBLIC_URL. The currently prepared publishing command explicitly forces demo mode: replace that run command with `bash run.sh` only when live configuration is ready. The Telegram long poller needs always-on hosting. Do not run Preview and production against the same bot token or live schema. If reusing a bot token with a webhook, remove its webhook before enabling long polling.
+Select Reserved VM > Web server with one instance, use build `bash install.sh` and run `bash run.sh`. Replit installs requirements before Build; the build script validates imports instead of running pip into the immutable system directory. Expose only port 5000 as external 80. Review Production secrets and use the verified published HTTPS origin for STREAMBOT_PUBLIC_URL. Production settings are prepared for live mode on the next publish; the preview remains demo with Telegram disabled. The Telegram long poller needs always-on hosting. Do not run Preview and production against the same bot token or live schema. If reusing a bot token with a webhook, remove its webhook before enabling long polling.
 
 After every required live setting is present, set STREAMBOT_MODE=live, STREAMBOT_TELEGRAM_ENABLED=true, STREAMBOT_PANEL_WRITE_ENABLED=true and STREAMBOT_LIVE_PAYMENTS_ENABLED=true, then republish. Request one `/trial` and verify its real account in the panel. Test a controlled paid order and verify delivery before accepting customers. Paid provisioning spends panel credits. Live payment/account delivery has not been tested in the delivered package.
 

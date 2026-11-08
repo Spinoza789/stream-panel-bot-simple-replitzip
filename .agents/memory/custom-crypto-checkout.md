@@ -8,3 +8,9 @@ For this project, the user wants “our own system”: show the price converted 
 **Why:** The user clarified this request after being offered Stars.
 
 **How to apply:** Do not substitute Stars without the user changing their choice. Keep pricing, TXID submission and actual blockchain proof distinct. This choice does not exempt digital-goods sales from Telegram's published Stars requirement; do not describe the custom backend as an approved alternative.
+
+The user confirmed that the receiving wallet addresses imported with the project are correct.
+
+**Why:** The user explicitly confirmed the displayed Ethereum, Solana and Bitcoin destinations.
+
+**How to apply:** This confirmation covers the imported destinations, not replacements. Confirm new destinations with the user before changing where customer funds are sent.

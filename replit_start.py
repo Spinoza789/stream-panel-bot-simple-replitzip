@@ -34,6 +34,16 @@ def prepare_environment(source):
         # or make existing demo credentials unreadable with a different key.
         env['STREAMBOT_DATABASE_URL']=''
         env['CREDENTIAL_KEY']=''
+    else:
+        database_source=source.get('STREAMBOT_DATABASE_SOURCE','external')
+        if database_source not in ('managed','external'):
+            raise ValueError('STREAMBOT_DATABASE_SOURCE must be managed or external.')
+        if database_source=='managed':
+            # Replit supplies a different DATABASE_URL in production. Never pin
+            # a published bot to a copied development connection string.
+            if not source.get('DATABASE_URL'):
+                raise ValueError('The managed PostgreSQL connection is unavailable.')
+            env['STREAMBOT_DATABASE_URL']=source['DATABASE_URL']
     origin=source.get('STREAMBOT_PUBLIC_URL','').rstrip('/')
     if not origin:
         if env['APP_MODE']=='live': raise ValueError('Set STREAMBOT_PUBLIC_URL to the exact HTTPS checkout origin before live startup.')

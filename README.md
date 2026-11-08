@@ -43,8 +43,8 @@ Create a bot using Telegram's official @BotFather (`/newbot`). In Replit Secrets
 
 ## Publish and accept real payments
 
-Follow LIVE_SETUP.md for the settings checklist. Demo needs no Secrets. Live operation needs your bot token, panel credentials, a stable encryption key, a direct PostgreSQL connection, read-only blockchain endpoints and the published HTTPS origin.
+Follow LIVE_SETUP.md for the settings checklist. Demo needs no Secrets. Live operation needs your bot token, panel credentials, a stable encryption key, PostgreSQL, read-only blockchain endpoints and the published HTTPS origin. Managed database mode uses Replit's runtime connection so production does not connect to development. Prepare `sql/schema.sql` in development; Publish applies the managed production schema.
 
 Choose Reserved VM > Web server, one instance. Use `bash install.sh` for build and `bash run.sh` for run. Port 5000 is configured in this workspace's `.replit`. Check Production app secrets in Publishing before launch. Only one running process may use the bot token; keep Telegram disabled in Preview when production is polling it.
 
-Reserved VM hosting has a cost. The package has been tested locally; it has not been deployed into your Replit account, and real payment/account delivery still needs a controlled live test.
+Reserved VM hosting has a cost. Before accepting customers, verify the published health endpoint and perform a controlled live payment/account-delivery test.
