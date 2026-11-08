@@ -40,6 +40,9 @@ Keep its existing structure and stack.
   Telegram reminder settings and administrator-confirmed, opt-in deal announcements
   are documented in `TELEGRAM_NOTIFICATIONS.md`; reminders never renew or charge accounts.
 - A trial in review offers Check / retry trial, also available as `/retrytrial`.
+  Administrator-only `/recovertrial` recovery is documented in `TRIAL_RECOVERY.md`.
+  Missing saved details require explicit no-submission verification; uncertain
+  submitted creations remain blocked. Recovery retains the original entitlement.
   Recovery looks up the existing panel username first and verifies saved credentials.
   Matching accounts are delivered without another creation; confirmed absence queues
   the same trial order for panel-generated credentials. Ownership, atomic state checks,

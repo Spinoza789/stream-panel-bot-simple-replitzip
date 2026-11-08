@@ -12,7 +12,7 @@ from streambot.config import load_config
 from streambot.bot import TelegramBot
 from streambot.postgres_store import PostgresStore, InstanceLockBusy, _Connection, _state_error
 from streambot.rates import Rates
-from streambot.service import CheckoutService
+from streambot.service import CheckoutError, CheckoutService
 
 
 class PostgresStartupTests(unittest.TestCase):
@@ -90,6 +90,24 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.service = CheckoutService(self.config, self.store, self.verifier,
                                        self.panel, rates=Rates(demo=True))
         self.owner = int(uuid.uuid4().hex[:12], 16) + 10**12
+
+    def test_admin_trial_recovery_queues_original_and_audits_atomically(self):
+        self.config.update(support_admin_id=900, panel_writes=True)
+        order = self.service.create_trial(self.owner)
+        self.store.update(order['id'], status='review', credentials=None)
+        bot = TelegramBot(self.service, api=lambda *args: {'message_id': 1})
+        recovery = bot.trial_recovery
+        recovery.preview(900, order['id'])
+        nonce = self.store.unseal(self.store.metadata(recovery.key(900)))['nonce']
+        recovery.confirm(900, nonce)
+        self.assertEqual(self.store.get(order['id'])['status'], 'paid')
+        audit = self.store.unseal(self.store.metadata('trial_admin_recovery:' + nonce))
+        self.assertEqual(audit['order_id'], order['id'])
+        self.assertIsNone(self.store.metadata(recovery.key(900)))
+        with self.assertRaisesRegex(CheckoutError, 'already used'):
+            recovery.confirm(900, nonce)
+        self.assertEqual(self.service.create_trial(self.owner)['id'], order['id'])
+        self.panel.create_account.assert_not_called()
 
     def test_owned_quotes_txid_replay_protection_and_delivery_receipts(self):
         quote = self.service.create_order('adult-month-1', 'usdc-ethereum',
