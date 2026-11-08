@@ -53,17 +53,21 @@ class ReplitEnvironmentTests(unittest.TestCase):
                 'STREAMBOT_DATABASE_SOURCE': 'managed',
             })
 
-    def test_published_managed_mode_rejects_workspace_only_database(self):
+    def test_published_managed_mode_uses_runtime_endpoint_without_hostname_guesses(self):
         for host in ('helium','heliumdb','localhost','127.0.0.1','[::1]'):
             with self.subTest(host=host):
-                with self.assertRaisesRegex(ValueError, 'Create a production database'):
-                    prepare_environment({
-                        'STREAMBOT_MODE': 'live',
-                        'STREAMBOT_DATABASE_SOURCE': 'managed',
-                        'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
-                        'REPLIT_DEPLOYMENT': '1',
-                        'DATABASE_URL': 'postgresql://'+host+'/development',
-                    })
+                source = {
+                    'STREAMBOT_MODE': 'live',
+                    'STREAMBOT_DATABASE_SOURCE': 'managed',
+                    'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
+                    'REPLIT_DEPLOYMENT': '1',
+                    'DATABASE_URL': 'postgresql://'+host+'/runtime-database',
+                    'STREAMBOT_DATABASE_URL': 'postgresql://different.example.invalid/copied-development',
+                }
+                # Managed proxies can use private aliases. Connectivity and
+                # provisioning—not hostname guesses—establish readiness.
+                self.assertEqual(prepare_environment(source)['STREAMBOT_DATABASE_URL'],
+                                 source['DATABASE_URL'])
 
     def test_development_preflight_can_use_workspace_database(self):
         source = {

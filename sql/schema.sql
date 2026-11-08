@@ -47,4 +47,8 @@ CREATE INDEX IF NOT EXISTS orders_state ON orders(status, last_check, created_at
 CREATE INDEX IF NOT EXISTS orders_asset_expiry ON orders ((asset_json::jsonb ->> 'id'), expires_at);
 CREATE INDEX IF NOT EXISTS orders_trial_created ON orders(created_at) WHERE kind = 'trial';
 CREATE INDEX IF NOT EXISTS links_order ON links(order_id);
+
+-- Legitimate initial app state, not sample customer/payment data. Keep initial
+-- development-data copying enabled when creating the first production database.
+INSERT INTO metadata(key, value) VALUES ('mode', 'live') ON CONFLICT (key) DO NOTHING;
 COMMIT;

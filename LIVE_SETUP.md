@@ -5,8 +5,8 @@ Start with the demo in README.md. Add sensitive values individually in Replit's 
 ## Production database required before publishing live
 
 A working development database and a populated DATABASE_URL variable do not prove
-that a production database exists. The workspace database cannot be used by the
-published VM.
+that a production database exists. Verify provisioning separately; do not infer
+database identity or reachability from a managed proxy's hostname.
 
 In **Publishing > Database settings**, enable **Create production database**.
 During initial creation, select **Set up your production database with your current
@@ -16,9 +16,11 @@ database. The demo's SQLite data is separate and is not copied by this process.
 
 If the database service reports no production database, complete this setup before
 retrying. Do not substitute the workspace connection URL or add startup-time DDL.
-Missing live database setup now produces an explicit configuration error for known
-workspace-only endpoints; other driver failures expose only the operation stage,
-exception type and SQLSTATE, never connection strings or provider error text.
+The development schema includes one legitimate initial metadata record declaring
+live mode; it contains no sample orders, payments or account credentials. Keep
+initial development-data copying enabled so the prepared state is included.
+Driver failures expose only the operation stage, exception type and SQLSTATE,
+never connection strings or provider error text.
 
 | Name | Value |
 | --- | --- |
