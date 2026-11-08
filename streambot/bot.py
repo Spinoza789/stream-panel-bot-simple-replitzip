@@ -1,4 +1,4 @@
-"""A private-chat trial/status assistant. Purchases do not run through this bot."""
+"""Private membership, support, and custom blockchain-payment assistant."""
 import logging
 import threading
 import time
@@ -22,6 +22,8 @@ class TelegramBot:
         self.http=requests.Session();self.api=api or self.call
         from .support import SupportRelay
         self.support=SupportRelay(self)
+        from .telegram_payments import TelegramCheckout
+        self.checkout=TelegramCheckout(self)
 
     def call(self,method,payload):
         # Do not log URLs: Telegram's bot token is part of the URL.
@@ -49,6 +51,7 @@ class TelegramBot:
         return {'inline_keyboard':[
             [{'text':'🌐 Membership plans','callback_data':'menu:plans'}],
             [{'text':'🎁 Start 24-hour trial','callback_data':'menu:trial'}],
+            [{'text':'💳 My orders','callback_data':'pay:orders'}],
             [{'text':'📋 My account','callback_data':'menu:status'},
              {'text':'💬 Contact support','callback_data':'menu:contact'}],
             [{'text':'ℹ️ About','callback_data':'menu:about'},
@@ -105,8 +108,10 @@ class TelegramBot:
             [{'text':'⬅️ Back','callback_data':f'plan:back:content:{months}:{int(adult)}'}],
         ]}
 
-    def selection_keyboard(self,months,adult):
+    def selection_keyboard(self,months,adult,connections):
+        plan=self.find_plan(months,adult,connections)
         return {'inline_keyboard':[
+            [{'text':'Choose payment crypto','callback_data':'pay:choose:'+plan['id']}],
             [{'text':'⬅️ Back','callback_data':f'plan:back:connections:{months}:{int(adult)}'}],
             [{'text':'🏠 Main menu','callback_data':'menu'}],
         ]}
@@ -142,7 +147,7 @@ class TelegramBot:
             text=('✅ MEMBERSHIP SELECTED\n\n'+plan['name']+' · '+content+' · '
                   +str(connections)+' connection'+('s' if connections!=1 else '')
                   +' · '+price+'\n\nSelection only — no order or payment has been created.')
-            return text,self.selection_keyboard(months,adult=='1')
+            return text,self.selection_keyboard(months,adult=='1',connections)
         if parts[:3]==['plan','back','connections'] and len(parts)==5:
             months=int(parts[3]);adult=parts[4]
             if adult not in ('0','1') or not self.find_plan(months,adult=='1'):
@@ -187,12 +192,16 @@ class TelegramBot:
             return
         action=query.get('data','')
         allowed={'menu','menu:plans','menu:trial','menu:status','menu:contact','menu:about','menu:privacy'}
-        if not isinstance(action,str) or (action not in allowed and not action.startswith('plan:')):
+        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:'))):
             self.answer_callback({'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
             return
         self.answer_callback({'callback_query_id':callback_id})
         try:
+            if action.startswith('pay:'):
+                self.checkout.handle_callback(uid,action,callback_id)
+                return
+            self.checkout.clear_session(uid)
             markup=self.menu_keyboard()
             if action.startswith('plan:'):
                 text,markup=self.membership_step(action)
@@ -246,6 +255,7 @@ class TelegramBot:
         text=message.get('text','').strip()
         parts=text.split(maxsplit=1);command=(parts[0].split('@')[0].lower() if parts else '')
         try:
+            if self.checkout.handle_message(message,command):return
             if self.support.handle(message,command,parts[1] if len(parts)>1 else ''):return
             if command in ('/start','/help') or not command:
                 self.send(uid,self.menu_text(),self.menu_keyboard())
@@ -299,6 +309,7 @@ class TelegramBot:
                     offset=update['update_id']+1
                     self.store.metadata('telegram_offset',offset)
                 self.notify_trials()
+                self.checkout.notify()
             except Exception as exc:
                 if isinstance(exc,TelegramError):
                     log.warning('Telegram assistant paused (%s, Telegram API code %s); retrying.',exc.method or 'request',exc.code)

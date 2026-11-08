@@ -99,7 +99,8 @@ class MembershipMenuTests(unittest.TestCase):
                     price = format(float(plan['gbp_price']), '.2f').rstrip('0').rstrip('.')
                     self.assertIn('£' + price, summary['text'])
                     self.assertIn('no order or payment has been created', summary['text'])
-                    back = self.callbacks(summary)[0]
+                    self.assertEqual(self.callbacks(summary)[0], 'pay:choose:' + plan['id'])
+                    back = self.callbacks(summary)[1]
                     self.assertEqual(self.callbacks(self.click(back)), self.callbacks(connections))
                 back_to_content = self.callbacks(connections)[-1]
                 self.assertEqual(self.callbacks(self.click(back_to_content)), self.callbacks(content))

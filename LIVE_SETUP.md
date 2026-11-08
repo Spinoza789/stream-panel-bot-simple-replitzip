@@ -19,14 +19,14 @@ Start with the demo in README.md. Add sensitive values individually in Replit's 
 | STREAMBOT_PANEL_WRITE_ENABLED | false initially; true for real account creation |
 | STREAMBOT_LIVE_PAYMENTS_ENABLED | false initially; true for real payments |
 
-Do not set STREAMBOT_BASE_PATH: this edition serves checkout at `/`. Leave STREAMBOT_PORT unset to use the configured 8090. Demo automatically uses Replit's Preview origin when REPLIT_DEV_DOMAIN is available. Override STREAMBOT_PUBLIC_URL only if needed for the actual origin, then use your published origin in production.
+Do not set STREAMBOT_BASE_PATH: this edition serves checkout at `/`. Leave STREAMBOT_PORT unset to use port 5000. Demo automatically uses Replit's Preview origin when REPLIT_DEV_DOMAIN is available. Use the verified published origin for STREAMBOT_PUBLIC_URL in production.
 
 ## Encryption key
 
 After the first demo run, generate a key in Shell:
 
 ```bash
-.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
 Save the output as STREAMBOT_CREDENTIAL_KEY, keep a private backup, and never change it while using the same database. Never send it in chat or put it in a public source file.
@@ -44,11 +44,11 @@ bash run.sh check
 bash run.sh inspect-panel
 ```
 
-The second command logs in and lists packages without creating an account. It requires panel credentials. Verify the packages, wallets and prices in config.json. Current paid packages exclude adult content.
+The second command logs in and lists packages without creating an account. It requires panel credentials. Verify all adult/no-adult packages, wallets and prices in config.json.
 
 ## Publish
 
-Select Reserved VM > Web server with one instance, use build `bash install.sh` and run `bash run.sh`. Expose only port 8090 as external 80, already specified in `.replit`. Review the Production app secrets in Publishing and use the exact published HTTPS origin for STREAMBOT_PUBLIC_URL. The Telegram long poller needs always-on hosting. Do not run Preview and production against the same bot token or live schema. If reusing a bot token with a webhook, remove its webhook before enabling long polling.
+Select Reserved VM > Web server with one instance, use build `bash install.sh` and run `bash run.sh`. Expose only port 5000 as external 80. Review Production secrets and use the verified published HTTPS origin for STREAMBOT_PUBLIC_URL. The currently prepared publishing command explicitly forces demo mode: replace that run command with `bash run.sh` only when live configuration is ready. The Telegram long poller needs always-on hosting. Do not run Preview and production against the same bot token or live schema. If reusing a bot token with a webhook, remove its webhook before enabling long polling.
 
 After every required live setting is present, set STREAMBOT_MODE=live, STREAMBOT_TELEGRAM_ENABLED=true, STREAMBOT_PANEL_WRITE_ENABLED=true and STREAMBOT_LIVE_PAYMENTS_ENABLED=true, then republish. Request one `/trial` and verify its real account in the panel. Test a controlled paid order and verify delivery before accepting customers. Paid provisioning spends panel credits. Live payment/account delivery has not been tested in the delivered package.
 
@@ -63,7 +63,11 @@ bash run.sh reconcile ORDER_ID
 
 An ambiguous panel creation result moves the order to `review` and stops automatic retries. Reconcile looks for the stored credentials without submitting creation again. If it confirms a match, the order is fulfilled. Only after verifying absence manually, `bash run.sh retry ORDER_ID --confirm-absent` queues one new attempt after another absence lookup.
 
-The Telegram assistant handles trials, status and support. Purchasing, wallet instructions, TXID entry and delivery are on this external checkout site. The bot contains no paid shop or checkout link. Share the checkout address separately.
+The custom Telegram checkout now continues from membership selection to coin/network buttons. It freezes a rate snapshot, displays the USD equivalent and exact crypto amount, then accepts a TXID through the order's button or `/txid ORDER_ID HASH`. The backend verifies chain, recipient, token, amount, time window and confirmations before marking an order paid. Used transactions cannot pay another order. Account delivery and payment status are sent privately to the order owner; `/orders` returns to invoices.
+
+Demo mode uses simulated rates, nonpayable wallets and an explicit simulation button. It does not perform real-chain verification. Live verification requires the read-only RPC endpoints above and a controlled real-payment test. Notification retries are persistent; a crash after sending but before recording a delivery receipt can repeat a notification.
+
+Telegram's published policy requires Stars for digital goods sold through bots and does not exempt custom wallet/TXID backends. This custom flow is not Telegram-approved. See https://core.telegram.org/bots/payments-stars#can-i-accept-payment-in-cryptocurrency-instead-of-telegram-stars before operating it.
 
 ## Official Replit references
 

@@ -1,7 +1,7 @@
 import logging
 import secrets
 import time
-from decimal import Decimal, ROUND_UP
+from decimal import Decimal, ROUND_UP, ROUND_HALF_UP
 from .config import display_units, units
 from .store import digest
 from .rates import Rates, RateUnavailable
@@ -28,17 +28,21 @@ class CheckoutService:
         if credentials and order['status'] == 'fulfilled': result['credentials'] = order['credentials']
         return result
 
-    def create_order(self, plan_id, asset_id):
+    def create_order(self, plan_id, asset_id, *, owner_telegram_id=None, request_key=None):
         if not isinstance(plan_id,str) or not isinstance(asset_id,str): raise CheckoutError('Choose a plan and a payment network.')
         plan = next((p for p in self.config['plans'] if p['id']==plan_id),None)
         asset = self.config['assets'].get(asset_id)
         if not plan or not asset or not asset.get('enabled',True): raise CheckoutError('Unknown plan or payment network.')
         plan = dict(plan)
         if 'gbp_price' in plan:
-            try: rate = self.rates.rate(asset['symbol'])
+            try: quote = self.rates.snapshot(asset['symbol'])
             except RateUnavailable as exc: raise CheckoutError(str(exc)) from None
+            rate=quote['crypto_per_gbp']
             plan['fx_rate'] = str(rate)
-            plan['rate_fetched_at'] = int(time.time())
+            plan['gbp_usd_rate']=str(quote['usd_per_gbp'])
+            plan['crypto_per_usd']=str(quote['crypto_per_usd'])
+            plan['usd_price']=str((Decimal(plan['gbp_price'])*quote['usd_per_gbp']).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP))
+            plan['rate_fetched_at'] = quote['fetched_at']
             base_units = int((Decimal(plan['gbp_price']) * rate * 10**asset['decimals']).to_integral_value(rounding=ROUND_UP))
         else: base_units = units(plan['prices'][asset_id],asset['decimals'])
         quantum = 10**max(0,asset['decimals']-8)
@@ -50,7 +54,8 @@ class CheckoutService:
         plan['crypto_base_units']=str(base_units)
         asset_snapshot = {k:v for k,v in asset.items() if k not in ('rpc_url','rpc_env')}
         try:
-            token, order = self.store.create(plan, asset_snapshot, base_units, quantum, lifetime=self.config['quote_minutes']*60,max_nonce=max_nonce)
+            token, order = self.store.create(plan, asset_snapshot, base_units, quantum, lifetime=self.config['quote_minutes']*60,
+                                            max_nonce=max_nonce,owner_telegram_id=owner_telegram_id,request_key=request_key)
         except ValueError as exc: raise CheckoutError(str(exc)) from None
         return {'token':token,'order':self.public(order)}
 
@@ -62,10 +67,25 @@ class CheckoutService:
     def submit_tx(self, token, txid):
         order = self.store.by_token(token)
         if not order: raise CheckoutError('Order not found.')
+        return self._submit_tx(order,txid)
+
+    def telegram_order(self,telegram_id,order_id):
+        order=self.store.owned_order(telegram_id,order_id)
+        if not order: raise CheckoutError('Order not found.')
+        return self.public(order)
+
+    def submit_telegram_tx(self,telegram_id,order_id,txid):
+        order=self.store.owned_order(telegram_id,order_id)
+        if not order: raise CheckoutError('Order not found.')
+        return self._submit_tx(order,txid)
+
+    def _submit_tx(self,order,txid):
         if not isinstance(txid,str) or not 32<=len(txid.strip())<=100: raise CheckoutError('Enter a transaction ID, not an explorer link.')
+        if '://' in txid or any(c.isspace() for c in txid.strip()):
+            raise CheckoutError('Paste only the transaction hash, not an explorer link.')
         if order['status'] != 'pending': return self.public(order)
         # Do not reserve a TXID until the blockchain proves the invoice belongs to it.
-        self.store.update(order['id'],txid=txid.strip(),message='Checking the blockchain. Confirmation can take several minutes.',last_check=0)
+        self.store.submit_tx(order['id'],txid.strip())
         return self.public(self.store.get(order['id']))
 
     def verify_order(self, token=None, *, order_id=None):
@@ -92,6 +112,15 @@ class CheckoutService:
         if self.config['mode']!='demo': raise CheckoutError('Demo payments are disabled.')
         order = self.store.by_token(token)
         if not order: raise CheckoutError('Order not found.')
+        self._demo_pay(order)
+
+    def demo_pay_telegram(self,telegram_id,order_id):
+        if self.config['mode']!='demo': raise CheckoutError('Demo payments are disabled.')
+        order=self.store.owned_order(telegram_id,order_id)
+        if not order: raise CheckoutError('Order not found.')
+        self._demo_pay(order)
+
+    def _demo_pay(self,order):
         self.store.claim_payment(order['id'],dict(network=order['asset']['network'],txid='demo-'+order['id'],amount_units=int(order['amount_units']),block_time=int(time.time()),confirmations=0))
 
     def provision_pending(self):

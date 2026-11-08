@@ -16,11 +16,20 @@ Keep its existing structure and stack.
 - Demo state and its generated encryption key are kept in the ignored `data/`
   directory using SQLite. Do not commit or share that directory.
 - The Telegram membership menu selects duration, adult/no-adult content, and
-  connection count using buttons, with Back navigation. It displays a selection
-  summary only; it does not create an order or take payment.
+  connection count using buttons, with Back navigation. Choose payment crypto
+  continues to a crypto/network selection and a wallet invoice with a USD
+  reference value, exact crypto amount, and expiry.
+- Tap the TXID button to submit a hash, or use `/txid ORDER_ID HASH`.
+  The backend worker verifies payment; a submitted hash alone never marks it paid.
+  My orders or `/orders` returns to invoices. Quotes, ownership, TXID entry, and
+  delivery receipts persist in the existing store. No new database schema is required.
+- The current demo uses simulated exchange rates and nonpayable wallets. Its
+  simulation button is explicitly labeled and unavailable in live mode.
+- Telegram requires Stars for digital-goods sales in bots. The requested custom
+  crypto flow is not an exception to that rule; do not describe it as Telegram-approved.
 - `config.json` is the public catalog and must be retained with the project.
   Store credentials only in Secrets, never in that file.
-- Run isolated Telegram menu tests with `python3 -m unittest discover -s tests -v`.
+- Run isolated menu and payment tests with `python3 -m unittest discover -s tests -v`.
 - Real-payment setup and publication remain separate from this demo
   setup. Consult `LIVE_SETUP.md` before any live configuration. Do not enable live
   payments or panel writes without the user's explicit request.

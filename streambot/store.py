@@ -70,13 +70,57 @@ class Store:
     def by_token(self, token):
         with self.connection() as db: return self.decode(db.execute('SELECT * FROM orders WHERE token_hash=?', (digest(token),)).fetchone())
 
+    def owned_order(self,telegram_id,order_id):
+        with self.connection() as db:
+            return self.decode(db.execute('SELECT o.* FROM orders o JOIN account_links a ON a.order_id=o.id '
+                                          'WHERE o.id=? AND a.telegram_id=?',(order_id,telegram_id)).fetchone())
+
+    def telegram_orders(self,telegram_id=None,limit=50):
+        statement=("SELECT o.*,a.telegram_id AS owner_id FROM orders o "
+                   "JOIN account_links a ON a.order_id=o.id JOIN metadata m ON m.key='tg_order:'||o.id "
+                   "WHERE o.kind='paid'")
+        parameters=[]
+        if telegram_id is not None:
+            statement+=' AND a.telegram_id=?';parameters.append(telegram_id)
+        else:
+            statement+=" AND (o.status!='pending' OR o.last_check>0)"
+            statement+=(" AND NOT EXISTS (SELECT 1 FROM metadata n WHERE n.key='tg_notice:'||o.id "
+                        "AND n.value=o.status||':'||o.message)")
+        statement+=' ORDER BY o.created_at '+('DESC' if telegram_id is not None else 'ASC')+' LIMIT ?'
+        parameters.append(limit)
+        with self.connection() as db:
+            return [self.decode(row) for row in db.execute(statement,tuple(parameters)).fetchall()]
+
     def trial(self, tg_id):
         with self.connection() as db: return self.decode(db.execute('SELECT * FROM orders WHERE telegram_id=?', (tg_id,)).fetchone())
 
-    def create(self, plan, asset, base_units, quantum=1, *, telegram_id=None, daily_limit=20, lifetime=3600, max_nonce=999):
+    def create(self, plan, asset, base_units, quantum=1, *, telegram_id=None, daily_limit=20,
+               lifetime=3600, max_nonce=999, owner_telegram_id=None, request_key=None):
         now = int(time.time()); token = secrets.token_urlsafe(32); order_id = secrets.token_hex(12)
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            if owner_telegram_id is not None:
+                if type(owner_telegram_id) is not int or owner_telegram_id<=0 or telegram_id is not None:
+                    raise ValueError('Invalid payment owner.')
+                if request_key:
+                    previous=db.execute('SELECT value FROM metadata WHERE key=?',(request_key,)).fetchone()
+                    if previous:
+                        existing=db.execute('SELECT o.* FROM orders o JOIN account_links a ON a.order_id=o.id '
+                                            'WHERE o.id=? AND a.telegram_id=?',(previous[0],owner_telegram_id)).fetchone()
+                        if existing: return None,self.decode(existing)
+                pending=db.execute("SELECT o.* FROM orders o JOIN account_links a ON a.order_id=o.id "
+                                   "WHERE a.telegram_id=? AND o.kind='paid' AND o.status='pending' AND o.expires_at>=?",
+                                   (owner_telegram_id,now)).fetchall()
+                for row in pending:
+                    existing=self.decode(row)
+                    if existing['plan']['id']==plan['id'] and existing['asset']['id']==asset['id']:
+                        if request_key:
+                            db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',(request_key,existing['id']))
+                        return None,existing
+                count=db.execute("SELECT count(*) FROM orders o JOIN account_links a ON a.order_id=o.id "
+                                 "WHERE a.telegram_id=? AND o.kind='paid' AND o.created_at>=?",
+                                 (owner_telegram_id,now-3600)).fetchone()[0]
+                if count>=10: raise ValueError('Too many quotes. Use My orders to return to an existing quote.')
             if telegram_id is not None:
                 existing = db.execute('SELECT * FROM orders WHERE telegram_id=?', (telegram_id,)).fetchone()
                 if existing: return None, self.decode(existing)
@@ -91,6 +135,11 @@ class Store:
             db.execute('INSERT INTO orders(id,token_hash,kind,telegram_id,plan_json,asset_json,amount_units,created_at,expires_at,status) VALUES(?,?,?,?,?,?,?,?,?,?)',
                        (order_id, digest(token), 'trial' if telegram_id is not None else 'paid', telegram_id,
                         json.dumps(plan), json.dumps(asset), str(amount), now, now+lifetime, 'paid' if telegram_id is not None else 'pending'))
+            if owner_telegram_id is not None:
+                db.execute('INSERT INTO account_links VALUES(?,?)',(owner_telegram_id,order_id))
+                db.execute('INSERT INTO metadata VALUES(?,?)',('tg_order:'+order_id,'1'))
+                if request_key:
+                    db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',(request_key,order_id))
         return token, self.get(order_id)
 
     def update(self, order_id, **values):
@@ -99,6 +148,11 @@ class Store:
         if 'credentials' in values: values['credentials'] = self.seal(values['credentials'])
         with self.connection() as db:
             db.execute('UPDATE orders SET ' + ','.join(k+'=?' for k in values) + ' WHERE id=?', (*values.values(), order_id))
+
+    def submit_tx(self,order_id,txid):
+        with self.connection() as db:
+            db.execute("UPDATE orders SET txid=?,message='Checking the blockchain. Confirmation can take several minutes.',"
+                       "last_check=0 WHERE id=? AND status='pending'",(txid,order_id))
 
     def claim_payment(self, order_id, proof):
         with self.connection() as db:
