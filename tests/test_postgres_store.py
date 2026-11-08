@@ -5,15 +5,39 @@ import uuid
 import unittest
 from unittest.mock import Mock, patch
 
+import psycopg
 from cryptography.fernet import Fernet
 
 from streambot.config import load_config
-from streambot.postgres_store import PostgresStore, _Connection
+from streambot.postgres_store import PostgresStore, _Connection, _state_error
 from streambot.rates import Rates
 from streambot.service import CheckoutService
 
 
 class PostgresStartupTests(unittest.TestCase):
+    def test_connection_failure_reports_stage_without_secret_driver_message(self):
+        private_text = 'postgresql://fake-user:fake-password@private-host/database'
+        with patch.object(PostgresStore, '_connect', side_effect=psycopg.OperationalError(private_text)):
+            with self.assertRaisesRegex(RuntimeError, r'connect failed \(OperationalError, SQLSTATE unavailable\)') as caught:
+                PostgresStore('unused-test-connection', Fernet.generate_key())
+        self.assertNotIn(private_text, str(caught.exception))
+        self.assertIsNone(caught.exception.__cause__)
+        self.assertTrue(caught.exception.__suppress_context__)
+
+    def test_sqlstate_is_reported_without_provider_error_text(self):
+        class Denied(psycopg.Error):
+            sqlstate = '42501'
+        error = _state_error(Denied('private-provider-message'), 'query')
+        self.assertIn('query failed (Denied, SQLSTATE 42501)', str(error))
+        self.assertNotIn('private-provider-message', str(error))
+
+    def test_malformed_sqlstate_cannot_leak_error_content(self):
+        class InvalidState(psycopg.Error):
+            sqlstate = 'private-provider-message'
+        error = _state_error(InvalidState('another-private-message'), 'connect')
+        self.assertIn('SQLSTATE unavailable', str(error))
+        self.assertNotIn('private-provider-message', str(error))
+
     def connection(self, db):
         @contextlib.contextmanager
         def connect(_store):

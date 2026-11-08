@@ -52,3 +52,34 @@ class ReplitEnvironmentTests(unittest.TestCase):
                 'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
                 'STREAMBOT_DATABASE_SOURCE': 'managed',
             })
+
+    def test_published_managed_mode_rejects_workspace_only_database(self):
+        for host in ('helium','heliumdb','localhost','127.0.0.1','[::1]'):
+            with self.subTest(host=host):
+                with self.assertRaisesRegex(ValueError, 'Create a production database'):
+                    prepare_environment({
+                        'STREAMBOT_MODE': 'live',
+                        'STREAMBOT_DATABASE_SOURCE': 'managed',
+                        'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
+                        'REPLIT_DEPLOYMENT': '1',
+                        'DATABASE_URL': 'postgresql://'+host+'/development',
+                    })
+
+    def test_development_preflight_can_use_workspace_database(self):
+        source = {
+            'STREAMBOT_MODE': 'live',
+            'STREAMBOT_DATABASE_SOURCE': 'managed',
+            'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
+            'DATABASE_URL': 'postgresql://helium/development',
+        }
+        self.assertEqual(prepare_environment(source)['STREAMBOT_DATABASE_URL'], source['DATABASE_URL'])
+
+    def test_published_managed_mode_accepts_production_endpoint(self):
+        source = {
+            'STREAMBOT_MODE': 'live',
+            'STREAMBOT_DATABASE_SOURCE': 'managed',
+            'STREAMBOT_PUBLIC_URL': 'https://checkout.example.com',
+            'REPLIT_DEPLOYMENT': '1',
+            'DATABASE_URL': 'postgresql://production.example.invalid/database',
+        }
+        self.assertEqual(prepare_environment(source)['STREAMBOT_DATABASE_URL'], source['DATABASE_URL'])

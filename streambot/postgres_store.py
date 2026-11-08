@@ -15,6 +15,17 @@ from cryptography.fernet import Fernet
 from .store import Store
 
 
+def _state_error(error, stage):
+    """Expose useful failure categories, never the driver's secret-bearing text."""
+    state = getattr(error, 'sqlstate', None)
+    if not isinstance(state, str) or not re.fullmatch(r'[A-Z0-9]{5}', state):
+        state = 'unavailable'
+    return RuntimeError(
+        'PostgreSQL ' + stage + ' failed (' + type(error).__name__ +
+        ', SQLSTATE ' + state + '). Check production database setup and permissions.'
+    )
+
+
 class _Row(dict):
     """Keep SQLite's named and positional row access for existing callers."""
 
@@ -135,14 +146,17 @@ class PostgresStore(Store):
         if not self._slots.acquire(timeout=20):
             raise RuntimeError('PostgreSQL state connection capacity reached. Please retry.')
         try:
+            stage = 'connect'
             try:
                 self._check_instance_lock()
                 with self._connect() as connection:
+                    stage = 'query'
                     self._check_instance_lock()
                     yield _Connection(connection, self._transaction_lock)
-            except psycopg.Error:
+                    stage = 'commit'
+            except psycopg.Error as exc:
                 # Connection errors can contain addresses or connection details.
-                raise RuntimeError('PostgreSQL state operation failed. Check database availability and permissions.') from None
+                raise _state_error(exc, stage) from None
         finally:
             self._slots.release()
 

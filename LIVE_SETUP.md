@@ -2,6 +2,24 @@
 
 Start with the demo in README.md. Add sensitive values individually in Replit's Secrets tool, preserving any other settings. Public settings/flags can go in its Configurations section. Wallets and prices are already set in `config.json`.
 
+## Production database required before publishing live
+
+A working development database and a populated DATABASE_URL variable do not prove
+that a production database exists. The workspace database cannot be used by the
+published VM.
+
+In **Publishing > Database settings**, enable **Create production database**.
+During initial creation, select **Set up your production database with your current
+development data** so the prepared application schema is included, then save and
+publish. Do not choose any overwrite/reset option for an existing production
+database. The demo's SQLite data is separate and is not copied by this process.
+
+If the database service reports no production database, complete this setup before
+retrying. Do not substitute the workspace connection URL or add startup-time DDL.
+Missing live database setup now produces an explicit configuration error for known
+workspace-only endpoints; other driver failures expose only the operation stage,
+exception type and SQLSTATE, never connection strings or provider error text.
+
 | Name | Value |
 | --- | --- |
 | STREAMBOT_MODE | demo initially, live when ready |

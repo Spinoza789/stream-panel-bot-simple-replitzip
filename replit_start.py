@@ -2,6 +2,7 @@
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def prepare_environment(source):
@@ -43,6 +44,12 @@ def prepare_environment(source):
             # a published bot to a copied development connection string.
             if not source.get('DATABASE_URL'):
                 raise ValueError('The managed PostgreSQL connection is unavailable.')
+            if source.get('REPLIT_DEPLOYMENT'):
+                try: database_host=urlsplit(source['DATABASE_URL']).hostname
+                except ValueError:
+                    raise ValueError('The managed PostgreSQL connection URL is invalid.') from None
+                if database_host in ('helium','heliumdb','localhost','127.0.0.1','::1'):
+                    raise ValueError('Create a production database in Publishing > Database settings, then publish again. The current managed connection targets the workspace database.')
             env['STREAMBOT_DATABASE_URL']=source['DATABASE_URL']
     origin=source.get('STREAMBOT_PUBLIC_URL','').rstrip('/')
     if not origin:
