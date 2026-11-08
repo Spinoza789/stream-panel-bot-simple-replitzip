@@ -110,17 +110,17 @@ class CheckoutService:
         asset['rpc_url'] = self.config['assets'][asset['id']].get('rpc_url','')
         try:
             proof = self.verifier.verify(asset,order['txid'],order['created_at'],order['expires_at'])
-            if proof['amount_units'] != int(order['amount_units']): raise PaymentRejected('The received amount does not match this order. Send the exact quoted amount.')
+            if proof['amount_units'] != int(order['amount_units']): raise PaymentRejected('The received amount does not match this order. Do not pay again; contact support with your TXID.')
             if proof['network'] != asset['network']: raise PaymentRejected('Wrong payment network.')
             if not order['created_at'] <= proof['block_time'] <= order['expires_at']: raise PaymentRejected('The payment was made outside this quote’s time window. Contact support.')
             self.store.claim_payment(order['id'],proof)
         except PaymentPending:
-            self.store.update(order['id'],message='Waiting for blockchain confirmation. No need to pay again.')
+            self.store.update_pending_verification(order['id'],order['txid'],message='Waiting for blockchain confirmation. No need to pay again.')
         except PaymentRejected as exc:
-            self.store.update(order['id'],message=str(exc),txid=None)
+            self.store.update_pending_verification(order['id'],order['txid'],message=str(exc),txid=None)
         except ChainUnavailable:
-            self.store.update(order['id'],message='The blockchain provider is temporarily unavailable. We will retry automatically.')
-        finally: self.store.update(order['id'],last_check=int(time.time()))
+            self.store.update_pending_verification(order['id'],order['txid'],message='The blockchain provider is temporarily unavailable. We will retry automatically.')
+        finally: self.store.update_pending_verification(order['id'],order['txid'],last_check=int(time.time()))
 
     def demo_pay(self, token):
         if self.config['mode']!='demo': raise CheckoutError('Demo payments are disabled.')

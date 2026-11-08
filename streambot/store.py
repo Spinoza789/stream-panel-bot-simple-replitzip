@@ -172,6 +172,15 @@ class Store:
             db.execute("UPDATE orders SET txid=?,message='Checking the blockchain. Confirmation can take several minutes.',"
                        "last_check=0 WHERE id=? AND status='pending'",(txid,order_id))
 
+    def update_pending_verification(self, order_id, expected_txid, **values):
+        allowed = {'message', 'txid', 'last_check'}
+        if not values or not set(values) <= allowed:
+            raise ValueError('Invalid verification update fields.')
+        with self.connection() as db:
+            db.execute('UPDATE orders SET ' + ','.join(key+'=?' for key in values) +
+                       " WHERE id=? AND status='pending' AND txid=?",
+                       (*values.values(), order_id, expected_txid))
+
     def claim_payment(self, order_id, proof):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')

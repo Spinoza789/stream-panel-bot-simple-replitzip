@@ -43,6 +43,9 @@ Keep its existing structure and stack.
   Administrator-only `/recovertrial` recovery is documented in `TRIAL_RECOVERY.md`.
   Missing saved details require explicit no-submission verification; uncertain
   submitted creations remain blocked. Recovery retains the original entitlement.
+  Administrator-only `/approveoverpayment ORDER_ID ETHEREUM_TXID` is documented
+  in `PAYMENT_APPROVAL.md`. This finalized, audited one-invoice exception does not
+  change exact-amount matching for future orders or create refunds/credit balances.
   Recovery looks up the existing panel username first and verifies saved credentials.
   Matching accounts are delivered without another creation; confirmed absence queues
   the same trial order for panel-generated credentials. Ownership, atomic state checks,

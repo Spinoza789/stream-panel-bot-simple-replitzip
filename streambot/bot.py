@@ -33,6 +33,8 @@ class TelegramBot:
         self.notifications=NotificationBot(self)
         from .trial_recovery import TrialRecovery
         self.trial_recovery=TrialRecovery(self)
+        from .payment_approval import PaymentApproval
+        self.payment_approval=PaymentApproval(self)
 
     def call(self,method,payload):
         # Do not log URLs: Telegram's bot token is part of the URL.
@@ -215,13 +217,14 @@ class TelegramBot:
             return
         action=query.get('data','')
         allowed={'menu','menu:plans','menu:trial','menu:retrytrial','menu:status','menu:contact','menu:about','menu:privacy'}
-        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:','rs:','nt:','tr:'))):
+        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:','rs:','nt:','tr:','pa:'))):
             self.answer_callback({'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
             return
         self.answer_callback({'callback_query_id':callback_id})
         try:
             self.notifications.contact(uid,incoming=True)
+            if self.payment_approval.callback(uid,action):return
             if self.trial_recovery.callback(uid,action):return
             if self.notifications.callback(uid,action):return
             if self.reseller.callback(uid,action,sender):return
@@ -290,6 +293,7 @@ class TelegramBot:
         parts=text.split(maxsplit=1);command=(parts[0].split('@')[0].lower() if parts else '')
         try:
             self.notifications.contact(uid,incoming=True)
+            if self.payment_approval.message(uid,command,parts[1] if len(parts)>1 else ''):return
             if self.trial_recovery.message(uid,command,parts[1] if len(parts)>1 else ''):return
             if self.notifications.message(uid,command,parts[1] if len(parts)>1 else ''):return
             if self.reseller.message(message,command,parts[1] if len(parts)>1 else ''):return

@@ -109,6 +109,27 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.assertEqual(self.service.create_trial(self.owner)['id'], order['id'])
         self.panel.create_account.assert_not_called()
 
+    def test_one_order_overpayment_approval_and_stale_background_result(self):
+        self.config['support_admin_id'] = 900
+        order = self.service.create_order('adult-month-1', 'usdc-ethereum',
+                                           owner_telegram_id=self.owner)['order']
+        txid = '0x' + uuid.uuid4().hex + uuid.uuid4().hex
+        self.verifier.verify.return_value = dict(
+            network='ethereum', txid=txid, amount_units=int(order['amount_units']) + 3484,
+            block_time=order['created_at'], confirmations=62)
+        bot = TelegramBot(self.service, api=lambda *args: {'message_id': 1})
+        approval = bot.payment_approval
+        approval.preview(900, order['id'], txid)
+        nonce = self.store.unseal(self.store.metadata(approval.key(900)))['nonce']
+        approval.confirm(900, nonce)
+        self.store.update_pending_verification(order['id'], txid, txid=None, message='stale rejection')
+        saved = self.store.get(order['id'])
+        self.assertEqual((saved['status'], saved['txid']), ('paid', txid))
+        self.assertEqual(saved['amount_units'], order['amount_units'])
+        self.assertIsNotNone(self.store.metadata('payment_admin_approval:' + nonce))
+        with self.assertRaises(CheckoutError):
+            approval.confirm(900, nonce)
+
     def test_owned_quotes_txid_replay_protection_and_delivery_receipts(self):
         quote = self.service.create_order('adult-month-1', 'usdc-ethereum',
                                          owner_telegram_id=self.owner,
