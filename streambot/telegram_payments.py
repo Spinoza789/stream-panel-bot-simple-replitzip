@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from .service import CheckoutError
 from .store import digest
+from .trial_message import membership_ready_text
 
 log = logging.getLogger(__name__)
 NETWORKS = {'ethereum': 'Ethereum (ERC-20)', 'solana': 'Solana (SPL)', 'bitcoin': 'Bitcoin'}
@@ -56,6 +57,9 @@ class TelegramCheckout:
     def order_text(self, order):
         plan, asset = order['plan'], order['asset']
         demo = self.service.config['mode'] == 'demo'
+        if order['status']=='fulfilled':
+            text=membership_ready_text(plan,order['credentials'])
+            return ('DEMO — DO NOT SEND FUNDS.\n\n' if demo else '')+text
         lines = ['DEMO — DO NOT SEND FUNDS.\n' if demo else 'CRYPTO PAYMENT\n',
                  'Order: ' + order['id'], plan['name'] + ' · ' + plan.get('detail', ''),
                  'Status: ' + order['status'].upper()]
@@ -79,14 +83,6 @@ class TelegramCheckout:
                 lines.append('TXID received. The backend checks the chain automatically; do not pay again.')
         elif order['status'] in ('paid', 'provisioning'):
             lines.append('Payment is confirmed. Preparing your account. Do not pay again.')
-        elif order['status'] == 'fulfilled':
-            credentials = order.get('credentials') or {}
-            lines.extend(['', 'Your account is ready.',
-                          'Username: ' + credentials.get('username', ''),
-                          'Password: ' + credentials.get('password', '')])
-            if credentials.get('server_url'):
-                lines.append('Server: ' + credentials['server_url'])
-            lines.append('Keep these details private.')
         elif order['status'] == 'review':
             lines.append('Manual review is needed. Do not pay again; contact support with this order ID.')
         if order.get('message'):

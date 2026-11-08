@@ -24,10 +24,13 @@ def _state_error(error, stage):
     state = getattr(error, 'sqlstate', None)
     if not isinstance(state, str) or not re.fullmatch(r'[A-Z0-9]{5}', state):
         state = 'unavailable'
-    return RuntimeError(
+    result = RuntimeError(
         'PostgreSQL ' + stage + ' failed (' + type(error).__name__ +
         ', SQLSTATE ' + state + '). Check production database setup and permissions.'
     )
+    result.db_stage = stage if stage in ('connect','query','commit') else 'unknown'
+    result.sqlstate = state
+    return result
 
 
 class _Row(dict):
@@ -80,7 +83,12 @@ class _Connection:
                 # matching SQLite's serialized read/check/write transactions.
                 return self._connection.execute('SELECT pg_advisory_xact_lock(%s)', (self._transaction_lock,))
             statement = statement.replace("json_extract(asset_json,'$.id')", "(asset_json::jsonb ->> 'id')")
-            statement = statement.replace('CAST(value AS INTEGER)', 'CAST(value AS BIGINT)')
+            # Metadata also contains encrypted state and text settings. PostgreSQL
+            # may evaluate the cast before a sibling key predicate; CASE must
+            # guard the cast itself, including against bigint overflow.
+            statement = statement.replace(
+                'CAST(value AS INTEGER)',
+                "CASE WHEN value ~ '^-?[0-9]{1,18}$' THEN CAST(value AS BIGINT) ELSE NULL END")
             if re.match(r'^\s*INSERT OR REPLACE INTO metadata\b', statement, re.I):
                 statement = re.sub(r'INSERT OR REPLACE INTO', 'INSERT INTO', statement, count=1, flags=re.I)
                 statement = statement.rstrip().rstrip(';') + ' ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value'

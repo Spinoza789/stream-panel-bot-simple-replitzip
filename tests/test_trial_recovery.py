@@ -13,6 +13,7 @@ from streambot.config import load_config
 from streambot.panel import PanelError, ProvisioningUncertain
 from streambot.service import CheckoutError, CheckoutService
 from streambot.store import Store
+from streambot.trial_message import trial_ready_text
 
 
 class TrialRecoveryTests(unittest.TestCase):
@@ -57,6 +58,22 @@ class TrialRecoveryTests(unittest.TestCase):
         self.assertEqual(result['status'], 'fulfilled')
         self.assertEqual(result['credentials'], self.credentials)
         self.panel.create_account.assert_not_called()
+
+    def test_trial_commands_callbacks_and_background_delivery_share_format(self):
+        self.store.update(self.order['id'],status='fulfilled',credentials=self.credentials)
+        expected=trial_ready_text(self.credentials)
+        message={'message_id':1,'from':{'id':42},'chat':{'id':42,'type':'private'},'text':'/trial'}
+        self.bot.handle({'message':message})
+        self.bot.handle({'message':dict(message,message_id=2,text='/retrytrial')})
+        self.bot.handle({'callback_query':{'id':'fulfilled-trial','from':{'id':42},'data':'menu:trial',
+                                          'message':{'chat':{'id':42,'type':'private'}}}})
+        self.store.metadata('trial_sent:'+self.order['id'],'')
+        with self.store.connection() as db:
+            db.execute('DELETE FROM metadata WHERE key=?',('trial_sent:'+self.order['id'],))
+        self.bot.notify_trials()
+        delivered=[p for method,p in self.calls if method=='sendMessage']
+        self.assertEqual(len(delivered),4)
+        self.assertTrue(all(p['text']==expected and p['chat_id']==42 for p in delivered))
 
     def test_different_owner_and_mismatched_credentials_never_retry(self):
         with self.assertRaises(CheckoutError):

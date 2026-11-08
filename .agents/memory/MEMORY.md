@@ -4,3 +4,4 @@
 - [Production database readiness](production-database-readiness.md) — development connectivity and a present database URL do not prove a live database is provisioned.
 - [Panel provisioning contract](panel-provisioning-contract.md) — panel-generated credentials and no notes on all new accounts; follow the actual browser submission format.
 - [Rolling-publish leases](rolling-publish-leases.md) — a healthy previous version can legitimately hold the worker lock while its replacement starts.
+- [Mixed metadata conversions](mixed-metadata-conversions.md) — guard numeric casts inside CASE; a key filter does not guarantee safe PostgreSQL evaluation order.

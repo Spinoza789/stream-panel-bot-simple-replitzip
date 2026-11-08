@@ -30,6 +30,9 @@ Keep its existing structure and stack.
   The backend worker verifies payment; a submitted hash alone never marks it paid.
   My orders or `/orders` returns to invoices. Quotes, ownership, TXID entry, and
   delivery receipts persist in the existing store. No new database schema is required.
+- Telegram retry warnings include a safe loop stage, database phase and SQLSTATE.
+  Never log raw exception messages, update contents, credentials or bot-token URLs.
+  Update offsets are persisted before the in-memory polling cursor advances.
 - A trial in review offers Check / retry trial, also available as `/retrytrial`.
   Recovery looks up the existing panel username first and verifies saved credentials.
   Matching accounts are delivered without another creation; confirmed absence queues

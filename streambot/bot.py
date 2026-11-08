@@ -1,10 +1,12 @@
 """Private membership, support, and custom blockchain-payment assistant."""
 import logging
+import re
 import threading
 import time
 import requests
 from .service import CheckoutError
 from .store import digest
+from .trial_message import trial_ready_text
 
 log=logging.getLogger(__name__)
 
@@ -166,11 +168,7 @@ class TelegramBot:
 
     def trial_text(self,order):
         if order['status']=='fulfilled':
-            credentials=order['credentials']
-            text='Your 24-hour trial is ready.\nUsername: '+credentials['username']+'\nPassword: '+credentials['password']
-            if credentials.get('server_url'): text+='\nServer: '+credentials['server_url']
-            if credentials.get('expires_at'): text+='\nExpires: '+str(credentials['expires_at'])
-            return text+'\nKeep these details private.'
+            return trial_ready_text(order['credentials'])
         if order['status']=='review':
             if order.get('account_identity_unknown'):
                 return ('Your panel-generated trial could not be confirmed. Support must identify the account '
@@ -314,27 +312,42 @@ class TelegramBot:
 
     def run(self,stop):
         registered=False
-        offset=int(self.store.metadata('telegram_offset') or '0')
+        offset=None
         while not stop.is_set():
+            stage='offset_load'
             try:
+                if offset is None:
+                    offset=int(self.store.metadata('telegram_offset') or '0')
                 if not registered:
+                    stage='registration'
                     self.api('getMe',{})
                     self.api('setMyCommands',{'commands':[{'command':c,'description':d} for c,d in [('start','Account assistant'),('trial','One free 24-hour trial'),('status','Linked account status'),('link','Link an existing account'),('contact','Message support'),('support','Message support'),('cancel','Leave support chat'),('myid','Show my Telegram ID'),('privacy','Data information')]]})
                     registered=True
+                stage='poll'
                 updates=self.api('getUpdates',{'offset':offset,'timeout':25,'allowed_updates':['message','callback_query']})
                 for update in updates:
                     if stop.is_set(): break
+                    stage='handle_update'
                     try: self.handle(update)
                     except TelegramError as exc:
                         if exc.code!=403: raise
-                    offset=update['update_id']+1
-                    self.store.metadata('telegram_offset',offset)
+                    stage='save_offset'
+                    next_offset=update['update_id']+1
+                    self.store.metadata('telegram_offset',next_offset)
+                    offset=next_offset
+                stage='trial_notifications'
                 self.notify_trials()
+                stage='payment_notifications'
                 self.checkout.notify()
             except Exception as exc:
                 if isinstance(exc,TelegramError):
                     log.warning('Telegram assistant paused (%s, Telegram API code %s); retrying.',exc.method or 'request',exc.code)
                     stop.wait(5)
                     continue
-                log.warning('Telegram assistant paused (%s); retrying.',type(exc).__name__)
+                db_stage=getattr(exc,'db_stage','unknown')
+                if db_stage not in ('connect','query','commit'): db_stage='unknown'
+                state=getattr(exc,'sqlstate','unavailable')
+                if not isinstance(state,str) or not re.fullmatch(r'[A-Z0-9]{5}',state): state='unavailable'
+                log.warning('Telegram assistant paused (stage=%s, error=%s, db_stage=%s, SQLSTATE=%s); retrying.',
+                            stage,type(exc).__name__,db_stage,state)
                 stop.wait(5)

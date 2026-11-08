@@ -31,6 +31,8 @@ class PostgresStartupTests(unittest.TestCase):
         error = _state_error(Denied('private-provider-message'), 'query')
         self.assertIn('query failed (Denied, SQLSTATE 42501)', str(error))
         self.assertNotIn('private-provider-message', str(error))
+        self.assertEqual(error.db_stage,'query')
+        self.assertEqual(error.sqlstate,'42501')
 
     def test_malformed_sqlstate_cannot_leak_error_content(self):
         class InvalidState(psycopg.Error):
@@ -179,3 +181,16 @@ class PostgresIntegrationTests(unittest.TestCase):
         bot=TelegramBot(self.service,api=lambda method,payload:messages.append((method,payload)) or {'message_id':1})
         bot.notify_trials()
         self.assertTrue(any(method=='sendMessage' and payload['chat_id']==self.owner for method,payload in messages))
+
+    def test_retry_timestamp_cast_ignores_text_and_overflow_metadata(self):
+        keys=['test:timestamp:'+uuid.uuid4().hex for _ in range(4)]
+        for key,value in zip(keys,['not-an-integer','9'*50,'1794170000','-1']):
+            self.store.metadata(key,value)
+        with self.store.connection() as db:
+            rows=db.execute('SELECT key,CAST(value AS INTEGER) AS retry_at FROM metadata '
+                            'WHERE key IN (?,?,?,?)',tuple(keys)).fetchall()
+        actual={row['key']:row['retry_at'] for row in rows}
+        self.assertIsNone(actual[keys[0]])
+        self.assertIsNone(actual[keys[1]])
+        self.assertEqual(actual[keys[2]],1794170000)
+        self.assertEqual(actual[keys[3]],-1)

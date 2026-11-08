@@ -110,8 +110,9 @@ class TelegramPaymentTests(unittest.TestCase):
         self.service.provision_pending()
         self.bot.checkout.notify()
         self.assertEqual(self.panel.calls, ['140'])
-        self.assertIn('Your account is ready', self.calls[-1][1]['text'])
+        self.assertIn('Membership — ', self.calls[-1][1]['text'])
         self.assertIn('Username:', self.calls[-1][1]['text'])
+        self.assertIn('APP DOWNLOAD CODES',self.calls[-1][1]['text'])
         sent = len(self.calls)
         self.bot.checkout.notify()
         self.assertEqual(len(self.calls), sent)
@@ -123,6 +124,33 @@ class TelegramPaymentTests(unittest.TestCase):
         result = self.click('pay:status:' + order['id'], uid=99)
         self.assertIn('Order not found', result['text'])
         self.assertNotIn(order['asset']['wallet'], result['text'])
+
+    def test_every_completed_membership_has_guide_but_unfinished_orders_do_not(self):
+        from streambot.trial_message import APP_DOWNLOAD_GUIDE
+        order=self.create()
+        for index,plan in enumerate(self.service.config['plans']):
+            credentials={'username':'test-member-'+str(index),'password':'test-password-'+str(index)}
+            text=self.bot.checkout.order_text(dict(order,status='fulfilled',plan=plan,credentials=credentials))
+            self.assertTrue(text.startswith('Membership — '+plan['name']))
+            self.assertIn(plan['detail'],text)
+            self.assertIn('Username: '+credentials['username'],text)
+            self.assertTrue(text.endswith(APP_DOWNLOAD_GUIDE))
+            self.assertLess(len(text),4096)
+        for status in ('pending','paid','provisioning','review'):
+            text=self.bot.checkout.order_text(dict(order,status=status,credentials={'username':'private-test-name','password':'private-test-secret'}))
+            self.assertNotIn('private-test-secret',text)
+            self.assertNotIn('APP DOWNLOAD CODES',text)
+
+    def test_membership_notification_and_status_button_share_the_format(self):
+        from streambot.trial_message import membership_ready_text
+        order=self.create()
+        credentials={'username':'test-member','password':'test-member-password'}
+        self.store.update(order['id'],status='fulfilled',credentials=credentials)
+        expected=membership_ready_text(order['plan'],credentials)
+        self.bot.checkout.notify()
+        self.assertEqual(self.calls[-1][1]['text'],expected)
+        result=self.click('pay:status:'+order['id'])
+        self.assertEqual(result['text'],expected)
         with self.assertRaises(CheckoutError):
             self.service.submit_telegram_tx(99, order['id'], TXID)
         self.assertIsNone(self.store.get(order['id'])['txid'])
