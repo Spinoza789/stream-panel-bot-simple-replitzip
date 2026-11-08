@@ -1,4 +1,5 @@
 .venv/
+.pythonlibs/
 .env
 config.json
 data/

@@ -9,7 +9,7 @@ def prepare_environment(source):
     defaults={
         'APP_MODE':('STREAMBOT_MODE','demo'),
         'HOST':('STREAMBOT_HOST','0.0.0.0'),
-        'PORT':('STREAMBOT_PORT','8090'),
+        'PORT':('STREAMBOT_PORT','5000'),
         'TELEGRAM_BOT_TOKEN':('STREAMBOT_TELEGRAM_BOT_TOKEN',''),
         'TELEGRAM_ENABLED':('STREAMBOT_TELEGRAM_ENABLED','false'),
         'SUPPORT_ADMIN_ID':('STREAMBOT_SUPPORT_ADMIN_ID',''),
