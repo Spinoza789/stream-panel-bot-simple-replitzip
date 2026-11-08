@@ -90,7 +90,8 @@ class TelegramPaymentTests(unittest.TestCase):
         invoice = self.click('pay:quote:adult-month-1:usdc-ethereum')
         order = self.store.telegram_orders(42)[0]
         self.assertIn('$12.50 USD', invoice['text'])
-        self.assertIn('EXACTLY: ' + self.service.public(order)['amount'], invoice['text'])
+        self.assertIn('<b>💰 SEND EXACTLY</b>\n<code>' + self.service.public(order)['amount'], invoice['text'])
+        self.assertEqual(invoice['parse_mode'], 'HTML')
         self.assertEqual(order['plan']['package_id'], '140')
         self.assertNotIn('Simulate payment', str(invoice))
         prompt = self.click('pay:tx:' + order['id'])
@@ -124,6 +125,55 @@ class TelegramPaymentTests(unittest.TestCase):
         result = self.click('pay:status:' + order['id'], uid=99)
         self.assertIn('Order not found', result['text'])
         self.assertNotIn(order['asset']['wallet'], result['text'])
+
+    def test_invoice_copy_buttons_use_full_amount_not_rounded_usd_price(self):
+        order = self.create()
+        # Reproduce the customer's confusing USD-reference/USDC-amount example.
+        order['plan'].update(usd_price='13.36', gbp_price='10.00')
+        order['amount'] = '13.356516'
+        self.bot.checkout.show_order(42, order)
+        payload = self.calls[-1][1]
+        self.assertEqual(payload['parse_mode'], 'HTML')
+        self.assertLess(payload['text'].index('13.356516'), payload['text'].index('$13.36'))
+        self.assertIn('NOT the amount to send', payload['text'])
+        self.assertIn('Do not round it', payload['text'])
+        self.assertIn('<code>' + order['asset']['wallet'] + '</code>', payload['text'])
+        copies = [button['copy_text']['text'] for row in payload['reply_markup']['inline_keyboard']
+                  for button in row if 'copy_text' in button]
+        self.assertEqual(copies, ['13.356516', order['asset']['wallet']])
+        self.assertNotIn('13.36', copies)
+
+    def test_checking_payment_does_not_repeat_send_or_copy_instructions(self):
+        order = self.create()
+        self.service.submit_telegram_tx(42, order['id'], TXID)
+        order = self.service.telegram_order(42, order['id'])
+        self.bot.checkout.show_order(42, order)
+        payload = self.calls[-1][1]
+        self.assertIn('PAYMENT VERIFICATION', payload['text'])
+        self.assertIn('do not send another payment', payload['text'])
+        self.assertNotIn('SEND EXACTLY', payload['text'])
+        self.assertNotIn('copy_text', str(payload['reply_markup']))
+        self.assertNotIn('pay:quote:', str(payload['reply_markup']))
+        self.assertNotIn('pay:tx:', str(payload['reply_markup']))
+
+    def test_expired_invoice_has_no_copy_buttons_and_does_not_request_payment(self):
+        order = dict(self.create(), expires_at=0)
+        text = self.bot.checkout.order_text(order)
+        self.assertIn('QUOTE EXPIRED — DO NOT PAY', text)
+        self.assertNotIn('SEND EXACTLY', text)
+        self.assertNotIn('copy_text', str(self.bot.checkout.order_keyboard(order)))
+        self.assertIn('pay:tx:', str(self.bot.checkout.order_keyboard(order)))
+
+    def test_invoice_escapes_dynamic_html_and_preserves_exact_copy_values(self):
+        order = self.create()
+        order['plan']['name'] = '<b>Fake</b> & other'
+        order['message'] = '<a href="https://wrong.example">Click</a>'
+        order['asset']['wallet'] = 'wallet<&>'
+        text = self.bot.checkout.order_text(order)
+        self.assertIn('&lt;b&gt;Fake&lt;/b&gt; &amp; other', text)
+        self.assertNotIn('<a href=', text)
+        self.assertIn('<code>wallet&lt;&amp;&gt;</code>', text)
+        self.assertEqual(self.bot.checkout.order_keyboard(order)['inline_keyboard'][0][1]['copy_text']['text'], 'wallet<&>')
 
     def test_every_completed_membership_has_guide_but_unfinished_orders_do_not(self):
         from streambot.trial_message import APP_DOWNLOAD_GUIDE

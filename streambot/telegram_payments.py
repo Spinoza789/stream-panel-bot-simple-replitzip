@@ -2,6 +2,7 @@
 import logging
 import time
 from datetime import datetime, timezone
+from html import escape
 
 from .service import CheckoutError
 from .store import digest
@@ -43,15 +44,22 @@ class TelegramCheckout:
         oid = order['id']
         rows = []
         if order['status'] == 'pending':
-            rows.append([{'text': "I've paid — enter TXID", 'callback_data': 'pay:tx:' + oid}])
+            if not order.get('txid') and time.time() <= order['expires_at']:
+                rows.append([
+                    {'text': '📋 Copy exact amount', 'copy_text': {'text': order['amount']}},
+                    {'text': '📋 Copy wallet', 'copy_text': {'text': order['asset']['wallet']}},
+                ])
+            if not order.get('txid'):
+                rows.append([{'text': "✅ I've paid — enter TXID", 'callback_data': 'pay:tx:' + oid}])
             if self.service.config['mode'] == 'demo':
                 rows.append([{'text': 'Simulate payment (demo only)', 'callback_data': 'pay:demo:' + oid}])
-        rows.append([{'text': 'Check payment status', 'callback_data': 'pay:status:' + oid}])
-        if order['status'] == 'pending':
+        rows.append([{'text': '🔄 Check payment status', 'callback_data': 'pay:status:' + oid}])
+        if order['status'] == 'pending' and not order.get('txid'):
             rows.append([{'text': '⬅️ Back to crypto choices',
                           'callback_data': 'rs:packages' if order['plan'].get('reseller_purchase') else 'pay:choose:' + order['plan']['id']}])
         rows.append([{'text': 'My orders', 'callback_data': 'pay:orders'},
                      {'text': 'Main menu', 'callback_data': 'menu'}])
+        rows.append([{'text': '🛟 Payment help', 'callback_data': 'menu:contact'}])
         return {'inline_keyboard': rows}
 
     def order_text(self, order):
@@ -63,37 +71,55 @@ class TelegramCheckout:
         if order['status']=='fulfilled':
             text=membership_ready_text(plan,order['credentials'])
             return ('DEMO — DO NOT SEND FUNDS.\n\n' if demo else '')+text
-        lines = ['DEMO — DO NOT SEND FUNDS.\n' if demo else 'CRYPTO PAYMENT\n',
-                 'Order: ' + order['id'], plan['name'] + ' · ' + plan.get('detail', ''),
-                 'Status: ' + order['status'].upper()]
-        if plan.get('usd_price'):
-            lines.append(f"Membership value: ${plan['usd_price']} USD (from £{plan['gbp_price']})")
-            if demo:
-                lines.append('Exchange rates below are simulated, not live prices.')
+        e = lambda value: escape(str(value))
+        expired = time.time() > order['expires_at']
+        checking = order['status'] == 'pending' and bool(order.get('txid'))
+        heading = '🔎 PAYMENT VERIFICATION' if checking else '💳 CRYPTO PAYMENT'
+        lines = [('<b>🧪 DEMO — DO NOT SEND FUNDS</b>\n' if demo else '') + '<b>' + heading + '</b>',
+                 e(plan['name'] + ' · ' + plan.get('detail', ''))]
         if order['status'] == 'pending':
             expiry = datetime.fromtimestamp(order['expires_at'], timezone.utc).strftime('%d %b %Y %H:%M UTC')
-            lines.extend(['', 'Send EXACTLY: ' + order['amount'] + ' ' + asset['symbol'],
-                          'Network: ' + network_name(asset),
-                          'Recipient wallet:\n' + asset['wallet'], 'Quote expires: ' + expiry,
-                          'Includes the small order-matching adjustment. Pay network fees separately.',
-                          'Confirmations required: ' + str(asset.get('confirmations', 1)),
-                          'Never use a different coin or network.'])
-            if time.time() > order['expires_at']:
-                lines.append('EXPIRED — do not send a new payment. If you already paid within the quote window, submit that TXID.')
+            if checking:
+                lines.extend(['', '<b>✅ TXID received — do not send another payment.</b>',
+                              '<code>' + e(order['txid']) + '</code>',
+                              'We are checking the blockchain. A submitted TXID is not payment confirmation.'])
             else:
-                lines.append('After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.')
-            if order.get('txid'):
-                lines.append('TXID received. The backend checks the chain automatically; do not pay again.')
+                lines.extend(['', '<b>⌛ QUOTE EXPIRED — DO NOT PAY</b>' if expired else '<b>💰 SEND EXACTLY</b>',
+                              '<code>' + e(order['amount']) + '</code> <b>' + e(asset['symbol']) + '</b>',
+                              '', '<b>🌐 Network:</b> ' + e(network_name(asset)),
+                              '<b>📋 Receiving wallet:</b>\n<code>' + e(asset['wallet']) + '</code>'])
+                if expired:
+                    lines.append('\nIf you already paid within the quote window, submit that TXID. Do not pay this expired quote.')
+                else:
+                    lines.extend(['', '<b>⚠️ Copy the exact amount above. Do not round it.</b>',
+                                  'The receiving wallet must get that exact amount. Pay network fees separately.',
+                                  'Use only <b>' + e(asset['symbol']) + '</b> on <b>' + e(network_name(asset)) + '</b>.',
+                                  '', '<b>1️⃣ Copy amount and wallet</b>\nUse the buttons below.',
+                                  '<b>2️⃣ Send once</b>\nCheck the coin, network and full amount before sending.',
+                                  '<b>3️⃣ Submit the TXID</b>\nTap “I\'ve paid — enter TXID” after sending.'])
+            lines.extend(['', '<b>⏰ Quote expires:</b> ' + e(expiry),
+                          '<b>🔗 Confirmations required:</b> ' + e(asset.get('confirmations', 1))])
         elif order['status'] in ('paid', 'provisioning'):
-            lines.append('Payment is confirmed. Preparing your account. Do not pay again.')
+            lines.append('\n<b>✅ Payment confirmed.</b>\nPreparing your account. Do not pay again.')
         elif order['status'] == 'review':
-            lines.append('Manual review is needed. Do not pay again; contact support with this order ID.')
+            lines.append('\n<b>🛟 Manual review needed.</b>\nDo not pay again. Contact support with the order ID below.')
+        if plan.get('usd_price') and not checking and order['status']=='pending':
+            lines.extend(['', '<b>ℹ️ Price reference only — NOT the amount to send</b>',
+                          '$' + e(plan['usd_price']) + ' USD (from £' + e(plan['gbp_price']) + ').',
+                          'Use the full crypto amount shown above, not this rounded USD value.'])
+            if demo:
+                lines.append('Exchange rates are simulated, not live prices.')
         if order.get('message'):
-            lines.extend(['', order['message']])
+            lines.extend(['', '<b>📍 Update:</b> ' + e(order['message'])])
+        lines.extend(['', '<b>🧾 Order ID:</b> <code>' + e(order['id']) + '</code>',
+                      '<b>Status:</b> ' + e(order['status'].upper())])
+        if order['status']=='pending' and not checking:
+            lines.append('\nAlready sent a different amount? <b>Do not send more.</b> Contact support with your order ID and TXID.')
         return '\n'.join(lines)
 
     def show_order(self, uid, order):
-        self.bot.send(uid, self.order_text(order), self.order_keyboard(order))
+        self.bot.send(uid, self.order_text(order), self.order_keyboard(order),
+                      parse_mode='HTML' if order['status'] != 'fulfilled' else None)
         self.store.metadata('tg_notice:' + order['id'], order['status'] + ':' + order.get('message', ''))
 
     def show_orders(self, uid):
@@ -101,8 +127,8 @@ class TelegramCheckout:
         rows = [[{'text': order['plan']['name'] + ' · ' + order['status'] + ' · ' + order['id'][:8],
                   'callback_data': 'pay:status:' + order['id']}] for order in orders]
         rows.append([{'text': '⬅️ Back', 'callback_data': 'menu'}])
-        self.bot.send(uid, 'MY ORDERS\n\nChoose an order to view it.' if orders else 'No paid orders yet.',
-                      {'inline_keyboard': rows})
+        self.bot.send(uid, '<b>🧾 MY ORDERS</b>\n\nChoose an order to view it.' if orders else '<b>🧾 MY ORDERS</b>\n\nNo paid orders yet.',
+                      {'inline_keyboard': rows}, parse_mode='HTML')
 
     def handle_callback(self, uid, action, callback_id):
         if not action.startswith('pay:'):
@@ -117,10 +143,12 @@ class TelegramCheckout:
                 plan = next((p for p in self.service.config['plans'] if p['id'] == parts[2]), None)
                 if not plan:
                     raise CheckoutError('Membership not found. Please start again.')
-                self.bot.send(uid, plan['name'] + ' · ' + plan.get('detail', '') +
-                              '\n\nChoose a cryptocurrency AND network. The next step locks a quote and displays its USD equivalent.'
-                              '\nExisting invoices remain in My orders. Never pay two invoices for the same purchase.',
-                              self.crypto_keyboard(plan))
+                self.bot.send(uid, '<b>🪙 CHOOSE COIN &amp; NETWORK</b>\n\n' +
+                              escape(plan['name'] + ' · ' + plan.get('detail', '')) +
+                              '\n\nThe next screen shows the <b>exact crypto amount to send</b> and a copyable wallet.'
+                              '\n⚠️ The rounded USD price is a reference only. Do not use it as the transfer amount.'
+                              '\n\nExisting invoices stay in <b>My orders</b>. Never pay two invoices for the same purchase.',
+                              self.crypto_keyboard(plan), parse_mode='HTML')
             elif len(parts) == 4 and parts[1] == 'quote':
                 self.clear_session(uid)
                 result = self.service.create_order(parts[2], parts[3], owner_telegram_id=uid,
@@ -130,12 +158,12 @@ class TelegramCheckout:
                 order = self.service.telegram_order(uid, parts[2])
                 if parts[1] == 'tx' and order['status'] == 'pending':
                     self.store.metadata(self.bot.support.session_key(uid), '0')
-                    prompt = self.bot.send(uid, 'Order: ' + order['id'] +
-                                           '\nPaste ONLY the transaction hash/TXID, not a link. '
-                                           'A submitted hash is not proof of payment; the backend verifies it. '
-                                           'Send /cancel to stop TXID entry.',
+                    prompt = self.bot.send(uid, '<b>🔗 ENTER TRANSACTION ID</b>\n\nOrder: <code>' + escape(order['id']) +
+                                           '</code>\n\nPaste <b>only the transaction hash / TXID</b>, not a link.'
+                                           '\nWe verify the payment on the blockchain. <b>Do not send another payment.</b>'
+                                           '\n\nSend /cancel to stop TXID entry.',
                                            {'force_reply': True, 'selective': True,
-                                            'input_field_placeholder': 'Paste transaction hash'})
+                                            'input_field_placeholder': 'Paste transaction hash'}, parse_mode='HTML')
                     self.store.metadata(self.session_key(uid), self.store.seal({
                         'order_id': order['id'], 'prompt_id': prompt.get('message_id'),
                         'expires_at': int(time.time()) + 900}))

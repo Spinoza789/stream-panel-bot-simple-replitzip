@@ -14,3 +14,14 @@ The user confirmed that the receiving wallet addresses imported with the project
 **Why:** The user explicitly confirmed the displayed Ethereum, Solana and Bitcoin destinations.
 
 **How to apply:** This confirmation covers the imported destinations, not replacements. Confirm new destinations with the user before changing where customer funds are sent.
+
+Payment messages must distinguish the exact crypto transfer amount from the
+rounded USD reference. The user requested bold text, emojis and copyable wallets.
+
+**Why:** The user reported sending the rounded USD reference value because the
+invoice showed both values without sufficient distinction.
+
+**How to apply:** Make the exact crypto amount primary and copyable, identify its
+network, and label any rounded USD value as reference only. Formatting requests
+do not authorize changing payment-matching rules, retroactively altering quotes,
+or treating a submitted TXID as verified payment.

@@ -44,9 +44,10 @@ class TelegramBot:
             return result['result']
         except (requests.RequestException,ValueError): raise TelegramError(method=method) from None
 
-    def send(self,chat_id,text,reply_markup=None):
+    def send(self,chat_id,text,reply_markup=None,*,parse_mode=None):
         payload={'chat_id':chat_id,'text':text,'link_preview_options':{'is_disabled':True}}
         if reply_markup: payload['reply_markup']=reply_markup
+        if parse_mode: payload['parse_mode']=parse_mode
         return self.api('sendMessage',payload)
 
     def answer_callback(self,payload):
