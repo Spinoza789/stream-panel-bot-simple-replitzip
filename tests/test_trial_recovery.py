@@ -24,8 +24,10 @@ class TrialRecoveryTests(unittest.TestCase):
         self.config.update(mode='live', panel_writes=True)
         self.panel = Mock()
         self.panel.find_account.return_value = None
-        self.panel.create_account.side_effect = lambda package, user, password, description: {
-            'username': user, 'password': password, 'package_id': package, 'server_url': 'test server'}
+        self.panel.prepare_generation.side_effect = lambda package:dict(
+            generation_mode='panel',package_id=package,before_ids=[],prepared_at=int(time.time()),post_attempted=True)
+        self.panel.create_account.side_effect = lambda package, user, password, description, **kwargs: {
+            'username': 'generated-user', 'password': 'generated-secret', 'package_id': package, 'server_url': 'test server'}
         self.service = CheckoutService(self.config, self.store, Mock(), self.panel)
         self.order = self.service.create_trial(42)
         self.credentials = dict(username='test-user', password='test-secret',
@@ -35,7 +37,7 @@ class TrialRecoveryTests(unittest.TestCase):
         self.calls = []
         self.bot = TelegramBot(self.service, api=lambda method, payload: self.calls.append((method, payload)) or {'message_id': 1})
 
-    def test_absent_account_requeues_original_once_and_reuses_credentials(self):
+    def test_absent_account_requeues_original_once_using_panel_generation(self):
         first = self.service.retry_trial(42)
         again = self.service.retry_trial(42)
         self.assertEqual((first['id'], again['id']), (self.order['id'], self.order['id']))
@@ -44,8 +46,9 @@ class TrialRecoveryTests(unittest.TestCase):
         self.service.provision_pending()
         fulfilled = self.store.trial(42)
         self.assertEqual(fulfilled['status'], 'fulfilled')
-        self.assertEqual(fulfilled['credentials']['password'], self.credentials['password'])
+        self.assertEqual(fulfilled['credentials']['password'], 'generated-secret')
         self.panel.create_account.assert_called_once()
+        self.assertEqual(self.panel.create_account.call_args.args[1:],('','',''))
         self.assertEqual(self.service.create_trial(42)['id'], self.order['id'])
 
     def test_existing_matching_account_is_delivered_without_creation(self):
@@ -87,9 +90,48 @@ class TrialRecoveryTests(unittest.TestCase):
         self.panel.create_account.side_effect = ProvisioningUncertain('Unverified creation')
         self.service.provision_pending()
         self.assertEqual(self.store.trial(42)['status'], 'review')
-        with self.assertRaisesRegex(CheckoutError, 'Please wait'):
+        with self.assertRaisesRegex(CheckoutError, 'No second account'):
             self.service.retry_trial(42)
         self.panel.create_account.assert_called_once()
+        public=self.service.trial_status(42)
+        self.assertTrue(public['account_identity_unknown'])
+        self.assertEqual(self.bot.trial_keyboard(public)['inline_keyboard'][0][0]['callback_data'],'menu:contact')
+
+    def test_generation_snapshot_is_durable_before_post(self):
+        self.service.retry_trial(42)
+        def generate(package,user,password,description,**kwargs):
+            saved=self.store.get(self.order['id'])['credentials']
+            self.assertEqual(saved['generation_mode'],'panel')
+            self.assertTrue(saved['post_attempted'])
+            self.assertNotIn('username',saved)
+            self.assertEqual((user,password,description),('','',''))
+            return {'username':'generated-user','password':'generated-secret'}
+        self.panel.create_account.side_effect=generate
+        self.service.provision_pending()
+        self.assertEqual(self.store.trial(42)['status'],'fulfilled')
+
+    def test_pre_submit_failure_can_be_explicitly_requeued_without_old_identity(self):
+        self.service.retry_trial(42)
+        self.panel.create_account.side_effect=PanelError('Package not available')
+        self.service.provision_pending()
+        self.assertFalse(self.store.trial(42)['credentials']['post_attempted'])
+        self.store.metadata('trial_recheck_after:'+self.order['id'],0)
+        self.assertEqual(self.service.retry_trial(42)['status'],'paid')
+        self.assertIsNone(self.store.trial(42)['credentials'])
+
+    def test_all_paid_plans_and_new_trials_submit_only_blank_fields(self):
+        asset=self.config['assets']['usdc-ethereum']
+        for plan in self.config['plans']:
+            _,order=self.store.create(plan,asset,10000)
+            self.store.update(order['id'],status='paid')
+            self.service.provision_pending()
+            self.assertEqual(self.store.get(order['id'])['status'],'fulfilled')
+        self.service.create_trial(43)
+        self.service.provision_pending()
+        calls=self.panel.create_account.call_args_list
+        self.assertEqual(len(calls),len(self.config['plans'])+1)
+        self.assertTrue(all(call.args[1:]==('','','') for call in calls))
+        self.assertEqual([call.args[0] for call in calls[:-1]],[str(p['package_id']) for p in self.config['plans']])
 
     def test_bot_review_button_and_retry_command_are_functional(self):
         message = {'message_id': 1, 'from': {'id': 42}, 'chat': {'id': 42, 'type': 'private'}, 'text': '/trial'}

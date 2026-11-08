@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import signal
+import secrets
+import time
 import threading
 from contextlib import ExitStack,contextmanager,nullcontext
 from pathlib import Path
@@ -23,8 +25,16 @@ log=logging.getLogger('streambot')
 
 
 class DemoPanel:
-    def create_account(self,package_id,username,password,description):
-        return dict(username=username,password=password,package_id=package_id,server_url='DEMO — no live streaming server')
+    def find_account(self,username):
+        return None
+
+    def prepare_generation(self,package_id):
+        return dict(generation_mode='panel',package_id=str(package_id),before_ids=[],prepared_at=int(time.time()),post_attempted=True)
+
+    def create_account(self,package_id,username='',password='',description='',*,generation=None):
+        if username or password or description: raise ValueError('Demo generation fields must be empty')
+        return dict(username='demo_'+secrets.token_urlsafe(6),password=secrets.token_urlsafe(12),
+                    package_id=package_id,server_url='DEMO — no live streaming server')
 
 
 class DemoVerifier:
@@ -94,6 +104,8 @@ def main():
     if args.command in ('reconcile','retry'):
         order=service.store.get(args.order_id)
         if not order or order['status']!='review' or not order['credentials']: parser.exit(1,'Choose an order in review with stored credentials.\n')
+        if order['credentials'].get('generation_mode')=='panel':
+            parser.exit(1,'Panel-generated account identity is uncertain. Identify its panel account manually; do not submit another creation.\n')
         try: found=service.panel.find_account(order['credentials']['username'])
         except Exception as exc: parser.exit(1,'Lookup failed ('+type(exc).__name__+'). No order state changed.\n')
         if found:

@@ -33,8 +33,16 @@ Keep its existing structure and stack.
 - A trial in review offers Check / retry trial, also available as `/retrytrial`.
   Recovery looks up the existing panel username first and verifies saved credentials.
   Matching accounts are delivered without another creation; confirmed absence queues
-  the same trial order with the same credentials. Ownership, atomic state checks,
+  the same trial order for panel-generated credentials. Ownership, atomic state checks,
   cooldowns and rate limits prevent duplicate queued requests.
+- All new paid and trial accounts submit blank username, password and description.
+  The panel generates credentials; never add bot branding or order notes. Persist
+  an encrypted account-ID snapshot before POST, require the panel's acknowledgement
+  and exactly one new ID, then verify credentials and empty notes on the edit form.
+  The panel renders an empty description as its own "-" placeholder.
+- An uncertain blank-field creation cannot be safely retried by username. Keep it
+  in review and show Contact support, not a second creation button. A proven
+  pre-submit failure can be explicitly requeued with a fresh internal snapshot.
 - Never automatically retry uncertain panel creation. Preserve the review state
   until an explicit recovery action checks the existing account.
 - The current demo uses simulated exchange rates and nonpayable wallets. Its

@@ -9,6 +9,7 @@ import psycopg
 from cryptography.fernet import Fernet
 
 from streambot.config import load_config
+from streambot.bot import TelegramBot
 from streambot.postgres_store import PostgresStore, InstanceLockBusy, _Connection, _state_error
 from streambot.rates import Rates
 from streambot.service import CheckoutService
@@ -139,6 +140,10 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.panel.find_account.return_value = credentials
         self.assertEqual(self.service.retry_trial(self.owner)['status'], 'fulfilled')
         self.panel.create_account.assert_not_called()
+        self.store.update(trial['id'],status='review')
+        self.store.resolve_trial_review(trial['id'],self.owner,clear_credentials=True)
+        self.assertEqual(self.store.trial(self.owner)['status'],'paid')
+        self.assertIsNone(self.store.trial(self.owner)['credentials'])
 
     def test_real_session_lease_handoff_and_old_owner_fencing(self):
         first = PostgresStore(os.environ['DATABASE_URL'], Fernet.generate_key())
@@ -159,3 +164,18 @@ class PostgresIntegrationTests(unittest.TestCase):
         with second.acquire_instance_lock():
             self.assertTrue(second.instance_lock_healthy())
         self.assertFalse(second.instance_lock_healthy())
+
+    def test_generated_trial_notification_with_mixed_metadata(self):
+        self.config['panel_writes']=True
+        self.panel.prepare_generation.return_value=dict(
+            generation_mode='panel',package_id=str(self.config['trial_package_id']),
+            before_ids=[],prepared_at=0,post_attempted=True)
+        self.panel.create_account.return_value=dict(username='generated-test-user',password='generated-test-secret')
+        trial=self.service.create_trial(self.owner)
+        self.service.provision_pending()
+        self.assertEqual(self.store.get(trial['id'])['status'],'fulfilled')
+        self.store.metadata('test:noninteger','not-an-integer')
+        messages=[]
+        bot=TelegramBot(self.service,api=lambda method,payload:messages.append((method,payload)) or {'message_id':1})
+        bot.notify_trials()
+        self.assertTrue(any(method=='sendMessage' and payload['chat_id']==self.owner for method,payload in messages))

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin, urlsplit
 
@@ -77,9 +78,13 @@ class PanelClient:
     @staticmethod
     def _is_login(response):
         soup = BeautifulSoup(response.text, 'html.parser')
-        return bool(soup.select_one('input[name="password"]') and
-                    soup.select_one('input[name="username"]') and
-                    not soup.select_one('select[name="package"]'))
+        for form in soup.find_all('form'):
+            if form.select_one('input[name="password"]') and form.select_one('input[name="username"]'):
+                action = urlsplit(form.get('action','')).path.rstrip('/')
+                page = urlsplit(getattr(response,'url','')).path.rstrip('/')
+                if action in ('','/login') and page not in ('/lines/create/0/line',):
+                    return True
+        return False
 
     def _login(self):
         if self._authenticated:
@@ -191,6 +196,7 @@ class PanelClient:
             raise PanelError('Account username is not an explicit text field')
         result = {'username': username}
         for target, aliases in {
+            'panel_id': ('id',),
             'password': ('password',), 'package_id': ('package_id', 'package'),
             'server_url': ('server_url',), 'expires_at': ('expires_at', 'expire_date', 'exp_date'),
         }.items():
@@ -201,6 +207,12 @@ class PanelClient:
         return result
 
     def find_account(self, username):
+        matches = [account for account in self._account_rows(username) if account['username']==username]
+        if len(matches)>1:
+            raise PanelError('Multiple panel accounts have the same username')
+        return matches[0] if matches else None
+
+    def _account_rows(self, username=''):
         response = self._read('/lines')
         soup = self._soup(response)
         endpoint, method, script = self._ajax(soup)
@@ -227,7 +239,7 @@ class PanelClient:
             params[f'columns[{index}][orderable]'] = 'false'
             params[f'columns[{index}][search][value]'] = ''
             params[f'columns[{index}][search][regex]'] = 'false'
-        total, seen, found = None, 0, None
+        total, seen, accounts = None, 0, []
         fingerprints = set()
         for _ in range(100):
             if method == 'GET':
@@ -264,18 +276,64 @@ class PanelClient:
                 if fingerprint in fingerprints:
                     raise PanelError('Panel listing repeated a record')
                 fingerprints.add(fingerprint)
-                if account['username'] == username:
-                    if found is not None:
-                        raise PanelError('Multiple panel accounts have the same username')
-                    found = account
+                accounts.append(account)
             seen += len(rows)
             if seen == total:
-                return found
+                return accounts
             if not rows or seen > total:
                 raise PanelError('Panel listing is incomplete')
             params['start'] = seen
             params['draw'] += 1
         raise PanelError('Panel listing exceeded safe pagination limit')
+
+    def account_snapshot(self):
+        result = {}
+        for account in self._account_rows():
+            panel_id = account.get('panel_id','')
+            if not re.fullmatch(r'[1-9][0-9]*',panel_id) or panel_id in result:
+                raise PanelError('Panel account IDs are missing or ambiguous')
+            result[panel_id] = account
+        return result
+
+    def prepare_generation(self, package_id):
+        return dict(generation_mode='panel',package_id=str(package_id),
+                    before_ids=sorted(self.account_snapshot()),prepared_at=int(time.time()),
+                    post_attempted=True)
+
+    def generated_account(self, generation):
+        before = set(generation['before_ids'])
+        after = self.account_snapshot()
+        new = set(after)-before
+        if not before.issubset(after) or len(new)!=1:
+            raise PanelError('Generated account cannot be identified unambiguously')
+        panel_id = new.pop()
+        return self.verify_account(after[panel_id],generation['package_id'])
+
+    def verify_account(self, listed, package_id=None):
+        panel_id = listed.get('panel_id','')
+        if not isinstance(panel_id,str) or not re.fullmatch(r'[1-9][0-9]*',panel_id):
+            raise PanelError('Panel account ID is invalid')
+        response = self._read('/lines/edit/'+panel_id)
+        if urlsplit(response.url).path.rstrip('/')!='/lines/edit/'+panel_id:
+            raise PanelError('Generated account details redirected unexpectedly')
+        form = self._soup(response).select_one('form.pro-ajax')
+        if form is None:
+            raise PanelError('Generated account details form is missing')
+        result = {'panel_id':panel_id}
+        if package_id is not None: result['package_id']=str(package_id)
+        for key in ('username','password'):
+            field = form.select_one('input[name="'+key+'"]')
+            value = field.get('value') if field else None
+            if not isinstance(value,str) or not value or value!=listed.get(key):
+                raise PanelError('Generated credentials could not be verified')
+            result[key] = value
+        description = form.select_one('textarea[name="description"]')
+        # The panel renders its own "-" placeholder for an empty description.
+        if description is None or description.get_text().strip() not in ('','-'):
+            raise PanelError('Generated account has unexpected notes')
+        for key in ('expires_at','server_url'):
+            if listed.get(key): result[key]=listed[key]
+        return result
 
     @staticmethod
     def _form_data(form):
@@ -333,17 +391,19 @@ class PanelClient:
                 account.get('password') == password and
                 ('package_id' not in account or account['package_id'] == str(package_id)))
 
-    def create_account(self, package_id, username, password, description):
+    def create_account(self, package_id, username='', password='', description='', *, generation=None):
         if not self.allow_create:
             raise CreationDisabled('Panel account creation is disabled')
-        if not all(isinstance(x, str) and x for x in (str(package_id), username, password, description)):
-            raise PanelError('Explicit package, credentials, and description are required')
-        existing = self.find_account(username)
-        if existing is not None:
-            if self._matches(existing, package_id, username, password):
-                existing.setdefault('package_id', str(package_id))
-                return existing
-            raise PanelError('The panel username already exists with different or unverified credentials')
+        if username!='' or password!='' or description!='':
+            raise PanelError('New panel accounts require empty credentials and description')
+        generation = generation if generation is not None else self.prepare_generation(package_id)
+        if (generation.get('generation_mode')!='panel' or generation.get('package_id')!=str(package_id)
+                or not isinstance(generation.get('before_ids'),list)
+                or any(not isinstance(x,str) or not re.fullmatch(r'[1-9][0-9]*',x) for x in generation['before_ids'])
+                or len(set(generation['before_ids']))!=len(generation['before_ids'])
+                or type(generation.get('prepared_at')) is not int
+                or not -5<=time.time()-generation['prepared_at']<=120):
+            raise PanelError('Panel generation snapshot is invalid or expired')
         soup, form, action = self._create_form()
         if str(package_id) not in {p['id'] for p in self._packages(form)}:
             raise PanelError('Requested package is not available on the panel')
@@ -393,7 +453,9 @@ class PanelClient:
                      'current_bouquets': ','.join(bouquets)})
         # Once this call begins, every failure is uncertain. Never submit it again.
         try:
-            response = self._request('POST', action, data=data, allow_redirects=False)
+            response = self._request('POST', action, data=data, allow_redirects=False,headers={
+                'X-Requested-With':'XMLHttpRequest','Accept':'application/json',
+                'Referer':self._url('/lines/create/0/line')})
             if self._is_login(response):
                 raise PanelError('Session expired during creation')
             location = getattr(response, 'headers', {}).get('Location', '')
@@ -403,13 +465,13 @@ class PanelClient:
                     raise PanelError('Creation redirected to login')
             if response.status_code >= 400:
                 raise PanelError('Creation rejected')
-            result = self.find_account(username)
-            if not self._matches(result, package_id, username, password):
-                raise PanelError('Created credentials could not be verified')
-            # Some panels omit package IDs from account records. In that case
-            # this is the package submitted, rather than independent confirmation.
-            result.setdefault('package_id', str(package_id))
-            return result
+            try: acknowledgement=response.json()
+            except ValueError: raise PanelError('Panel creation acknowledgement is missing') from None
+            redirect=acknowledgement.get('redirect') if isinstance(acknowledgement,dict) else None
+            if (not isinstance(redirect,str) or urlsplit(self._url(redirect)).path.rstrip('/')!='/lines'
+                    or acknowledgement.get('type') not in (None,'success') or acknowledgement.get('errors')):
+                raise PanelError('Panel creation was not acknowledged')
+            return self.generated_account(generation)
         except PanelError as exc:
             status = getattr(exc,'http_status',None)
             reason = 'http_'+str(status) if type(status) is int and 400<=status<=599 else 'confirmation_failed'

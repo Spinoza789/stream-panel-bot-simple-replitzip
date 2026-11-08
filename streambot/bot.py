@@ -172,12 +172,18 @@ class TelegramBot:
             if credentials.get('expires_at'): text+='\nExpires: '+str(credentials['expires_at'])
             return text+'\nKeep these details private.'
         if order['status']=='review':
+            if order.get('account_identity_unknown'):
+                return ('Your panel-generated trial could not be confirmed. Support must identify the account '
+                        'before another creation is attempted. '+self.service.config['support'])
             return ('Your trial could not be confirmed. Tap Check / retry trial to check for an existing account '
                     'before retrying this same request, or use /retrytrial. '+self.service.config['support'])
         return 'Your trial is being prepared. I will send the details here when it is ready. You can also use /trial to check.'
 
     def trial_keyboard(self,order):
         if order['status']=='review':
+            if order.get('account_identity_unknown'):
+                return {'inline_keyboard':[[{'text':'Contact support','callback_data':'menu:contact'}],
+                                           [{'text':'Back to main menu','callback_data':'menu'}]]}
             return {'inline_keyboard':[[{'text':'Check / retry trial','callback_data':'menu:retrytrial'}],
                                        [{'text':'Back to main menu','callback_data':'menu'}]]}
         return self.menu_keyboard()

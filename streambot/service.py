@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_UP, ROUND_HALF_UP
 from .config import display_units, units
 from .store import digest
 from .rates import Rates, RateUnavailable
+from .panel import PanelError, ProvisioningUncertain
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +21,10 @@ class CheckoutService:
     def public(self, order, credentials=True):
         allowed = ('id','kind','plan','asset','amount_units','created_at','expires_at','status','txid','message')
         result = {key: order[key] for key in allowed}
+        stored_credentials=order.get('credentials') or {}
+        if (order['status']=='review' and stored_credentials.get('generation_mode')=='panel'
+                and stored_credentials.get('post_attempted',True)):
+            result['account_identity_unknown']=True
         result['amount'] = display_units(order['amount_units'], order['asset'].get('decimals',0))
         if 'crypto_base_units' in order['plan']:
             result['matching_adjustment']=display_units(int(order['amount_units'])-int(order['plan']['crypto_base_units']),order['asset']['decimals'])
@@ -126,18 +131,30 @@ class CheckoutService:
     def provision_pending(self):
         for order in self.store.select('paid',10):
             if not self.store.claim_provision(order['id']): continue
+            generation = None
             try:
-                credentials = order['credentials'] or {
-                    'username':'st_'+order['id'][:18], 'password':secrets.token_urlsafe(18),
-                    'package_id':str(order['plan']['package_id'])}
-                # Stable credentials are durable before any remote POST. A crash becomes review.
-                self.store.update(order['id'],credentials=credentials)
-                account = self.panel.create_account(str(order['plan']['package_id']),credentials['username'],credentials['password'],'Streamline order '+order['id'])
-                if account.get('username')!=credentials['username'] or account.get('password')!=credentials['password']:
+                credentials = order['credentials']
+                if credentials and credentials.get('generation_mode')=='panel':
+                    raise ProvisioningUncertain('Previous generation requires manual reconciliation')
+                if credentials and credentials.get('username'):
+                    existing = self.panel.find_account(credentials['username'])
+                    if existing is not None:
+                        if (existing.get('username')!=credentials['username'] or existing.get('password')!=credentials['password']
+                                or existing.get('package_id',str(order['plan']['package_id']))!=str(order['plan']['package_id'])):
+                            raise PanelError('Existing account credentials do not match')
+                        self.store.update(order['id'],status='fulfilled',credentials=existing,message='Your account is ready.')
+                        continue
+                generation = self.panel.prepare_generation(str(order['plan']['package_id']))
+                # Persist correlation before POST; never repeat an uncertain blank-field submission.
+                self.store.update(order['id'],credentials=generation)
+                account = self.panel.create_account(str(order['plan']['package_id']),'','','',generation=generation)
+                if not all(isinstance(account.get(key),str) and account[key] for key in ('username','password')):
                     raise ValueError('Panel account confirmation mismatch')
                 self.store.update(order['id'],status='fulfilled',credentials=account,message='Your account is ready.')
             except Exception as exc:
-                from .panel import ProvisioningUncertain
+                if generation and isinstance(exc,PanelError) and not isinstance(exc,ProvisioningUncertain):
+                    generation['post_attempted']=False
+                    self.store.update(order['id'],credentials=generation)
                 reason = exc.reason if isinstance(exc,ProvisioningUncertain) else 'unclassified_error'
                 log.error('Panel provisioning requires review for order %s (%s, %s)',order['id'],type(exc).__name__,reason)
                 self.store.update(order['id'],status='review',message='Your order needs a manual account check. Do not pay again. Contact support with your order ID.')
@@ -179,6 +196,16 @@ class CheckoutService:
         if not order: raise CheckoutError('Start your trial first with /trial.')
         if order['status']!='review': return self.public(order)
         credentials = order['credentials']
+        if credentials and credentials.get('generation_mode')=='panel':
+            if credentials.get('post_attempted',True):
+                raise CheckoutError('This panel-generated trial needs support to identify its account. No second account will be created.')
+            if self.config['mode']=='live' and not self.config['panel_writes']:
+                raise CheckoutError('Panel account creation is disabled. No retry was queued.')
+            retry_after=int(self.store.metadata('trial_recheck_after:'+order['id']) or '0')
+            if time.time()<retry_after or not self.store.limit('trial-recheck:'+str(telegram_id),2,3600):
+                raise CheckoutError('Please wait before checking this trial again.')
+            self.store.resolve_trial_review(order['id'],telegram_id,clear_credentials=True)
+            return self.public(self.store.get(order['id']))
         if not credentials or not credentials.get('username') or not credentials.get('password'):
             raise CheckoutError('This trial needs support to check its stored account details.')
         retry_after = int(self.store.metadata('trial_recheck_after:'+order['id']) or order['created_at']+120)

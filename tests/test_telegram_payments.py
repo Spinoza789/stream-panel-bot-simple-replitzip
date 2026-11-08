@@ -28,9 +28,13 @@ class Panel:
     def __init__(self):
         self.calls = []
 
-    def create_account(self, package_id, username, password, description):
+    def prepare_generation(self, package_id):
+        return dict(generation_mode='panel',package_id=package_id,before_ids=[],prepared_at=0,post_attempted=True)
+
+    def create_account(self, package_id, username='', password='', description='', *, generation=None):
+        if username or password or description: raise AssertionError('Generation fields must be blank')
         self.calls.append(package_id)
-        return dict(username=username, password=password, server_url='test server')
+        return dict(username='generated-user-'+str(len(self.calls)),password='generated-secret-'+str(len(self.calls)), server_url='test server')
 
 
 class Verifier:

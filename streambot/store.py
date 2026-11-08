@@ -171,7 +171,7 @@ class Store:
         with self.connection() as db:
             return db.execute("UPDATE orders SET status='provisioning' WHERE id=? AND status='paid'", (order_id,)).rowcount == 1
 
-    def resolve_trial_review(self, order_id, telegram_id, account=None):
+    def resolve_trial_review(self, order_id, telegram_id, account=None, *, clear_credentials=False):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             if account is not None:
@@ -179,7 +179,8 @@ class Store:
                            "WHERE id=? AND telegram_id=? AND kind='trial' AND status='review'",
                            (self.seal(account),order_id,telegram_id))
             else:
-                changed = db.execute("UPDATE orders SET status='paid',message='Existing trial retry queued after a panel account check.' "
+                reset = "credentials=NULL," if clear_credentials else ""
+                changed = db.execute("UPDATE orders SET "+reset+"status='paid',message='Existing trial retry queued after a panel account check.' "
                                      "WHERE id=? AND telegram_id=? AND kind='trial' AND status='review'",
                                      (order_id,telegram_id)).rowcount
                 if changed:

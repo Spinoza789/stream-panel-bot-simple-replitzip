@@ -5,8 +5,10 @@
 After publishing an updated connector, use `/trial` to view the original request.
 For a request needing review, tap **Check / retry trial** or send `/retrytrial`.
 Recovery checks the panel before requeueing: an existing matching account is
-delivered without creating another; a missing account reuses the original order
-and stored credentials. Lookup failures or credential mismatches remain in review.
+delivered without creating another; a missing legacy account reuses the original
+order but requests fresh panel-generated credentials. Lookup failures or credential
+mismatches remain in review. New uncertain panel-generated accounts require support
+to identify the account; the bot will not blindly repeat their creation.
 Short cooldowns and hourly limits apply. This does not grant a second free trial.
 Actual panel creation still requires a controlled live test; read-only login and
 package inspection alone do not verify delivery.
@@ -105,7 +107,19 @@ bash run.sh orders
 bash run.sh reconcile ORDER_ID
 ```
 
-An ambiguous panel creation result moves the order to `review` and stops automatic retries. Reconcile looks for the stored credentials without submitting creation again. If it confirms a match, the order is fulfilled. Only after verifying absence manually, `bash run.sh retry ORDER_ID --confirm-absent` queues one new attempt after another absence lookup.
+All new paid accounts and trials send empty username, password and description
+fields. The panel generates the credentials. No order-reference or branding notes
+are submitted. Its own "-" display placeholder represents an empty description.
+
+Before POST, an encrypted account-ID snapshot is saved internally. The panel's
+acknowledgement plus exactly one new account ID identifies the result; the bot
+then reads its edit form to verify the generated credentials and empty description.
+Additional concurrent creations, missing IDs, changed listings or failed read-back
+move the order to review without a second POST.
+
+Legacy named accounts can still use `reconcile` and, after a verified absence,
+`retry ORDER_ID --confirm-absent`. An uncertain panel-generated account must be
+identified manually through support; the CLI refuses to guess or recreate it.
 
 The custom Telegram checkout now continues from membership selection to coin/network buttons. It freezes a rate snapshot, displays the USD equivalent and exact crypto amount, then accepts a TXID through the order's button or `/txid ORDER_ID HASH`. The backend verifies chain, recipient, token, amount, time window and confirmations before marking an order paid. Used transactions cannot pay another order. Account delivery and payment status are sent privately to the order owner; `/orders` returns to invoices.
 
