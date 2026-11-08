@@ -199,6 +199,8 @@ class PanelClient:
             'panel_id': ('id',),
             'password': ('password',), 'package_id': ('package_id', 'package'),
             'server_url': ('server_url',), 'expires_at': ('expires_at', 'expire_date', 'exp_date'),
+            'connections': ('max_connections','connections'), 'enabled': ('enabled','is_enabled'),
+            'native_expiry': ('exp_date',),
         }.items():
             for key in aliases:
                 if key in row and isinstance(row[key], (str, int)):
@@ -391,7 +393,7 @@ class PanelClient:
                 account.get('password') == password and
                 ('package_id' not in account or account['package_id'] == str(package_id)))
 
-    def create_account(self, package_id, username='', password='', description='', *, generation=None):
+    def create_account(self, package_id, username='', password='', description='', *, generation=None,bouquet_ids=None):
         if not self.allow_create:
             raise CreationDisabled('Panel account creation is disabled')
         if username!='' or password!='' or description!='':
@@ -433,6 +435,11 @@ class PanelClient:
         if not isinstance(bouquets, list) or not bouquets or any(not isinstance(x, (str, int)) for x in bouquets):
             raise PanelError('Package bouquet selection is unknown')
         bouquets = list(map(str, bouquets))
+        if bouquet_ids is not None:
+            if (not isinstance(bouquet_ids,list) or not bouquet_ids
+                    or any(not isinstance(x,str) or x not in bouquets for x in bouquet_ids)):
+                raise PanelError('Requested trial bouquet profile is not supported')
+            bouquets=list(bouquet_ids)
         if any(not re.fullmatch(r'[0-9]+',item) for item in bouquets):
             raise PanelError('Package bouquet selection is unknown')
         try:

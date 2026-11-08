@@ -33,6 +33,12 @@ Keep its existing structure and stack.
 - Telegram retry warnings include a safe loop stage, database phase and SQLSTATE.
   Never log raw exception messages, update contents, credentials or bot-token URLs.
   Update offsets are persisted before the in-memory polling cursor advances.
+- Reseller accounts, credit reservations and Telegram administration are documented
+  in `RESELLER_SETUP.md`. The existing numeric support administrator is also the
+  financial administrator. Never refund/retry an uncertain provider POST blindly.
+  Apply schema changes to development only; normal Publish handles managed production.
+  Telegram reminder settings and administrator-confirmed, opt-in deal announcements
+  are documented in `TELEGRAM_NOTIFICATIONS.md`; reminders never renew or charge accounts.
 - A trial in review offers Check / retry trial, also available as `/retrytrial`.
   Recovery looks up the existing panel username first and verifies saved credentials.
   Matching accounts are delivered without another creation; confirmed absence queues

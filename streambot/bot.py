@@ -12,10 +12,11 @@ log=logging.getLogger(__name__)
 
 
 class TelegramError(RuntimeError):
-    def __init__(self,code=0,method=''):
+    def __init__(self,code=0,method='',retry_after=300):
         super().__init__('Telegram request failed')
-        self.code=code
+        self.code=code if type(code) is int else 0
         self.method=method
+        self.retry_after=retry_after if type(retry_after) is int and 1<=retry_after<=3600 else 300
 
 
 class TelegramBot:
@@ -26,13 +27,18 @@ class TelegramBot:
         self.support=SupportRelay(self)
         from .telegram_payments import TelegramCheckout
         self.checkout=TelegramCheckout(self)
+        from .reseller_bot import ResellerBot
+        self.reseller=ResellerBot(self)
+        from .notification_bot import NotificationBot
+        self.notifications=NotificationBot(self)
 
     def call(self,method,payload):
         # Do not log URLs: Telegram's bot token is part of the URL.
         try:
             response=self.http.post('https://api.telegram.org/bot'+self.service.config['bot_token']+'/'+method,json=payload,timeout=35)
             result=response.json()
-            if not response.ok or not result.get('ok'): raise TelegramError(result.get('error_code',response.status_code),method)
+            if not response.ok or not result.get('ok'):
+                raise TelegramError(result.get('error_code',response.status_code),method,(result.get('parameters') or {}).get('retry_after',300))
             return result['result']
         except (requests.RequestException,ValueError): raise TelegramError(method=method) from None
 
@@ -54,6 +60,8 @@ class TelegramBot:
             [{'text':'🌐 Membership plans','callback_data':'menu:plans'}],
             [{'text':'🎁 Start 24-hour trial','callback_data':'menu:trial'}],
             [{'text':'💳 My orders','callback_data':'pay:orders'}],
+            [{'text':'Reseller area','callback_data':'rs:home'}],
+            [{'text':'Notifications & deals','callback_data':'nt:settings'}],
             [{'text':'📋 My account','callback_data':'menu:status'},
              {'text':'💬 Contact support','callback_data':'menu:contact'}],
             [{'text':'ℹ️ About','callback_data':'menu:about'},
@@ -204,12 +212,20 @@ class TelegramBot:
             return
         action=query.get('data','')
         allowed={'menu','menu:plans','menu:trial','menu:retrytrial','menu:status','menu:contact','menu:about','menu:privacy'}
-        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:'))):
+        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:','rs:','nt:'))):
             self.answer_callback({'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
             return
         self.answer_callback({'callback_query_id':callback_id})
         try:
+            self.notifications.contact(uid,incoming=True)
+            if self.notifications.callback(uid,action):return
+            if self.reseller.callback(uid,action,sender):return
+            member=self.service.resellers.member(uid)
+            if action=='menu' and member:
+                self.reseller.home(uid);return
+            if member and member['status']!='active' and action.startswith(('pay:','plan:','menu:trial','menu:retrytrial')):
+                raise CheckoutError('Your reseller account must be approved and active for this action.')
             if action.startswith('pay:'):
                 self.checkout.handle_callback(uid,action,callback_id)
                 return
@@ -242,7 +258,8 @@ class TelegramBot:
             else:
                 text=('This assistant stores your Telegram ID, trial history and accounts you choose to link. '
                       'Login details are encrypted. Using contact support shares your identity and messages '
-                      'with support. Use /contact for data requests.')
+                      'with support. Notification preferences and delivery history are stored; deals require opt-in. '
+                      'Use /notifications to manage reminders or /contact for data requests.')
             self.send(uid,text,markup)
         except CheckoutError as exc:
             self.send(uid,str(exc),self.menu_keyboard())
@@ -268,6 +285,9 @@ class TelegramBot:
         text=message.get('text','').strip()
         parts=text.split(maxsplit=1);command=(parts[0].split('@')[0].lower() if parts else '')
         try:
+            self.notifications.contact(uid,incoming=True)
+            if self.notifications.message(uid,command,parts[1] if len(parts)>1 else ''):return
+            if self.reseller.message(message,command,parts[1] if len(parts)>1 else ''):return
             if command=='/retrytrial':
                 self.checkout.clear_session(uid)
                 order=self.service.retry_trial(uid)
@@ -289,7 +309,7 @@ class TelegramBot:
             elif command=='/status':
                 self.send(uid,self.status_text(uid),self.menu_keyboard())
             elif command=='/privacy':
-                self.send(uid,'This assistant stores your numeric Telegram ID, trial history and accounts you choose to link. Login details are encrypted on the server. /contact shares messages and your Telegram identity with support. Reply routing is encrypted; message contents are copied through Telegram. Your ID is retained to enforce one trial per user. Contact support to request access or deletion. '+self.service.config['support'],self.menu_keyboard())
+                self.send(uid,'This assistant stores your numeric Telegram ID, trial history and accounts you choose to link. Login details are encrypted on the server. Notification preferences and delivery history are stored; deals require opt-in. Use /notifications to manage reminders. /contact shares messages and your Telegram identity with support. Reply routing is encrypted; message contents are copied through Telegram. Your ID is retained to enforce one trial per user. Contact support to request access or deletion. '+self.service.config['support'],self.menu_keyboard())
             else:
                 self.send(uid,self.menu_text(),self.menu_keyboard())
         except CheckoutError as exc: self.send(uid,str(exc))
@@ -320,11 +340,12 @@ class TelegramBot:
                     offset=int(self.store.metadata('telegram_offset') or '0')
                 if not registered:
                     stage='registration'
+                    self.notifications.recover()
                     self.api('getMe',{})
-                    self.api('setMyCommands',{'commands':[{'command':c,'description':d} for c,d in [('start','Account assistant'),('trial','One free 24-hour trial'),('status','Linked account status'),('link','Link an existing account'),('contact','Message support'),('support','Message support'),('cancel','Leave support chat'),('myid','Show my Telegram ID'),('privacy','Data information')]]})
+                    self.api('setMyCommands',{'commands':[{'command':c,'description':d} for c,d in [('start','Account assistant'),('trial','One free 24-hour trial'),('status','Linked account status'),('link','Link an existing account'),('notifications','Reminders and optional deals'),('contact','Message support'),('support','Message support'),('cancel','Leave support chat'),('myid','Show my Telegram ID'),('privacy','Data information')]]})
                     registered=True
                 stage='poll'
-                updates=self.api('getUpdates',{'offset':offset,'timeout':25,'allowed_updates':['message','callback_query']})
+                updates=self.api('getUpdates',{'offset':offset,'timeout':0 if self.notifications.backlog else 25,'allowed_updates':['message','callback_query']})
                 for update in updates:
                     if stop.is_set(): break
                     stage='handle_update'
@@ -339,6 +360,11 @@ class TelegramBot:
                 self.notify_trials()
                 stage='payment_notifications'
                 self.checkout.notify()
+                stage='reseller_notifications'
+                self.reseller.notify()
+                stage='expiry_and_deal_notifications'
+                self.notifications.tick()
+                if self.notifications.backlog:stop.wait(1)
             except Exception as exc:
                 if isinstance(exc,TelegramError):
                     log.warning('Telegram assistant paused (%s, Telegram API code %s); retrying.',exc.method or 'request',exc.code)

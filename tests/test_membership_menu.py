@@ -39,7 +39,9 @@ class MembershipMenuTests(unittest.TestCase):
         self.config = load_config(path, env={'APP_MODE': 'demo'})
         self.api = TelegramAPI()
         self.store = MemoryStore()
-        self.bot = TelegramBot(SimpleNamespace(config=self.config, store=self.store), api=self.api)
+        service=SimpleNamespace(config=self.config,store=self.store,
+                                resellers=SimpleNamespace(member=lambda uid:None))
+        self.bot = TelegramBot(service, api=self.api)
 
     def click(self, action, private=True):
         self.api.calls.clear()

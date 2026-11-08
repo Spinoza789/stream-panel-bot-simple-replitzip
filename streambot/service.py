@@ -17,6 +17,8 @@ class CheckoutService:
     def __init__(self, config, store, verifier, panel, rates=None):
         self.config = config; self.store = store; self.verifier = verifier; self.panel = panel
         self.rates = rates or Rates(demo=config['mode']=='demo')
+        from .resellers import Resellers
+        self.resellers=Resellers(self)
 
     def public(self, order, credentials=True):
         allowed = ('id','kind','plan','asset','amount_units','created_at','expires_at','status','txid','message')
@@ -38,6 +40,12 @@ class CheckoutService:
         plan = next((p for p in self.config['plans'] if p['id']==plan_id),None)
         asset = self.config['assets'].get(asset_id)
         if not plan or not asset or not asset.get('enabled',True): raise CheckoutError('Unknown plan or payment network.')
+        return self.quote_plan(plan,asset_id,owner_telegram_id=owner_telegram_id,request_key=request_key)
+
+    def quote_plan(self,plan,asset_id,*,owner_telegram_id=None,request_key=None):
+        self.resellers.guard(owner_telegram_id)
+        asset=self.config['assets'].get(asset_id)
+        if not asset or not asset.get('enabled',True):raise CheckoutError('Unknown payment network.')
         plan = dict(plan)
         if 'gbp_price' in plan:
             try: quote = self.rates.snapshot(asset['symbol'])
@@ -80,6 +88,7 @@ class CheckoutService:
         return self.public(order)
 
     def submit_telegram_tx(self,telegram_id,order_id,txid):
+        self.resellers.guard(telegram_id)
         order=self.store.owned_order(telegram_id,order_id)
         if not order: raise CheckoutError('Order not found.')
         return self._submit_tx(order,txid)
@@ -120,6 +129,7 @@ class CheckoutService:
         self._demo_pay(order)
 
     def demo_pay_telegram(self,telegram_id,order_id):
+        self.resellers.guard(telegram_id)
         if self.config['mode']!='demo': raise CheckoutError('Demo payments are disabled.')
         order=self.store.owned_order(telegram_id,order_id)
         if not order: raise CheckoutError('Order not found.')
@@ -130,6 +140,9 @@ class CheckoutService:
 
     def provision_pending(self):
         for order in self.store.select('paid',10):
+            if order['plan'].get('reseller_purchase'):
+                self.resellers.finance.grant(order['id'])
+                continue
             if not self.store.claim_provision(order['id']): continue
             generation = None
             try:
@@ -160,8 +173,10 @@ class CheckoutService:
                 self.store.update(order['id'],status='review',message='Your order needs a manual account check. Do not pay again. Contact support with your order ID.')
                 if order['kind']=='trial':
                     self.store.metadata('trial_recheck_after:'+order['id'],int(time.time())+120)
+        self.resellers.process()
 
     def recover_interrupted(self):
+        self.resellers.recover()
         for order in self.store.select('provisioning',10000):
             self.store.update(order['id'],status='review',message='An interrupted account request needs a manual check. Do not pay again.')
 
@@ -180,6 +195,9 @@ class CheckoutService:
 
     def create_trial(self, telegram_id):
         if type(telegram_id) is not int or telegram_id<=0: raise CheckoutError('Invalid Telegram user.')
+        self.resellers.guard(telegram_id)
+        if self.resellers.member(telegram_id):
+            raise CheckoutError('Use Reseller area → Create Trial for customer trials. Your reseller limits apply there.')
         plan = dict(id='trial',name='24-hour trial',package_id=str(self.config['trial_package_id']))
         try:
             _, order = self.store.create(plan,dict(id='trial',network='none',decimals=0),0,telegram_id=telegram_id,daily_limit=self.config['trial_daily_limit'])
@@ -192,9 +210,12 @@ class CheckoutService:
 
     def retry_trial(self, telegram_id):
         if type(telegram_id) is not int or telegram_id<=0: raise CheckoutError('Invalid Telegram user.')
+        self.resellers.guard(telegram_id)
         order = self.store.trial(telegram_id)
         if not order: raise CheckoutError('Start your trial first with /trial.')
         if order['status']!='review': return self.public(order)
+        if self.resellers.member(telegram_id):
+            raise CheckoutError('Contact support to recover your existing retail trial. Create customer trials from the reseller menu.')
         credentials = order['credentials']
         if credentials and credentials.get('generation_mode')=='panel':
             if credentials.get('post_attempted',True):

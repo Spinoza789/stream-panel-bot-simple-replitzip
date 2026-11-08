@@ -49,7 +49,7 @@ class TelegramCheckout:
         rows.append([{'text': 'Check payment status', 'callback_data': 'pay:status:' + oid}])
         if order['status'] == 'pending':
             rows.append([{'text': '⬅️ Back to crypto choices',
-                          'callback_data': 'pay:choose:' + order['plan']['id']}])
+                          'callback_data': 'rs:packages' if order['plan'].get('reseller_purchase') else 'pay:choose:' + order['plan']['id']}])
         rows.append([{'text': 'My orders', 'callback_data': 'pay:orders'},
                      {'text': 'Main menu', 'callback_data': 'menu'}])
         return {'inline_keyboard': rows}
@@ -57,6 +57,9 @@ class TelegramCheckout:
     def order_text(self, order):
         plan, asset = order['plan'], order['asset']
         demo = self.service.config['mode'] == 'demo'
+        if order['status']=='fulfilled' and plan.get('reseller_purchase'):
+            purchase=plan['reseller_purchase']['package']
+            return ('DEMO — simulated payment.\n\n' if demo else '')+str(purchase['credits'])+' credits added to your reseller account.\nPurchase: '+order['id']+'\nUse My Balance to see available and reserved credits.'
         if order['status']=='fulfilled':
             text=membership_ready_text(plan,order['credentials'])
             return ('DEMO — DO NOT SEND FUNDS.\n\n' if demo else '')+text

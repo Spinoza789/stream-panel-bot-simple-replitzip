@@ -42,6 +42,10 @@ class Store:
                 CREATE INDEX IF NOT EXISTS limits_bucket ON limits(bucket,at);
                 CREATE INDEX IF NOT EXISTS orders_state ON orders(status,last_check);
             ''')
+            from .reseller_schema import SCHEMA
+            db.executescript(SCHEMA)
+            from .notification_schema import SCHEMA as NOTIFICATION_SCHEMA
+            db.executescript(NOTIFICATION_SCHEMA)
         os.chmod(self.path, 0o600)
 
     @contextlib.contextmanager
@@ -101,6 +105,11 @@ class Store:
         now = int(time.time()); token = secrets.token_urlsafe(32); order_id = secrets.token_hex(12)
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            purchase=plan.get('reseller_purchase')
+            if purchase:
+                reseller=db.execute("SELECT id FROM rs_resellers WHERE id=? AND telegram_id=? AND status='active'",
+                                    (purchase['reseller_id'],owner_telegram_id)).fetchone()
+                if not reseller:raise ValueError('An approved active reseller account is required.')
             if owner_telegram_id is not None:
                 if type(owner_telegram_id) is not int or owner_telegram_id<=0 or telegram_id is not None:
                     raise ValueError('Invalid payment owner.')
@@ -144,6 +153,11 @@ class Store:
                 db.execute('INSERT INTO metadata VALUES(?,?)',('tg_order:'+order_id,'1'))
                 if request_key:
                     db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',(request_key,order_id))
+            if purchase:
+                package=purchase['package']
+                db.execute('INSERT INTO rs_purchases VALUES(?,?,?,?,?,?,?,?,?)',
+                           (order_id,purchase['reseller_id'],json.dumps(package),package['price_pence'],
+                            package['credits'],None,'pending',now,now))
         return token, self.get(order_id)
 
     def update(self, order_id, **values):

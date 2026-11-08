@@ -5,4 +5,6 @@
 - [Panel provisioning contract](panel-provisioning-contract.md) — panel-generated credentials and no notes on all new accounts; follow the actual browser submission format.
 - [Rolling-publish leases](rolling-publish-leases.md) — a healthy previous version can legitimately hold the worker lock while its replacement starts.
 - [Mixed metadata conversions](mixed-metadata-conversions.md) — guard numeric casts inside CASE; a key filter does not guarantee safe PostgreSQL evaluation order.
-- [Trial eligibility](trial-eligibility.md) — only one trial per Telegram user; expiry, username changes and restarts must not reset eligibility.
+- [Trial eligibility](trial-eligibility.md) — retail users get one lifetime trial; approved resellers have separate configurable customer-trial limits.
+- [Reseller duration rule](reseller-duration-rule.md) — user confirmed that the provider's 12-month term means 12 calendar months, not a fixed 365 days.
+- [Reseller credit policy](reseller-credit-policy.md) — credits accumulate without expiry; balance corrections retain financial history.
