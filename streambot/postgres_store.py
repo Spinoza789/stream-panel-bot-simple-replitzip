@@ -1,0 +1,242 @@
+"""Durable Store using a private PostgreSQL schema.
+
+The small connection adapter supports the SQL used by Store, CheckoutService,
+and TelegramBot; it is deliberately not a general SQLite compatibility layer.
+"""
+import contextlib
+import hashlib
+import json
+import re
+import threading
+
+import psycopg
+from psycopg import sql
+from cryptography.fernet import Fernet
+
+from .store import Store
+
+
+class _Row(dict):
+    """Keep SQLite's named and positional row access for existing callers."""
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return tuple(self.values())[key]
+        return super().__getitem__(key)
+
+
+def _row_factory(cursor):
+    names = [column.name for column in cursor.description] if cursor.description else []
+    return lambda values: _Row(zip(names, values))
+
+
+def _placeholders(statement):
+    """Translate parameters without altering question marks in quoted SQL."""
+    result = []
+    quote = None
+    index = 0
+    while index < len(statement):
+        char = statement[index]
+        if quote:
+            result.append(char)
+            if char == quote:
+                if index + 1 < len(statement) and statement[index + 1] == quote:
+                    result.append(quote)
+                    index += 1
+                else:
+                    quote = None
+        elif char in ("'", '"'):
+            quote = char
+            result.append(char)
+        else:
+            result.append('%s' if char == '?' else char)
+        index += 1
+    return ''.join(result)
+
+
+class _Connection:
+    def __init__(self, connection, transaction_lock):
+        self._connection = connection
+        self._transaction_lock = transaction_lock
+
+    def execute(self, statement, parameters=None):
+        if isinstance(statement, str):
+            if statement.strip().rstrip(';').upper() == 'BEGIN IMMEDIATE':
+                # READ COMMITTED takes a fresh snapshot after this lock is held,
+                # matching SQLite's serialized read/check/write transactions.
+                return self._connection.execute('SELECT pg_advisory_xact_lock(%s)', (self._transaction_lock,))
+            statement = statement.replace("json_extract(asset_json,'$.id')", "(asset_json::jsonb ->> 'id')")
+            statement = statement.replace('CAST(value AS INTEGER)', 'CAST(value AS BIGINT)')
+            if re.match(r'^\s*INSERT OR REPLACE INTO metadata\b', statement, re.I):
+                statement = re.sub(r'INSERT OR REPLACE INTO', 'INSERT INTO', statement, count=1, flags=re.I)
+                statement = statement.rstrip().rstrip(';') + ' ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value'
+            elif re.match(r'^\s*INSERT OR IGNORE INTO account_links\b', statement, re.I):
+                statement = re.sub(r'INSERT OR IGNORE INTO', 'INSERT INTO', statement, count=1, flags=re.I)
+                statement = statement.rstrip().rstrip(';') + ' ON CONFLICT DO NOTHING'
+            statement = _placeholders(statement)
+        return self._connection.execute(statement, parameters)
+
+
+class PostgresStore(Store):
+    """Store contract with committed transactions and encrypted credentials.
+
+    No DDL or data writes target public or another application's schema. Use a
+    direct PostgreSQL endpoint for acquire_instance_lock(): that lock needs a
+    dedicated session for the entire application lifetime.
+    """
+
+    def __init__(self, url, key, schema='stream_panel_bot_live'):
+        if not isinstance(schema, str) or not re.fullmatch(r'stream_panel_bot_(?:demo|live|test_[0-9a-f]{1,40})', schema):
+            raise ValueError('Use a dedicated stream_panel_bot_demo, stream_panel_bot_live, or stream_panel_bot_test_<hex> schema.')
+        self.schema = schema
+        self._url = url
+        self.cipher = Fernet(key.encode() if isinstance(key, str) else key)
+        self._slots = threading.BoundedSemaphore(8)
+        self._transaction_lock = self._lock_id('transaction')
+        self._instance_lock = self._lock_id('instance')
+        self._instance_lock_lost = threading.Event()
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            db.execute(sql.SQL('CREATE SCHEMA IF NOT EXISTS {}').format(sql.Identifier(self.schema)))
+            for statement in (
+                '''CREATE TABLE IF NOT EXISTS orders (
+                    id TEXT PRIMARY KEY, token_hash TEXT UNIQUE, kind TEXT NOT NULL,
+                    telegram_id BIGINT UNIQUE, plan_json TEXT NOT NULL, asset_json TEXT NOT NULL,
+                    amount_units TEXT NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending', txid TEXT, message TEXT NOT NULL DEFAULT '',
+                    credentials TEXT, attempts INTEGER NOT NULL DEFAULT 0, last_check BIGINT NOT NULL DEFAULT 0
+                )''',
+                '''CREATE TABLE IF NOT EXISTS payments (
+                    network TEXT NOT NULL, txid TEXT NOT NULL, order_id TEXT NOT NULL UNIQUE REFERENCES orders(id),
+                    proof TEXT NOT NULL, PRIMARY KEY(network,txid)
+                )''',
+                '''CREATE TABLE IF NOT EXISTS links (
+                    code_hash TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id), expires_at BIGINT NOT NULL
+                )''',
+                '''CREATE TABLE IF NOT EXISTS account_links (
+                    telegram_id BIGINT NOT NULL, order_id TEXT NOT NULL REFERENCES orders(id),
+                    PRIMARY KEY(telegram_id,order_id), UNIQUE(order_id)
+                )''',
+                'CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+                'CREATE TABLE IF NOT EXISTS limits (bucket TEXT NOT NULL, at BIGINT NOT NULL)',
+                'CREATE INDEX IF NOT EXISTS limits_bucket ON limits(bucket,at)',
+                'CREATE INDEX IF NOT EXISTS orders_state ON orders(status,last_check,created_at)',
+                "CREATE INDEX IF NOT EXISTS orders_asset_expiry ON orders ((asset_json::jsonb ->> 'id'),expires_at)",
+                'CREATE INDEX IF NOT EXISTS orders_trial_created ON orders(created_at) WHERE kind=\'trial\'',
+                'CREATE INDEX IF NOT EXISTS links_order ON links(order_id)',
+            ):
+                db.execute(statement)
+
+    def _lock_id(self, purpose):
+        value = ('stream-panel-bot:' + purpose + ':' + self.schema).encode()
+        return int.from_bytes(hashlib.sha256(value).digest()[:8], 'big', signed=True)
+
+    def _connect(self, *, autocommit=False):
+        # Explicit options override connection-string options: public is never
+        # searched and stalled queries/transactions have bounded lifetimes.
+        options = (f'-c search_path={self.schema},pg_catalog '
+                   '-c lock_timeout=5000 -c statement_timeout=15000 '
+                   '-c idle_in_transaction_session_timeout=20000 '
+                   r'-c default_transaction_isolation=read\ committed')
+        return psycopg.connect(self._url, connect_timeout=10, options=options,
+                               row_factory=_row_factory, autocommit=autocommit,
+                               keepalives=1, keepalives_idle=2, keepalives_interval=1,
+                               keepalives_count=3, tcp_user_timeout=5000)
+
+    def instance_lock_healthy(self):
+        """False permanently after this Store loses its instance lease.
+
+        A process watchdog must stop all workers when this becomes false. Before
+        acquiring a lease (including schema setup), this returns true.
+        """
+        return not self._instance_lock_lost.is_set()
+
+    def _check_instance_lock(self):
+        if not self.instance_lock_healthy():
+            raise RuntimeError('PostgreSQL instance lock was lost. Restart the application.')
+
+    @contextlib.contextmanager
+    def connection(self):
+        self._check_instance_lock()
+        if not self._slots.acquire(timeout=20):
+            raise RuntimeError('PostgreSQL state connection capacity reached. Please retry.')
+        try:
+            try:
+                self._check_instance_lock()
+                with self._connect() as connection:
+                    self._check_instance_lock()
+                    yield _Connection(connection, self._transaction_lock)
+            except psycopg.Error:
+                # Connection errors can contain addresses or connection details.
+                raise RuntimeError('PostgreSQL state operation failed. Check database availability and permissions.') from None
+        finally:
+            self._slots.release()
+
+    def claim_payment(self, order_id, proof):
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            order = db.execute('SELECT status FROM orders WHERE id=? FOR UPDATE', (order_id,)).fetchone()
+            if not order or order['status'] != 'pending':
+                return False
+            claimed = db.execute(
+                'INSERT INTO payments(network,txid,order_id,proof) VALUES(?,?,?,?) '
+                'ON CONFLICT DO NOTHING RETURNING order_id',
+                (proof['network'], proof['txid'], order_id, json.dumps(proof)),
+            ).fetchone()
+            if not claimed:
+                db.execute("UPDATE orders SET message='This transaction has already been used.',txid=NULL WHERE id=?", (order_id,))
+                return False
+            db.execute("UPDATE orders SET status='paid',txid=?,message='Payment confirmed. Preparing your account.' WHERE id=?", (proof['txid'], order_id))
+            return True
+
+    @contextlib.contextmanager
+    def acquire_instance_lock(self):
+        """Hold a monitored session lease, failing closed if it is ever lost."""
+        self._check_instance_lock()
+        try:
+            # This connection is deliberately outside the bounded request slots
+            # and never carries an open transaction while the server runs.
+            connection = self._connect(autocommit=True)
+        except psycopg.Error:
+            raise RuntimeError('PostgreSQL instance lock failed. Check database availability.') from None
+        stop = threading.Event()
+        heartbeat = None
+        try:
+            try:
+                connection.execute("SET statement_timeout = '5s'")
+                acquired = connection.execute('SELECT pg_try_advisory_lock(%s)', (self._instance_lock,)).fetchone()[0]
+                if not acquired:
+                    raise RuntimeError('Another application instance is already running for this database schema.')
+            except psycopg.Error:
+                raise RuntimeError('PostgreSQL instance lock failed. Check database availability.') from None
+            heartbeat = threading.Thread(target=self._monitor_instance_lock, args=(connection, stop),
+                                         name='postgres-instance-lease', daemon=True)
+            heartbeat.start()
+            yield
+        finally:
+            stop.set()
+            if heartbeat is not None:
+                heartbeat.join(timeout=6)
+            # Closing the dedicated session releases its advisory lock. Avoid a
+            # final query on a lost connection that could mask the body error.
+            with contextlib.suppress(Exception):
+                connection.close()
+
+    def _monitor_instance_lock(self, connection, stop):
+        lock_id = self._instance_lock & ((1 << 64) - 1)
+        try:
+            while not stop.wait(1):
+                held = connection.execute(
+                    "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' "
+                    'AND pid=pg_backend_pid() AND classid::bigint=%s AND objid::bigint=%s '
+                    'AND objsubid=1 AND granted)',
+                    (lock_id >> 32, lock_id & ((1 << 32) - 1)),
+                ).fetchone()[0]
+                if not held:
+                    self._instance_lock_lost.set()
+                    return
+        except Exception:
+            # Never reconnect or reacquire here: another instance may now own
+            # the lease. The main watchdog handles process-wide shutdown.
+            if not stop.is_set():
+                self._instance_lock_lost.set()
