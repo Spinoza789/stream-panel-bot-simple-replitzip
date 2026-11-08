@@ -33,7 +33,7 @@ Save the output as STREAMBOT_CREDENTIAL_KEY, keep a private backup, and never ch
 
 ## Database
 
-Live Replit operation requires PostgreSQL; local SQLite is for the demo only. Add a direct PostgreSQL URL as STREAMBOT_DATABASE_URL. Do not use a transaction pooler: the app holds a session advisory lock to prevent two instances processing the same state. A session-pooled endpoint is also suitable if session semantics are guaranteed. The user needs permission to create its own schema. Demo and live use separate schemas `stream_panel_bot_demo` and `stream_panel_bot_live`. A stable encryption key is required even for a PostgreSQL demo.
+Live Replit operation requires PostgreSQL; local SQLite is for the demo only. Add a direct PostgreSQL URL as STREAMBOT_DATABASE_URL. Do not use a transaction pooler: the app holds a session advisory lock to prevent two instances processing the same state. A session-pooled endpoint is also suitable if session semantics are guaranteed. The standalone PostgreSQL adapter uses separate schemas `stream_panel_bot_demo` and `stream_panel_bot_live`; PostgreSQL needs a stable encryption key. The Replit launcher always isolates demo mode on its existing SQLite database and local demo key, even after live Secrets have been added. Replit-managed production schema changes must be prepared in development and applied through Publish, not startup-time DDL.
 
 Keep the database and encryption key across republishes. Replacing the database loses order history, used-TXID protection and trial limits. Local demo data is not automatically migrated.
 

@@ -29,6 +29,11 @@ def prepare_environment(source):
     except (TypeError,ValueError): raise ValueError('STREAMBOT_PORT must be a port number.') from None
     if not 1<=port<=65535: raise ValueError('STREAMBOT_PORT must be between 1 and 65535.')
     if env['APP_MODE'] not in ('demo','live'): raise ValueError('STREAMBOT_MODE must be demo or live.')
+    if env['APP_MODE']=='demo':
+        # Saving production Secrets must not move demo state to another database
+        # or make existing demo credentials unreadable with a different key.
+        env['STREAMBOT_DATABASE_URL']=''
+        env['CREDENTIAL_KEY']=''
     origin=source.get('STREAMBOT_PUBLIC_URL','').rstrip('/')
     if not origin:
         if env['APP_MODE']=='live': raise ValueError('Set STREAMBOT_PUBLIC_URL to the exact HTTPS checkout origin before live startup.')

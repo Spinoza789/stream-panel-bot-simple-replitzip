@@ -14,7 +14,9 @@ Keep its existing structure and stack.
 - Select a plan and currency, create a quote, then use the demo payment button.
   It generates sample account credentials without contacting blockchains or the panel.
 - Demo state and its generated encryption key are kept in the ignored `data/`
-  directory using SQLite. Do not commit or share that directory.
+  directory using SQLite. Do not commit or share that directory. The Replit demo
+  launcher deliberately ignores the live PostgreSQL URL and live encryption key:
+  adding production Secrets must not move demo data or invalidate its credentials.
 - The Telegram membership menu selects duration, adult/no-adult content, and
   connection count using buttons, with Back navigation. Choose payment crypto
   continues to a crypto/network selection and a wallet invoice with a USD
