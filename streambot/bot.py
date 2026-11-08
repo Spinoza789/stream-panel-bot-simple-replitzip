@@ -59,18 +59,88 @@ class TelegramBot:
                 'Your subscription, trial and account in one place.\n'
                 +starting_price+' · Choose an option below.')
 
-    def plans_text(self):
-        lines=['🌐 MEMBERSHIP PLANS','']
+    def find_plan(self,months,adult,connections=None):
         for plan in self.service.config.get('plans',[]):
-            price=plan.get('gbp_price')
-            amount=' — £'+str(price).rstrip('0').rstrip('.') if price else ''
-            detail=plan.get('detail','')
-            lines.append('• '+plan['name']+amount+(' · '+detail if detail else ''))
-        if self.service.config['mode']=='demo':
-            lines.extend(['','Demo mode only — no real payment or account is created.'])
-        else:
-            lines.extend(['','Open the membership checkout to continue.'])
-        return '\n'.join(lines)
+            if (plan.get('months')==months
+                    and bool(plan.get('adult_content',False))==adult
+                    and (connections is None or plan.get('connections')==connections)):
+                return plan
+        return None
+
+    def duration_keyboard(self):
+        durations=sorted({p['months'] for p in self.service.config.get('plans',[])})
+        buttons=[[{'text':f'📅 {months} month'+('s' if months!=1 else ''),
+                   'callback_data':f'plan:duration:{months}'} for months in durations[i:i+2]]
+                 for i in range(0,len(durations),2)]
+        buttons.append([{'text':'⬅️ Back','callback_data':'menu'}])
+        return {'inline_keyboard':buttons}
+
+    def content_keyboard(self,months):
+        return {'inline_keyboard':[
+            [{'text':'🚫 No adult content','callback_data':f'plan:content:{months}:0'},
+             {'text':'🔞 Adult content','callback_data':f'plan:content:{months}:1'}],
+            [{'text':'⬅️ Back','callback_data':'plan:back:duration'}],
+        ]}
+
+    def connection_keyboard(self,months,adult):
+        buttons=[]
+        for connections in sorted({p['connections'] for p in self.service.config.get('plans',[])
+                                   if p.get('months')==months and bool(p.get('adult_content',False))==adult}):
+            plan=self.find_plan(months,adult,connections)
+            if plan:
+                price='£'+format(float(plan['gbp_price']),'.2f').rstrip('0').rstrip('.')
+                buttons.append({'text':f'{connections} connection'+('s' if connections!=1 else '')+f' · {price}',
+                                'callback_data':f'plan:connections:{months}:{int(adult)}:{connections}'})
+        return {'inline_keyboard':[
+            buttons,
+            [{'text':'⬅️ Back','callback_data':f'plan:back:content:{months}:{int(adult)}'}],
+        ]}
+
+    def selection_keyboard(self,months,adult):
+        return {'inline_keyboard':[
+            [{'text':'⬅️ Back','callback_data':f'plan:back:connections:{months}:{int(adult)}'}],
+            [{'text':'🏠 Main menu','callback_data':'menu'}],
+        ]}
+
+    def membership_step(self,action):
+        parts=action.split(':')
+        if parts==['plan','back','duration']:
+            return '🌐 MEMBERSHIP PLANS\n\nChoose a subscription length:',self.duration_keyboard()
+        if len(parts)>=3 and parts[:2]==['plan','duration']:
+            months=int(parts[2])
+            if months not in {p.get('months') for p in self.service.config.get('plans',[])}:
+                raise CheckoutError('That membership length is unavailable.')
+            return f'📅 {months} month'+('s' if months!=1 else '')+'\n\nInclude adult content?',self.content_keyboard(months)
+        if parts[:2]==['plan','content'] and len(parts)==4:
+            months=int(parts[2]);adult=parts[3]
+            if adult not in ('0','1') or not any(p.get('months')==months and bool(p.get('adult_content',False))==(adult=='1') for p in self.service.config.get('plans',[])):
+                raise CheckoutError('That content option is unavailable.')
+            label='With adult content' if adult=='1' else 'No adult content'
+            return f'{label}\n\nChoose the number of connections:',self.connection_keyboard(months,adult=='1')
+        if parts[:3]==['plan','back','content'] and len(parts)==5:
+            months=int(parts[3]);adult=parts[4]
+            if adult not in ('0','1') or not self.find_plan(months,adult=='1'):
+                raise CheckoutError('That membership option is unavailable.')
+            return f'📅 {months} month'+('s' if months!=1 else '')+'\n\nInclude adult content?',self.content_keyboard(months)
+        if parts[:2]==['plan','connections'] and len(parts)==5:
+            months=int(parts[2]);adult=parts[3];connections=int(parts[4])
+            if adult not in ('0','1'):
+                raise CheckoutError('That content option is unavailable.')
+            plan=self.find_plan(months,adult=='1',connections)
+            if not plan: raise CheckoutError('That membership option is unavailable.')
+            content='With adult content' if adult=='1' else 'No adult content'
+            price='£'+format(float(plan['gbp_price']),'.2f').rstrip('0').rstrip('.')
+            text=('✅ MEMBERSHIP SELECTED\n\n'+plan['name']+' · '+content+' · '
+                  +str(connections)+' connection'+('s' if connections!=1 else '')
+                  +' · '+price+'\n\nSelection only — no order or payment has been created.')
+            return text,self.selection_keyboard(months,adult=='1')
+        if parts[:3]==['plan','back','connections'] and len(parts)==5:
+            months=int(parts[3]);adult=parts[4]
+            if adult not in ('0','1') or not self.find_plan(months,adult=='1'):
+                raise CheckoutError('That membership option is unavailable.')
+            content='With adult content' if adult=='1' else 'No adult content'
+            return f'{content}\n\nChoose the number of connections:',self.connection_keyboard(months,adult=='1')
+        raise CheckoutError('That membership option is unavailable. Start again from Membership plans.')
 
     def status_text(self,uid):
         accounts=self.service.linked_accounts(uid)
@@ -108,16 +178,20 @@ class TelegramBot:
             return
         action=query.get('data','')
         allowed={'menu','menu:plans','menu:trial','menu:status','menu:contact','menu:about','menu:privacy'}
-        if not isinstance(action,str) or action not in allowed:
+        if not isinstance(action,str) or (action not in allowed and not action.startswith('plan:')):
             self.api('answerCallbackQuery',{'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
             return
         self.api('answerCallbackQuery',{'callback_query_id':callback_id})
         try:
-            if action=='menu':
+            markup=self.menu_keyboard()
+            if action.startswith('plan:'):
+                text,markup=self.membership_step(action)
+            elif action=='menu':
                 text=self.menu_text()
             elif action=='menu:plans':
-                text=self.plans_text()
+                text,markup=('🌐 MEMBERSHIP PLANS\n\nChoose a subscription length:',
+                             self.duration_keyboard())
             elif action=='menu:trial':
                 text=self.trial_text(self.service.create_trial(uid))
             elif action=='menu:status':
@@ -214,5 +288,9 @@ class TelegramBot:
                     self.store.metadata('telegram_offset',offset)
                 self.notify_trials()
             except Exception as exc:
+                if isinstance(exc,TelegramError):
+                    log.warning('Telegram assistant paused (Telegram API code %s); retrying.',exc.code)
+                    stop.wait(5)
+                    continue
                 log.warning('Telegram assistant paused (%s); retrying.',type(exc).__name__)
                 stop.wait(5)
