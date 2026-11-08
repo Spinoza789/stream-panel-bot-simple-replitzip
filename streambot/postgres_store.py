@@ -15,6 +15,10 @@ from cryptography.fernet import Fernet
 from .store import Store
 
 
+class InstanceLockBusy(RuntimeError):
+    """A healthy older instance still owns the worker lease."""
+
+
 def _state_error(error, stage):
     """Expose useful failure categories, never the driver's secret-bearing text."""
     state = getattr(error, 'sqlstate', None)
@@ -154,6 +158,7 @@ class PostgresStore(Store):
                     self._check_instance_lock()
                     yield _Connection(connection, self._transaction_lock)
                     stage = 'commit'
+                    self._check_instance_lock()
             except psycopg.Error as exc:
                 # Connection errors can contain addresses or connection details.
                 raise _state_error(exc, stage) from None
@@ -189,12 +194,13 @@ class PostgresStore(Store):
             raise RuntimeError('PostgreSQL instance lock failed. Check database availability.') from None
         stop = threading.Event()
         heartbeat = None
+        acquired = False
         try:
             try:
                 connection.execute("SET statement_timeout = '5s'")
                 acquired = connection.execute('SELECT pg_try_advisory_lock(%s)', (self._instance_lock,)).fetchone()[0]
                 if not acquired:
-                    raise RuntimeError('Another application instance is already running for this database schema.')
+                    raise InstanceLockBusy('Another application instance is already running for this database schema.')
             except psycopg.Error:
                 raise RuntimeError('PostgreSQL instance lock failed. Check database availability.') from None
             heartbeat = threading.Thread(target=self._monitor_instance_lock, args=(connection, stop),
@@ -203,6 +209,8 @@ class PostgresStore(Store):
             yield
         finally:
             stop.set()
+            if acquired:
+                self._instance_lock_lost.set()
             if heartbeat is not None:
                 heartbeat.join(timeout=6)
             # Closing the dedicated session releases its advisory lock. Avoid a

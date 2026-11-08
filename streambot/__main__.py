@@ -5,7 +5,7 @@ import logging
 import os
 import signal
 import threading
-from contextlib import ExitStack,contextmanager
+from contextlib import ExitStack,contextmanager,nullcontext
 from pathlib import Path
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -17,6 +17,7 @@ from .panel import PanelClient
 from .chains import BlockchainVerifier, PaymentPending
 from .web import create_app
 from .bot import TelegramBot
+from .runtime import ExclusiveRuntime
 
 log=logging.getLogger('streambot')
 
@@ -105,24 +106,16 @@ def main():
             print('No matching panel account found. Queued one new creation attempt.')
         else: print('No matching account found. Verify absence in the panel; retry with --confirm-absent only after checking.')
         return
-    instance_lock=service.store.acquire_instance_lock() if config.get('database_url') else file_instance_lock(config['db_path'])
     with ExitStack() as resources:
-        try:resources.enter_context(instance_lock)
-        except RuntimeError as exc:parser.exit(1,str(exc)+'\n')
+        if not config.get('database_url'):
+            try:resources.enter_context(file_instance_lock(config['db_path']))
+            except RuntimeError as exc:parser.exit(1,str(exc)+'\n')
         run_server(service,config,resources)
 
 
 def run_server(service,config,resources):
     stop=threading.Event()
     resources.callback(stop.set)
-    if config.get('database_url'):
-        def monitor_lease():
-            while not stop.wait(1):
-                if not service.store.instance_lock_healthy():
-                    log.critical('Database instance lock lost. Stopping to protect order processing.')
-                    os._exit(1)
-        threading.Thread(target=monitor_lease,daemon=True,name='database-lease-watchdog').start()
-    service.recover_interrupted()
     if config['mode']=='live':
         try:
             available={p['id'] for p in service.panel.inspect_packages()}
@@ -134,17 +127,27 @@ def run_server(service,config,resources):
             try: operation()
             except Exception as exc: log.error('Order worker paused (%s); retrying.',type(exc).__name__)
             stop.wait(2)
-    threading.Thread(target=worker,args=(service.check_payments,),daemon=True,name='payment-worker').start()
-    threading.Thread(target=worker,args=(service.provision_pending,),daemon=True,name='account-worker').start()
-    if config['telegram_enabled'] and config['bot_token']:
-        threading.Thread(target=TelegramBot(service).run,args=(stop,),daemon=True,name='telegram').start()
-    else: log.info('Telegram polling is disabled until TELEGRAM_BOT_TOKEN is configured.')
+    def activate():
+        # Recovery and every business worker stay behind the same exclusive
+        # lease. A standby version must never reconcile the old version's work.
+        service.recover_interrupted()
+        threading.Thread(target=worker,args=(service.check_payments,),daemon=True,name='payment-worker').start()
+        threading.Thread(target=worker,args=(service.provision_pending,),daemon=True,name='account-worker').start()
+        if config['telegram_enabled'] and config['bot_token']:
+            threading.Thread(target=TelegramBot(service).run,args=(stop,),daemon=True,name='telegram').start()
+        else: log.info('Telegram polling is disabled in this instance.')
+    runtime=ExclusiveRuntime(
+        service.store.acquire_instance_lock if config.get('database_url') else nullcontext,
+        service.store.instance_lock_healthy if config.get('database_url') else lambda:True,
+        activate,lambda:os._exit(1),stop=stop)
+    resources.callback(runtime.close)
     def shutdown(*_): stop.set();raise SystemExit(0)
     signal.signal(signal.SIGTERM,shutdown);signal.signal(signal.SIGINT,shutdown)
+    runtime.start()
     host=os.getenv('HOST','127.0.0.1');port=int(os.getenv('PORT','8090'))
     log.info('Checkout listening at http://%s:%s — %s mode',host,port,config['mode'])
-    try: serve(create_app(service),host=host,port=port,threads=8)
-    finally: stop.set()
+    try: serve(create_app(service,ready=runtime.ready),host=host,port=port,threads=8)
+    finally: runtime.close()
 
 
 if __name__=='__main__': main()

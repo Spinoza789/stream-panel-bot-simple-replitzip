@@ -9,7 +9,7 @@ import psycopg
 from cryptography.fernet import Fernet
 
 from streambot.config import load_config
-from streambot.postgres_store import PostgresStore, _Connection, _state_error
+from streambot.postgres_store import PostgresStore, InstanceLockBusy, _Connection, _state_error
 from streambot.rates import Rates
 from streambot.service import CheckoutService
 
@@ -139,3 +139,23 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.panel.find_account.return_value = credentials
         self.assertEqual(self.service.retry_trial(self.owner)['status'], 'fulfilled')
         self.panel.create_account.assert_not_called()
+
+    def test_real_session_lease_handoff_and_old_owner_fencing(self):
+        first = PostgresStore(os.environ['DATABASE_URL'], Fernet.generate_key())
+        second = PostgresStore(os.environ['DATABASE_URL'], Fernet.generate_key())
+        # Use an isolated advisory-lock ID, never the live application lease.
+        lock_id = int(uuid.uuid4().hex[:15],16)
+        first._instance_lock = second._instance_lock = lock_id
+        with first.acquire_instance_lock():
+            with self.assertRaises(InstanceLockBusy):
+                with second.acquire_instance_lock():
+                    self.fail('Two instances acquired the same lease')
+            self.assertTrue(second.instance_lock_healthy())
+            self.assertTrue(first.instance_lock_healthy())
+        self.assertFalse(first.instance_lock_healthy())
+        with self.assertRaisesRegex(RuntimeError,'lock was lost'):
+            with first.connection():
+                self.fail('A retired owner accessed application state')
+        with second.acquire_instance_lock():
+            self.assertTrue(second.instance_lock_healthy())
+        self.assertFalse(second.instance_lock_healthy())

@@ -5,6 +5,10 @@ Keep its existing structure and stack.
 
 - Click **Run** to start the `Start application` workflow, which runs `bash run.sh`.
 - Checkout is at `/`, listening on `0.0.0.0:5000`. Health is at `/healthz`.
+- During a republish, HTTP may start in standby while the old version owns the
+  PostgreSQL worker lease. Standby blocks checkout with 503 and does not recover
+  orders or poll Telegram. `/healthz` reports `status=standby, workers_active=false`
+  until ownership transfers; active operation reports `status=ok, workers_active=true`.
 - Dependencies are installed in Replit's managed Python environment from
   `requirements.txt` before Build. `install.sh` checks imports and compiles Python;
   it must not run pip against the immutable Nix system directory.

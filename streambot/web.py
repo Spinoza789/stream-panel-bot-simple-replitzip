@@ -11,7 +11,7 @@ from .service import CheckoutError
 log = logging.getLogger(__name__)
 
 
-def create_app(service):
+def create_app(service,ready=None):
     app = Flask(__name__,static_folder='static',static_url_path='/static')
     app.config['MAX_CONTENT_LENGTH']=4096
     if service.config.get('trust_proxy'):
@@ -19,6 +19,14 @@ def create_app(service):
 
     @app.before_request
     def protect():
+        if ready is not None and not ready.is_set():
+            # Liveness must succeed during a rolling publish so the platform
+            # can retire the old version and release its worker lease.
+            # No checkout/state access is allowed before leadership is held.
+            if request.method in ('GET','HEAD') and request.path in ('/','/healthz'):
+                return jsonify(status='standby',workers_active=False,mode=service.config['mode'],
+                               message='The service is starting. Please retry shortly.'),200,{'Retry-After':'3'}
+            return jsonify(error='The service is starting. Please retry shortly.'),503,{'Retry-After':'3'}
         if request.path.startswith('/api/'):
             bucket='web:'+str(request.remote_addr)
             if not service.store.limit(bucket,180,60): return jsonify(error='Too many requests. Please wait a minute.'),429
@@ -49,7 +57,7 @@ def create_app(service):
         return html.replace('__STREAMBOT_BASE__',service.config.get('base_path','')),200,{'Content-Type':'text/html; charset=utf-8'}
 
     @app.get('/healthz')
-    def health(): return jsonify(status='ok',mode=service.config['mode'])
+    def health(): return jsonify(status='ok',mode=service.config['mode'],workers_active=True)
 
     @app.get('/api/catalog')
     def catalog():

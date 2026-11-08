@@ -86,6 +86,14 @@ The second command logs in and lists packages without creating an account. It re
 
 Select Reserved VM > Web server with one instance, use build `bash install.sh` and run `bash run.sh`. Replit installs requirements before Build; the build script validates imports instead of running pip into the immutable system directory. Expose only port 5000 as external 80. Review Production secrets and use the verified published HTTPS origin for STREAMBOT_PUBLIC_URL. Production settings are prepared for live mode on the next publish; the preview remains demo with Telegram disabled. The Telegram long poller needs always-on hosting. Do not run Preview and production against the same bot token or live schema. If reusing a bot token with a webhook, remove its webhook before enabling long polling.
 
+Republishing can briefly overlap the old and new versions. The new HTTP server
+starts in standby while waiting for the old version's exclusive worker lease.
+Root and health liveness checks return 200 with `status=standby` and
+`workers_active=false`; checkout APIs return 503 and Telegram/order workers remain
+off. Once the old version stops, the new version acquires ownership, performs
+interrupted-order recovery and starts its workers. Confirm `/healthz` reports
+`status=ok` and `workers_active=true` before declaring the updated bot active.
+
 After every required live setting is present, set STREAMBOT_MODE=live, STREAMBOT_TELEGRAM_ENABLED=true, STREAMBOT_PANEL_WRITE_ENABLED=true and STREAMBOT_LIVE_PAYMENTS_ENABLED=true, then republish. Request one `/trial` and verify its real account in the panel. Test a controlled paid order and verify delivery before accepting customers. Paid provisioning spends panel credits. Live payment/account delivery has not been tested in the delivered package.
 
 ## Support and operations
