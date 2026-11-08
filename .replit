@@ -6,6 +6,7 @@ run = "bash run.sh"
 build = ["bash", "install.sh"]
 run = ["bash", "run.sh"]
 deploymentTarget = "vm"
+ignorePorts = false
 
 [[ports]]
 localPort = 5000
