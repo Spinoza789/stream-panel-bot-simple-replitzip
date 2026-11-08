@@ -33,10 +33,10 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "STREAMBOT_MODE=demo STREAMBOT_TELEGRAM_ENABLED=false STREAMBOT_LIVE_PAYMENTS_ENABLED=false STREAMBOT_PANEL_WRITE_ENABLED=false bash run.sh"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "STREAMBOT_MODE=demo STREAMBOT_TELEGRAM_ENABLED=true STREAMBOT_LIVE_PAYMENTS_ENABLED=false STREAMBOT_PANEL_WRITE_ENABLED=false bash run.sh"
+waitForPort = 5000
