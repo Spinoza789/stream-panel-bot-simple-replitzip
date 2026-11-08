@@ -20,7 +20,8 @@ class TrialRecoveryTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.store = Store(Path(temp.name) / 'test.sqlite3', Fernet.generate_key())
+        self.key=Fernet.generate_key()
+        self.store = Store(Path(temp.name) / 'test.sqlite3', self.key)
         self.config = load_config(env={'APP_MODE': 'demo'})
         self.config.update(mode='live', panel_writes=True)
         self.panel = Mock()
@@ -51,6 +52,53 @@ class TrialRecoveryTests(unittest.TestCase):
         self.panel.create_account.assert_called_once()
         self.assertEqual(self.panel.create_account.call_args.args[1:],('','',''))
         self.assertEqual(self.service.create_trial(42)['id'], self.order['id'])
+
+    def test_lifetime_limit_survives_every_status_expiry_and_store_restart(self):
+        for status in ('paid','provisioning','fulfilled','review','expired','cancelled'):
+            self.store.update(self.order['id'],status=status,credentials=self.credentials)
+            with self.store.connection() as db:
+                db.execute('UPDATE orders SET expires_at=0,created_at=0 WHERE id=?',(self.order['id'],))
+            restarted=CheckoutService(self.config,Store(self.store.path,self.key),Mock(),self.panel)
+            self.assertEqual(restarted.create_trial(42)['id'],self.order['id'])
+        with self.store.connection() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM orders WHERE telegram_id=?',(42,)).fetchone()[0],1)
+        self.panel.create_account.assert_not_called()
+
+    def test_simultaneous_requests_create_and_provision_only_one_trial(self):
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            orders=list(pool.map(self.service.create_trial,[98]*16))
+        self.assertEqual(len({order['id'] for order in orders}),1)
+        self.service.provision_pending()
+        self.service.provision_pending()
+        self.assertEqual(self.service.create_trial(98)['id'],orders[0]['id'])
+        self.panel.create_account.assert_called_once()
+
+    def test_username_changes_commands_and_buttons_do_not_reset_eligibility(self):
+        for index,username in enumerate(('first_name','changed_name')):
+            sender={'id':42,'username':username}
+            self.bot.handle({'message':{'message_id':index+1,'from':sender,
+                                       'chat':{'id':42,'type':'private'},'text':'/trial'}})
+            self.bot.handle({'callback_query':{'id':'trial-'+str(index),'from':sender,'data':'menu:trial',
+                                              'message':{'chat':{'id':42,'type':'private'}}}})
+        self.assertEqual(self.store.trial(42)['id'],self.order['id'])
+        with self.store.connection() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM orders WHERE telegram_id=?',(42,)).fetchone()[0],1)
+        self.panel.prepare_generation.assert_not_called()
+
+    def test_different_telegram_ids_have_independent_one_trial_allowances(self):
+        first=self.service.create_trial(98)
+        second=self.service.create_trial(99)
+        self.assertNotEqual(first['id'],second['id'])
+        self.assertEqual(self.service.create_trial(98)['id'],first['id'])
+        self.assertEqual(self.service.create_trial(99)['id'],second['id'])
+
+    def test_invalid_telegram_id_types_are_rejected_at_both_layers(self):
+        for uid in (True,False,'42',42.0,0,-1):
+            with self.subTest(uid_type=type(uid).__name__):
+                with self.assertRaises(CheckoutError):
+                    self.service.create_trial(uid)
+                with self.assertRaises(ValueError):
+                    self.store.create({'id':'trial'},dict(id='trial'),0,telegram_id=uid)
 
     def test_existing_matching_account_is_delivered_without_creation(self):
         self.panel.find_account.return_value = self.credentials

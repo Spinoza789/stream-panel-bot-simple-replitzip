@@ -179,7 +179,7 @@ class CheckoutService:
         self.provision_pending()
 
     def create_trial(self, telegram_id):
-        if not isinstance(telegram_id,int) or telegram_id<=0: raise CheckoutError('Invalid Telegram user.')
+        if type(telegram_id) is not int or telegram_id<=0: raise CheckoutError('Invalid Telegram user.')
         plan = dict(id='trial',name='24-hour trial',package_id=str(self.config['trial_package_id']))
         try:
             _, order = self.store.create(plan,dict(id='trial',network='none',decimals=0),0,telegram_id=telegram_id,daily_limit=self.config['trial_daily_limit'])

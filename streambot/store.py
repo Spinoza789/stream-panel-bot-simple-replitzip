@@ -96,6 +96,8 @@ class Store:
 
     def create(self, plan, asset, base_units, quantum=1, *, telegram_id=None, daily_limit=20,
                lifetime=3600, max_nonce=999, owner_telegram_id=None, request_key=None):
+        if telegram_id is not None and (type(telegram_id) is not int or telegram_id<=0):
+            raise ValueError('Invalid Telegram user.')
         now = int(time.time()); token = secrets.token_urlsafe(32); order_id = secrets.token_hex(12)
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -122,6 +124,8 @@ class Store:
                                  (owner_telegram_id,now-3600)).fetchone()[0]
                 if count>=10: raise ValueError('Too many quotes. Use My orders to return to an existing quote.')
             if telegram_id is not None:
+                # Lifetime eligibility: an expired, failed or fulfilled trial
+                # still belongs to this Telegram ID. Never reset it here.
                 existing = db.execute('SELECT * FROM orders WHERE telegram_id=?', (telegram_id,)).fetchone()
                 if existing: return None, self.decode(existing)
                 count = db.execute("SELECT count(*) FROM orders WHERE kind='trial' AND created_at>=?", (now-86400,)).fetchone()[0]

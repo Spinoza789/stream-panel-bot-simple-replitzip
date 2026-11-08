@@ -194,3 +194,16 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.assertIsNone(actual[keys[1]])
         self.assertEqual(actual[keys[2]],1794170000)
         self.assertEqual(actual[keys[3]],-1)
+
+    def test_trial_eligibility_does_not_reset_after_expiry_or_status_changes(self):
+        original=self.service.create_trial(self.owner)
+        for status in ('paid','provisioning','review','fulfilled','expired'):
+            self.store.update(original['id'],status=status,credentials={'username':'test-user','password':'test-secret'})
+            with self.store.connection() as db:
+                db.execute('UPDATE orders SET created_at=0,expires_at=0 WHERE id=?',(original['id'],))
+            self.assertEqual(self.service.create_trial(self.owner)['id'],original['id'])
+        with self.store.connection() as db:
+            count=db.execute('SELECT count(*) FROM orders WHERE telegram_id=?',(self.owner,)).fetchone()[0]
+        self.assertEqual(count,1)
+        self.assertNotEqual(self.service.create_trial(self.owner+1)['id'],original['id'])
+        self.panel.create_account.assert_not_called()
