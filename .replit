@@ -65,7 +65,6 @@ STREAMBOT_PUBLIC_URL = "https://panelbot775.replit.app"
 STREAMBOT_TELEGRAM_ENABLED = "true"
 
 [userenv.shared]
-STREAMBOT_WEB_ADMIN_EMAILS = "amoney@live.co.uk"
 
 [nix]
 channel = "stable-25_05"

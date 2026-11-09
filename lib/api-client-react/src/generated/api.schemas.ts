@@ -23,9 +23,9 @@ export interface AuthUserEnvelope {
 
 export interface OwnerClaim {
   /**
-     * @minLength 20
-     * @maxLength 200
-     */
+   * @minLength 20
+   * @maxLength 200
+   */
   code: string;
 }
 
@@ -85,7 +85,9 @@ export interface AdminStatus {
   database: string;
 }
 
-export interface RecoveryPreviewInput { [key: string]: unknown }
+export interface RecoveryPreviewInput {
+  [key: string]: unknown;
+}
 
 export interface RecoveryDraft {
   nonce: string;
@@ -112,23 +114,22 @@ export interface HealthStatus {
 }
 
 export type BeginBrowserLoginParams = {
-returnTo?: string;
+  returnTo?: string;
 };
 
 export type LogoutBrowserSessionParams = {
-returnTo?: string;
+  returnTo?: string;
 };
 
 export type ListAdminOrdersParams = {
-/**
- * @maxLength 80
- */
-q?: string;
-status?: string;
-kind?: string;
-/**
- * @minimum 1
- */
-page?: number;
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  status?: string;
+  kind?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
 };
-

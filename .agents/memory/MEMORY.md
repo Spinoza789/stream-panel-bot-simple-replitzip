@@ -8,3 +8,4 @@
 - [Trial eligibility](trial-eligibility.md) — retail users get one lifetime trial; approved resellers have separate configurable customer-trial limits.
 - [Reseller duration rule](reseller-duration-rule.md) — user confirmed that the provider's 12-month term means 12 calendar months, not a fixed 365 days.
 - [Reseller credit policy](reseller-credit-policy.md) — credits accumulate without expiry; balance corrections retain financial history.
+- [OpenAPI formatting](openapi-formatting.md) — run an explicit formatter after generation; the optional generator setting did not format output here.

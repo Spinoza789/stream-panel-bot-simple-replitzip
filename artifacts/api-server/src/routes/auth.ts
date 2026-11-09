@@ -17,6 +17,7 @@ function origin(): string {
   return url.origin;
 }
 export function safeReturnTo(value: unknown): string {
+  if (value === "/admin") return "/admin/";
   return typeof value === "string" && /^\/admin(?:\/[a-zA-Z0-9/_-]*)?$/.test(value) ? value : "/admin/";
 }
 function cookie(res: Response, name: string, value: string, maxAge: number) {

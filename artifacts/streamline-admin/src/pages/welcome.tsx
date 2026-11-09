@@ -33,7 +33,7 @@ export default function Welcome() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <button onClick={login} className="group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5" data-testid="button-login-hero">
-              Sign in with Replit <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              Sign in <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">Signing in does not grant access by itself. The desk opens only for the owner's Replit account, set up once on the server.</p>

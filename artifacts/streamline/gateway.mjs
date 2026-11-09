@@ -26,6 +26,12 @@ function forwardedHeaders(headers) {
 }
 
 const server = http.createServer((request, response) => {
+  const url = new URL(request.url, 'http://gateway.invalid');
+  if (url.pathname === '/admin' && ['GET', 'HEAD'].includes(request.method)) {
+    response.writeHead(308, { Location: '/admin/' + url.search, 'Cache-Control': 'no-store' });
+    response.end();
+    return;
+  }
   const upstream = http.request({
     hostname: '127.0.0.1',
     port: upstreamPort,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AuthUser } from '@workspace/api-client-react';
+import { canonicalBasePath } from './base-path';
 
 export type { AuthUser };
 
@@ -12,7 +13,7 @@ interface AuthState {
 }
 
 function getBasePath() {
-  return import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
+  return canonicalBasePath(import.meta.env.BASE_URL);
 }
 
 export function useAuth(): AuthState {

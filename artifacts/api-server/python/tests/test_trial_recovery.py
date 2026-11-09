@@ -144,9 +144,19 @@ class TrialRecoveryTests(unittest.TestCase):
         self.panel.find_account.assert_called_once()
 
     def test_concurrent_checks_cannot_queue_two_creations(self):
+        def check():
+            try:
+                return self.service.retry_trial(42)
+            except CheckoutError as error:
+                # The winner can atomically save its cooldown before the other
+                # request checks it. That safely rejected loser is expected.
+                if not str(error).startswith('Please wait before checking this trial again'):
+                    raise
+                return None
         with ThreadPoolExecutor(max_workers=2) as pool:
-            results = list(pool.map(self.service.retry_trial, [42, 42]))
-        self.assertTrue(all(result['id'] == self.order['id'] for result in results))
+            results = list(pool.map(lambda _: check(), [42, 42]))
+        self.assertTrue(any(results))
+        self.assertTrue(all(result['id'] == self.order['id'] for result in results if result))
         self.service.provision_pending()
         self.panel.create_account.assert_called_once()
 
