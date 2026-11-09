@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="streambot-base-path" content="__STREAMBOT_BASE__"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark"><meta name="description" content="Choose a subscription, pay securely on-chain, and receive your account details.">
+  <title>Streamline · Member access</title><link rel="stylesheet" href="__STREAMBOT_BASE__/static/style.css"><script src="__STREAMBOT_BASE__/static/app.js" defer></script>
+</head>
+<body>
+  <div class="demo-banner" id="demo-banner" hidden>LOCAL DEMO <span>Explore checkout with simulated payments. Do not send funds.</span></div>
+  <header class="masthead"><a class="wordmark" href="__STREAMBOT_BASE__/" aria-label="Home"><span class="logo" aria-hidden="true">↗</span><span data-brand>Streamline</span></a><span class="header-label">MEMBER ACCESS</span><button class="text-button" id="support-button">Need a hand? <span aria-hidden="true">↗</span></button></header>
+  <main>
+    <section class="intro"><span class="eyebrow"><span class="dot"></span> YOUR ACCESS, SIMPLIFIED</span><h1>Make yourself<br><em>at home.</em></h1><p>Choose your subscription. Pay on your preferred network.<br class="desktop"> Your account details, ready in one place.</p></section>
+    <div id="error" class="notice error" role="alert" hidden></div>
+    <div id="loading" class="notice" role="status">Loading subscriptions…</div>
+    <div class="workspace" id="workspace" hidden>
+      <section class="configuration" id="configuration" aria-labelledby="plan-heading">
+        <div class="section-heading"><span class="step">01</span><div><h2 id="plan-heading">A plan that fits.</h2><p>Pick a duration and your simultaneous connections.</p></div></div>
+        <fieldset><legend>SUBSCRIPTION LENGTH</legend><div class="duration-grid" id="duration-options"></div></fieldset>
+        <fieldset><legend>SIMULTANEOUS CONNECTIONS</legend><div class="connection-options" id="connection-options"></div><p class="fineprint">Connections are the number of devices you can use at the same time.</p></fieldset>
+        <div class="section-heading payment-heading"><span class="step">02</span><div><h2>Your payment, your choice.</h2><p>Choose the asset and network you will send from.</p></div></div>
+        <label class="select-label" for="asset">PAYMENT ASSET &amp; NETWORK</label><select id="asset"></select>
+        <div class="network-note"><span aria-hidden="true">↳</span><p>Network matters. Send only the selected asset on the selected network. Network fees are paid separately.</p></div>
+        <div class="included"><span>ONE-TIME PAYMENT</span><span>NO AUTOMATIC RENEWAL</span><span>NO ADULT CONTENT</span></div>
+      </section>
+      <aside class="summary" id="summary" aria-labelledby="summary-heading">
+        <div class="summary-top"><span class="eyebrow">YOUR SELECTION</span><span class="mini-mark" aria-hidden="true">↗</span></div>
+        <h2 id="summary-heading">1 month</h2><p id="summary-detail">1 connection</p>
+        <div class="price"><span id="price">£10</span><span>one-time</span></div>
+        <dl><div><dt>Content</dt><dd>No adult content</dd></div><div><dt>Payment</dt><dd id="summary-asset">USDC · Ethereum</dd></div><div><dt>Delivery</dt><dd>After payment confirmation</dd></div></dl>
+        <button class="primary" id="create-order">Continue to payment <span aria-hidden="true">↗</span></button>
+        <p class="fineprint">The next step locks your crypto amount for this quote. Save your private order link to return later.</p>
+      </aside>
+    </div>
+    <section class="invoice" id="invoice" hidden aria-labelledby="invoice-heading">
+      <div class="invoice-title"><div><span class="eyebrow" id="order-label">YOUR ORDER</span><h2 id="invoice-heading">One last step.</h2><p id="invoice-plan"></p></div><span class="status-chip" id="status-chip">AWAITING PAYMENT</span></div>
+      <div class="invoice-grid"><div class="transfer-details">
+        <div class="network-tag" id="invoice-network"></div><p class="select-label">SEND THIS EXACT AMOUNT</p><div class="crypto-amount" id="invoice-amount"></div><p class="fineprint" id="invoice-quote-details"></p><button class="text-button" id="copy-amount">Copy amount <span aria-hidden="true">↗</span></button>
+        <div class="address-box"><img id="qr" alt="Receiving wallet address QR code" width="112" height="112"><div><p class="select-label">RECEIVING ADDRESS</p><code id="wallet"></code><button class="text-button" id="copy-wallet">Copy address <span aria-hidden="true">↗</span></button></div></div>
+        <p class="network-note" id="payment-warning">Send the exact amount shown. The small identifying suffix links this payment to your order. The QR code contains the address only.</p>
+      </div><div class="verification">
+        <div class="expiry"><span>Quote valid for</span><strong id="countdown">—</strong></div>
+        <div class="notice" id="order-message" role="status" aria-live="polite"></div>
+        <form id="verify-form"><label class="select-label" for="txid">TRANSACTION ID / SIGNATURE</label><input id="txid" name="txid" autocomplete="off" spellcheck="false" placeholder="Paste your transaction ID" required minlength="32" maxlength="100"><button class="primary" type="submit" id="verify-button">Verify my payment <span aria-hidden="true">↗</span></button></form>
+        <button class="secondary" id="demo-pay" hidden>Simulate a successful payment</button>
+        <p class="fineprint">A TXID is the transaction identifier from your wallet. Confirmation can take several minutes. You only need to submit it once.</p>
+        <button class="save-link" id="save-link">↗ Copy private order recovery link</button><p class="fineprint">This link gives access to your login details. Keep it private.</p>
+      </div></div>
+      <div class="account" id="account" hidden><span class="eyebrow">YOU’RE ALL SET</span><h2>Welcome in.</h2><p>Your account details are ready. Keep them somewhere safe.</p><div class="credential-grid"><div><label for="account-username">USERNAME</label><input id="account-username" readonly></div><div><label for="account-password">PASSWORD</label><div class="password-field"><input id="account-password" type="password" readonly><button class="text-button" id="reveal-password">Show</button></div></div></div><p id="account-server"></p><p id="account-expiry"></p><button class="secondary" id="copy-credentials">Copy login details</button> <button class="save-link" id="save-account-link">Copy private order recovery link ↗</button><div class="link-assistant"><h3>Keep track in Telegram</h3><p>Already using our account assistant? Create a one-time linking code, then send <code>/link CODE</code> in your private chat with it.</p><button class="text-button" id="link-account">Generate linking code ↗</button><p id="link-code" role="status"></p></div></div>
+      <button class="text-button new-order" id="new-order">← Choose another subscription</button>
+    </section>
+    <section class="how-it-works"><span class="eyebrow">A SIMPLE HANDOVER</span><div><article><span>01 / CHOOSE</span><h3>Find your fit.</h3><p>Your duration. Your connections. One clear price.</p></article><article><span>02 / TRANSFER</span><h3>Pay on-chain.</h3><p>Send the quoted amount, then submit your transaction ID here.</p></article><article><span>03 / CONNECT</span><h3>You’re ready.</h3><p>Once your payment is confirmed, your account is prepared automatically.</p></article></div></section>
+  </main>
+  <footer><span data-brand>Streamline</span><span>YOUR PRIVATE ACCOUNT SPACE</span><button class="text-button" id="privacy-button">Privacy &amp; help ↗</button></footer>
+  <dialog id="support-dialog"><button class="dialog-close" id="close-dialog" aria-label="Close">×</button><span class="eyebrow">HERE TO HELP</span><h2>Let’s sort it out.</h2><p id="support-text"></p><a class="secondary" id="support-telegram" href="https://t.me/InterRamit" target="_blank" rel="noopener noreferrer">Message @InterRamit on Telegram ↗</a><p class="fineprint">For an order query, include your order ID. Never share your private recovery link, password, wallet seed phrase or private key.</p><p class="fineprint">We store order details and encrypted account credentials to deliver your service. Telegram linking is optional. Contact support for data access or deletion requests.</p></dialog>
+</body></html>

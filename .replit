@@ -1,23 +1,12 @@
-entrypoint = "replit_start.py"
-modules = ["python-3.12", "postgresql-16"]
-run = "bash run.sh"
+modules = ["nodejs-24", "python-3.12"]
 
 [deployment]
-build = ["bash", "install.sh"]
-run = ["bash", "run.sh"]
+router = "application"
 deploymentTarget = "vm"
-ignorePorts = false
 
-[[ports]]
-localPort = 5000
-externalPort = 80
-
-[packager.features]
-guessImports = false
-
-[nix]
-channel = "stable-25_05"
-packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "postgresql", "rustc"]
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
 
 [workflows]
 runButton = "Project"
@@ -29,19 +18,41 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start application"
+args = "streamline-tests"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "streamline-gateway"
 
 [[workflows.workflow]]
-name = "Start application"
+name = "streamline-tests"
 author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "STREAMBOT_MODE=demo STREAMBOT_TELEGRAM_ENABLED=false STREAMBOT_LIVE_PAYMENTS_ENABLED=false STREAMBOT_PANEL_WRITE_ENABLED=false bash run.sh"
-waitForPort = 5000
+args = "cd artifacts/api-server/python && env -u STREAMBOT_TEST_POSTGRES python3 -m unittest discover -s tests -v"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "streamline-gateway"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --check artifacts/streamline/gateway.mjs && bash -n artifacts/api-server/start-python.sh scripts/restore-demo-state.sh scripts/post-merge.sh && git diff --check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
 
 [userenv]
 
@@ -52,3 +63,7 @@ STREAMBOT_MODE = "live"
 STREAMBOT_PANEL_WRITE_ENABLED = "true"
 STREAMBOT_PUBLIC_URL = "https://panelbot775.replit.app"
 STREAMBOT_TELEGRAM_ENABLED = "true"
+
+[nix]
+channel = "stable-25_05"
+packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "postgresql", "rustc"]

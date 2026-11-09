@@ -1,0 +1,212 @@
+Implement a credit-based reseller system in our existing Telegram bot and Replit application. Use our application database to store reseller balances, purchases, subscriptions and credit transactions.
+
+**1. Credit packages**
+
+Configure these packages:
+
+- £100 = 34 credits
+- £200 = 75 credits
+- £300 = 129 credits
+- £400 = 192 credits
+
+Credits are whole numbers. Store money in integer pence.
+
+Credits remain in the reseller’s account until used. Package purchases add to the existing balance.
+
+Credit the account only after payment is verified through the payment provider, or an authorised administrator manually confirms payment. A reseller pressing “I’ve paid” must not add credits automatically.
+
+Process each payment once, even if payment notifications are repeated.
+
+**2. Subscription credit costs**
+
+Use this credit-cost table for both new subscriptions and extensions:
+
+Duration | 1 connection | 2 connections | 3 connections
+1 month | 1 credit | 2 credits | 3 credits
+3 months | 3 credits | 4 credits | 5 credits
+6 months | 6 credits | 7 credits | 8 credits
+9 months | 9 credits | 10 credits | 11 credits
+12 months | 12 credits | 15 credits | 20 credits
+
+Adult and no-adult options cost the same.
+
+Keep package prices and subscription credit costs configurable by administrators. Record the actual price and credit cost used on each transaction so future pricing changes do not alter historical records.
+
+**3. Reseller accounts and access**
+
+Identify each reseller by their unique Telegram user ID. Do not use Telegram usernames as the account identifier because usernames can change.
+
+Administrators approve reseller accounts and can suspend them.
+
+Resellers can access only their own balance, customers, subscriptions, trials and transaction history. Enforce this on the server for every action, including Telegram button callbacks.
+
+Suspended resellers cannot purchase through the bot, create subscriptions, create trials or extend subscriptions.
+
+**4. Telegram bot menu**
+
+Provide these menu options:
+
+- My Balance
+- Buy Credits
+- Create Subscription
+- Create Trial
+- My Subscriptions
+- Transaction History
+- Help / Contact
+
+My Balance should display available credits and any credits reserved for pending requests.
+
+Buy Credits should show the four packages and the payment process.
+
+**5. Creating subscriptions**
+
+The reseller selects:
+
+1. Subscription duration.
+2. Number of connections: 1, 2 or 3.
+3. Adult or no-adult content.
+4. An optional customer name or reference.
+
+Before creation, show a confirmation containing:
+
+- Selected subscription details.
+- Credit cost.
+- Current available balance.
+- Balance remaining after purchase.
+
+Reject requests with insufficient available credits.
+
+When confirmed:
+
+- Create a uniquely identified request.
+- Reserve the required credits atomically in the database.
+- Create the subscription through our subscription provider integration.
+- On confirmed success, finalise the credit deduction and save the provider subscription ID, login/access details, connection count, content option, start date and expiry date.
+- Return the subscription details and remaining balance to the reseller.
+- On a definite failure, release the reserved credits and show a useful error.
+
+If the provider times out or the result is uncertain, keep the request pending and reconcile its status before retrying or refunding. Do not create a second subscription accidentally.
+
+The database balance and provider subscription must stay consistent. Repeated taps, retries or simultaneous requests must not cause duplicate subscriptions or overspending.
+
+**6. Free 24-hour trials**
+
+Approved resellers can create free 24-hour trials without spending credits.
+
+Allow adult or no-adult selection. Use one connection per trial by default, subject to provider support.
+
+Save each trial against the reseller with:
+
+- Customer reference.
+- Provider trial ID.
+- Content option.
+- Start date.
+- Expiry date.
+- Status.
+- Access details needed by the customer.
+
+Display the provider-confirmed expiry time and clearly label it as a trial.
+
+Make trial creation limits configurable by administrators, including daily limits and the maximum number of active trials. Enforce these limits on the server.
+
+Expired trials must remain in history. If supported by the provider, allow a trial to be converted into a paid subscription using the standard credit costs.
+
+**7. Viewing subscriptions**
+
+My Subscriptions should include all subscriptions and trials belonging to the reseller.
+
+Provide filters for:
+
+- Active subscriptions.
+- Expiring within 7 days.
+- Expired subscriptions.
+- Trials.
+- All records.
+
+Add pagination and search by customer reference, username or subscription ID.
+
+Each subscription detail screen should show:
+
+- Customer reference.
+- Subscription ID or username.
+- Trial or paid subscription.
+- Number of connections.
+- Adult or no-adult option.
+- Current status.
+- Start date.
+- Expiry date.
+- Access details, where needed.
+- Extend Subscription button for eligible records.
+
+Use provider-confirmed status and expiry information. Refresh it when viewing or extending a subscription, with a clear message if the provider cannot be reached.
+
+**8. Extending subscriptions**
+
+The reseller selects an existing subscription and an extension duration.
+
+For the first version, preserve the subscription’s current connection count and adult/no-adult setting. Changes to these require a separate supported workflow.
+
+Calculate the extension cost using the standard credit table.
+
+Show the duration, credit cost and available balance before asking for confirmation.
+
+For active subscriptions, add the purchased duration to the existing expiry date. For expired subscriptions, start the extension from the current time, subject to the provider’s renewal rules. Show the actual provider-confirmed expiry after completion.
+
+Use the same credit reservation, duplicate-request protection and failure handling as subscription creation.
+
+Record every extension separately so the reseller can view its date, duration and credit cost.
+
+**9. Database records**
+
+Use the existing database and framework where practical. Create or adapt records for:
+
+- Resellers: internal ID, unique Telegram user ID, username, account status and timestamps.
+- Credit packages: price in pence, credits granted and active status.
+- Purchases: reseller, package snapshot, amount, credits, payment reference, payment status and timestamps.
+- Credit accounts: total balance and reserved credits, with database constraints preventing negative available balances.
+- Credit ledger: reseller, credit movement, reason, related purchase or subscription operation, administrator where applicable and timestamp.
+- Subscription operations: unique request key, reseller, operation type, credit cost, reservation status, provider reference, processing status and error details.
+- Subscriptions: reseller, customer reference, provider ID, trial/paid type, connections, content option, start, expiry and status.
+- Extensions: subscription, reseller, operation reference, duration, credits charged, previous expiry and confirmed new expiry.
+- Trial settings: configurable limits and provider-supported options.
+- Admin audit log: account approvals, suspensions, credit adjustments and configuration changes.
+
+Use appropriate unique constraints for payment references and operation identifiers.
+
+Keep a durable audit trail. Correct balances with recorded adjustments rather than deleting financial history.
+
+**10. Administration**
+
+Administrators need to be able to:
+
+- Approve or suspend resellers.
+- View reseller balances and histories.
+- Verify manual payments.
+- Add or remove credits with a mandatory reason.
+- Manage credit packages and subscription costs.
+- Configure trial limits.
+- View failed or pending operations.
+- Reconcile uncertain provider requests.
+
+Prevent credit removals from spending credits already reserved for pending operations.
+
+Keep provider credentials and bot tokens on the server. Protect stored customer access credentials and exclude secrets from logs.
+
+**11. Provider integration**
+
+Connect the bot to our actual subscription provider API for creating subscriptions, trials and extensions.
+
+First inspect the existing application and provider integration. Reuse supported functionality.
+
+If provider credentials, API documentation or required capabilities are missing, identify exactly what is needed. Do not report successful activation or deduct credits permanently for a simulated subscription.
+
+Confirm the provider’s duration rules, especially whether “12 months” is implemented as 365 days or calendar months. Display expiry dates consistently using Europe/London time.
+
+**12. Acceptance checks**
+
+Verify that:
+
+- Each verified package purchase grants exactly 34, 75, 129 or 192 credits.
+- Duplicate payment notifications never grant credits twice.
+- Buying another package adds to the existing balance.
+- A

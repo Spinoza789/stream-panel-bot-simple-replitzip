@@ -1,0 +1,10 @@
+- [Membership pricing](membership-pricing.md) — adult and no-adult memberships share customer prices but use separate verified panel packages.
+- [Telegram callback expiry](telegram-callback-expiry.md) — expired click acknowledgements must not block newer messages after restarts.
+- [Custom crypto checkout](custom-crypto-checkout.md) — user explicitly requested a wallet-and-TXID backend rather than Telegram Stars.
+- [Production database readiness](production-database-readiness.md) — development connectivity and a present database URL do not prove a live database is provisioned.
+- [Panel provisioning contract](panel-provisioning-contract.md) — panel-generated credentials and no notes on all new accounts; follow the actual browser submission format.
+- [Rolling-publish leases](rolling-publish-leases.md) — a healthy previous version can legitimately hold the worker lock while its replacement starts.
+- [Mixed metadata conversions](mixed-metadata-conversions.md) — guard numeric casts inside CASE; a key filter does not guarantee safe PostgreSQL evaluation order.
+- [Trial eligibility](trial-eligibility.md) — retail users get one lifetime trial; approved resellers have separate configurable customer-trial limits.
+- [Reseller duration rule](reseller-duration-rule.md) — user confirmed that the provider's 12-month term means 12 calendar months, not a fixed 365 days.
+- [Reseller credit policy](reseller-credit-policy.md) — credits accumulate without expiry; balance corrections retain financial history.

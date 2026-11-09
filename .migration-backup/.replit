@@ -1,0 +1,54 @@
+entrypoint = "replit_start.py"
+modules = ["python-3.12", "postgresql-16"]
+run = "bash run.sh"
+
+[deployment]
+build = ["bash", "install.sh"]
+run = ["bash", "run.sh"]
+deploymentTarget = "vm"
+ignorePorts = false
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[packager.features]
+guessImports = false
+
+[nix]
+channel = "stable-25_05"
+packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "postgresql", "rustc"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "STREAMBOT_MODE=demo STREAMBOT_TELEGRAM_ENABLED=false STREAMBOT_LIVE_PAYMENTS_ENABLED=false STREAMBOT_PANEL_WRITE_ENABLED=false bash run.sh"
+waitForPort = 5000
+
+[userenv]
+
+[userenv.production]
+STREAMBOT_DATABASE_SOURCE = "managed"
+STREAMBOT_LIVE_PAYMENTS_ENABLED = "true"
+STREAMBOT_MODE = "live"
+STREAMBOT_PANEL_WRITE_ENABLED = "true"
+STREAMBOT_PUBLIC_URL = "https://panelbot775.replit.app"
+STREAMBOT_TELEGRAM_ENABLED = "true"

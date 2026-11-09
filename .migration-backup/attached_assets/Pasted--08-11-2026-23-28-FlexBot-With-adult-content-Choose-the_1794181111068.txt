@@ -1,0 +1,260 @@
+[08/11/2026 23:28] FlexBot: With adult content
+
+Choose the number of connections:
+[08/11/2026 23:28] FlexBot: ✅ MEMBERSHIP SELECTED
+
+1 month · With adult content · 1 connection · £10
+
+Selection only — no order or payment has been created.
+[08/11/2026 23:28] FlexBot: 1 month · 1 connection · Adult content
+
+Choose a cryptocurrency AND network. The next step locks a quote and displays its USD equivalent.
+Existing invoices remain in My orders. Never pay two invoices for the same purchase.
+[08/11/2026 23:28] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+[08/11/2026 23:31] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+[08/11/2026 23:31] FlexBot: Order: 58a1bb71ae731515258bcfae
+Paste ONLY the transaction hash/TXID, not a link. A submitted hash is not proof of payment; the backend verifies it. Send /cancel to stop TXID entry.
+[08/11/2026 23:32] ItsAllRelativity in reply to FlexBot:
+> ‎⁨Order: 58a1bb71ae731515258bcfae Paste ONLY the transaction...
+0xd43dfc05345bc00f9e9faf9e7dfa041287dce73be84838e77cbadcadc1ada7ba
+[08/11/2026 23:32] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Checking the blockchain. Confirmation can take several minutes.
+[08/11/2026 23:32] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Waiting for blockchain confirmation. No need to pay again.
+[08/11/2026 23:32] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Waiting for blockchain confirmation. No need to pay again.
+[08/11/2026 23:32] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Waiting for blockchain confirmation. No need to pay again.
+[08/11/2026 23:32] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Waiting for blockchain confirmation. No need to pay again.
+[08/11/2026 23:32] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+The blockchain provider is temporarily unavailable. We will retry automatically.
+[08/11/2026 23:32] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+The blockchain provider is temporarily unavailable. We will retry automatically.
+[08/11/2026 23:33] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Waiting for blockchain confirmation. No need to pay again.
+[08/11/2026 23:37] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+The blockchain provider is temporarily unavailable. We will retry automatically.
+[08/11/2026 23:37] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Waiting for blockchain confirmation. No need to pay again.
+[08/11/2026 23:38] FlexBot: Order: 58a1bb71ae731515258bcfae
+Paste ONLY the transaction hash/TXID, not a link. A submitted hash is not proof of payment; the backend verifies it. Send /cancel to stop TXID entry.
+[08/11/2026 23:38] FlexBot: CRYPTO PAYMENT
+
+Order: 58a1bb71ae731515258bcfae
+1 month · 1 connection · Adult content
+Status: PENDING
+Membership value: $13.36 USD (from £10.00)
+
+Send EXACTLY: 13.356516 USDC
+Network: Ethereum (ERC-20)
+Recipient wallet:
+0xccE7222fc10430d3cAf105e67a849d2BBD047d89
+Quote expires: 09 Nov 2026 00:28 UTC
+Includes the small order-matching adjustment. Pay network fees separately.
+Confirmations required: 12
+Never use a different coin or network.
+After sending, tap “I’ve paid — enter TXID” and paste the transaction hash.
+TXID received. The backend checks the chain automatically; do not pay again.
+
+Waiting for blockchain confirmation. No need to pay again.

@@ -1,0 +1,23 @@
+kind = "web"
+previewPath = "/"
+title = "Streamline"
+description = "The original Streamline checkout backed by the existing Python application. Development uses simulated payments with Telegram polling and live panel writes disabled."
+version = "1.0.0"
+id = "artifacts/streamline"
+router = "path"
+
+[[services]]
+name = "web"
+paths = ["/"]
+localPort = 22287
+
+[services.development]
+run = "pnpm --filter @workspace/streamline run dev"
+
+[services.production.run]
+args = ["pnpm", "--filter", "@workspace/streamline", "run", "serve"]
+
+[services.env]
+PORT = "22287"
+BASE_PATH = "/"
+STREAMBOT_UPSTREAM_PORT = "8080"

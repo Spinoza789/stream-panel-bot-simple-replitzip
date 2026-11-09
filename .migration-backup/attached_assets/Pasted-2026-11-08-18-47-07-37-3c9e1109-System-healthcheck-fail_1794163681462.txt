@@ -1,0 +1,169 @@
+2026-11-08 18:47:07.37
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:07.77
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:08.91
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:09.68
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:09.96
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:10.25
+3c9e1109
+System
+crash loop detected
+
+2026-11-08 18:47:14.32
+3c9e1109
+System
+no runnable or static artifact routes available; falling back to the deployment run command in [.replit](https://replit.com/@links5001/stream-panel-bot-simple-replitzip#)
+
+2026-11-08 18:47:14.32
+3c9e1109
+System
+artifact directory does not exist; no manifests found. If this deployment uses artifacts, include their .replit-artifact/artifact.toml files in the deployed build search_root=artifacts manifest_location=artifacts/**/.replit-artifact/artifact.toml
+
+2026-11-08 18:47:14.32
+3c9e1109
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+
+2026-11-08 18:47:14.78
+3c9e1109
+System
+starting up user application
+
+2026-11-08 18:47:14.78
+3c9e1109
+System
+extending Node.js network family autoselection attempt timeout
+
+2026-11-08 18:47:14.78
+3c9e1109
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+
+2026-11-08 18:47:14.78
+3c9e1109
+System
+healthcheck failed error=healthcheck /: Get "http://127.0.0.1:1104/": dial tcp 127.0.0.1:1104: connect: connection refused
+
+2026-11-08 18:47:14.79
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:14.80
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:14.83
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:14.85
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:14.93
+3c9e1109
+User
+Replit configuration error: Create a production database in Publishing > Database settings, then publish again. The current managed connection targets the workspace database.
+
+2026-11-08 18:47:14.94
+3c9e1109
+System
+command finished with error [bash run.sh]: exit status 1
+
+2026-11-08 18:47:15.00
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:15.10
+3c9e1109
+User
+Replit configuration error: Create a production database in Publishing > Database settings, then publish again. The current managed connection targets the workspace database.
+
+2026-11-08 18:47:15.11
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:15.11
+3c9e1109
+System
+command finished with error [bash run.sh]: exit status 1
+
+2026-11-08 18:47:15.40
+3c9e1109
+User
+Replit configuration error: Create a production database in Publishing > Database settings, then publish again. The current managed connection targets the workspace database.
+
+2026-11-08 18:47:15.41
+3c9e1109
+System
+command finished with error [bash run.sh]: exit status 1
+
+2026-11-08 18:47:15.62
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:15.92
+3c9e1109
+User
+Replit configuration error: Create a production database in Publishing > Database settings, then publish again. The current managed connection targets the workspace database.
+
+2026-11-08 18:47:15.93
+3c9e1109
+System
+command finished with error [bash run.sh]: exit status 1
+
+2026-11-08 18:47:16.43
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:16.67
+3c9e1109
+System
+system: received signal terminated
+
+2026-11-08 18:47:16.67
+3c9e1109
+System
+command finished with error [bash run.sh]: signal: terminated
+
+2026-11-08 18:47:16.81
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:16.92
+3c9e1109
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-11-08 18:47:17.26
+3c9e1109
+System
+main done, exiting
