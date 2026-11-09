@@ -123,7 +123,9 @@ class RuntimeTests(unittest.TestCase):
             service.provision_pending.assert_not_called()
             telegram.assert_not_called()
             self.lock.release()
-            self.assertTrue(wait_until(lambda: client.get('/healthz').json['status'] == 'ok'))
+            # Production retries the worker lease every two seconds. A two-second
+            # assertion races that interval under loaded test runners.
+            self.assertTrue(wait_until(lambda: client.get('/healthz').json['status'] == 'ok', seconds=5))
             service.recover_interrupted.assert_called_once()
             self.assertTrue(wait_until(lambda: telegram.return_value.run.called))
             telegram.assert_called_once_with(service)

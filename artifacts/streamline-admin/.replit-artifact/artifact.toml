@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/admin/"
+title = "Streamline Admin"
+description = "Owner-only operations dashboard for Streamline memberships, orders and safe recovery of existing Telegram trials."
+version = "1.0.0"
+id = "artifacts/streamline-admin"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/admin/" ]
+localPort = 23199
+
+[services.development]
+run = "pnpm --filter @workspace/streamline-admin run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/streamline-admin", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/streamline-admin/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23199"
+BASE_PATH = "/admin/"

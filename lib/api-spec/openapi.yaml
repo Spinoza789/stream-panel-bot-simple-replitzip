@@ -11,6 +11,130 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /auth/user:
+    get:
+      operationId: getCurrentAuthUser
+      responses:
+        "200":
+          description: Browser authentication state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthUserEnvelope" }
+  /login:
+    get:
+      operationId: beginBrowserLogin
+      parameters:
+        - { name: returnTo, in: query, schema: { type: string } }
+      responses:
+        "302": { description: Redirect to authentication provider }
+  /callback:
+    get:
+      operationId: handleBrowserLoginCallback
+      responses:
+        "302": { description: Complete authenticated browser session }
+  /logout:
+    get:
+      operationId: logoutBrowserSession
+      parameters:
+        - { name: returnTo, in: query, schema: { type: string } }
+      responses:
+        "302": { description: End browser session }
+  /admin/claim-owner:
+    post:
+      operationId: claimAdminOwner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OwnerClaim" }
+      responses:
+        "200":
+          description: Owner identity bound after workspace proof
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAccess" }
+  /admin/access:
+    get:
+      operationId: getAdminAccess
+      responses:
+        "200":
+          description: Current owner access state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAccess" }
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      responses:
+        "200":
+          description: Real order totals and recent orders
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOverview" }
+  /admin/orders:
+    get:
+      operationId: listAdminOrders
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: kind, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Bounded order page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOrderPage" }
+  /admin/orders/{id}:
+    get:
+      operationId: getAdminOrder
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Safe order details and recovery eligibility
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOrderDetail" }
+  /admin/status:
+    get:
+      operationId: getAdminStatus
+      responses:
+        "200":
+          description: Configuration readiness, not an upstream health probe
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminStatus" }
+  /admin/orders/{id}/recovery:
+    post:
+      operationId: previewTrialRecovery
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecoveryPreviewInput" }
+      responses:
+        "200":
+          description: Preview only; no account queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryDraft" }
+  /admin/recovery/confirm:
+    post:
+      operationId: confirmTrialRecovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecoveryConfirmation" }
+      responses:
+        "200":
+          description: Original trial queued or preview cancelled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryResult" }
   /healthz:
     get:
       operationId: healthCheck
@@ -26,6 +150,118 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 components:
   schemas:
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id: { type: string }
+        email: { type: [string, "null"] }
+        firstName: { type: [string, "null"] }
+        lastName: { type: [string, "null"] }
+        profileImageUrl: { type: [string, "null"] }
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - { $ref: "#/components/schemas/AuthUser" }
+            - { type: "null" }
+    OwnerClaim:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code: { type: string, minLength: 20, maxLength: 200 }
+    AdminAccess:
+      type: object
+      required: [authenticated, authorized, ownerConfigured, authConfigured, canClaimOwner]
+      properties:
+        authenticated: { type: boolean }
+        authorized: { type: boolean }
+        ownerConfigured: { type: boolean }
+        authConfigured: { type: boolean }
+        canClaimOwner: { type: boolean }
+    AdminOrder:
+      type: object
+      required: [id, kind, status, plan, createdAt, amount, symbol, network, customer]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        status: { type: string }
+        plan: { type: string }
+        createdAt: { type: integer }
+        amount: { type: string }
+        symbol: { type: string }
+        network: { type: string }
+        customer: { type: string }
+    AdminOrderPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AdminOrder" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    AdminOverview:
+      type: object
+      required: [mode, total, fulfilled, review, trials, queued, pending, recent]
+      properties:
+        mode: { type: string }
+        total: { type: integer }
+        fulfilled: { type: integer }
+        review: { type: integer }
+        trials: { type: integer }
+        queued: { type: integer }
+        pending: { type: integer }
+        recent: { type: array, items: { $ref: "#/components/schemas/AdminOrder" } }
+    AdminOrderDetail:
+      type: object
+      required: [order, message, recoveryEligible, recoveryReason]
+      properties:
+        order: { $ref: "#/components/schemas/AdminOrder" }
+        message: { type: string }
+        recoveryEligible: { type: boolean }
+        recoveryReason: { type: string }
+    AdminStatus:
+      type: object
+      required: [mode, workersActive, panelWrites, telegramEnabled, resellerSchema, notificationSchema, panelConfigured, database]
+      properties:
+        mode: { type: string }
+        workersActive: { type: boolean }
+        panelWrites: { type: boolean }
+        telegramEnabled: { type: boolean }
+        resellerSchema: { type: boolean }
+        notificationSchema: { type: boolean }
+        panelConfigured: { type: boolean }
+        database: { type: string }
+    RecoveryPreviewInput:
+      type: object
+      additionalProperties: false
+      properties: {}
+    RecoveryDraft:
+      type: object
+      required: [nonce, orderId, expiresAt, warning]
+      properties:
+        nonce: { type: string }
+        orderId: { type: string }
+        expiresAt: { type: integer }
+        warning: { type: string }
+    RecoveryConfirmation:
+      type: object
+      additionalProperties: false
+      required: [nonce, attestation, cancel]
+      properties:
+        nonce: { type: string, pattern: "^[a-f0-9]{24}$" }
+        attestation: { type: boolean }
+        cancel: { type: boolean }
+    RecoveryResult:
+      type: object
+      required: [orderId, queued, message]
+      properties:
+        orderId: { type: string }
+        queued: { type: boolean }
+        message: { type: string }
     HealthStatus:
       type: object
       properties:

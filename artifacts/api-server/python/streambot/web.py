@@ -33,7 +33,7 @@ def create_app(service,ready=None):
         if request.path.startswith('/api/'):
             bucket='web:'+str(request.remote_addr)
             if not service.store.limit(bucket,180,60): return jsonify(error='Too many requests. Please wait a minute.'),429
-        if request.method=='POST':
+        if request.method=='POST' and not request.path.startswith('/api/_admin/'):
             if not request.is_json: return jsonify(error='JSON requests only.'),415
             if request.headers.get('Origin')!=service.config['public_url']:
                 return jsonify(error='This request must come from the checkout website.'),403
@@ -111,6 +111,9 @@ def create_app(service,ready=None):
         image=qrcode.make(order['asset']['wallet'])
         output=io.BytesIO();image.save(output,format='PNG');output.seek(0)
         return send_file(output,mimetype='image/png')
+
+    from .admin_web import register_admin
+    register_admin(app, service)
 
     if service.config.get('base_path'):
         app.wsgi_app=DispatcherMiddleware(NotFound(),{service.config['base_path']:app.wsgi_app})

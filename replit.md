@@ -1,5 +1,18 @@
 # Streamline
 
+## Website administration
+
+The owner-only portal is served at `/admin/`; see `ADMIN_DASHBOARD.md`.
+The user selected Replit sign-in after managed Clerk provisioning rejected the
+imported project name. Do not switch providers without asking.
+Use `STREAMBOT_WEB_ADMIN_EMAILS` for the explicit owner email allowlist.
+First owner setup additionally requires `STREAMBOT_WEB_BOOTSTRAP_CODE` (20–200
+characters) entered on the website. The backend atomically binds the owner to the
+immutable OIDC subject; the code cannot replace an existing owner.
+Do not grant admin to the first signup, trust browser role headers, or tie website
+access to the Telegram administrator ID. Existing Python provisioning remains
+authoritative; the API gateway supervises one loopback-only Python backend.
+
 Streamline is an existing Python Flask/Waitress checkout and Telegram subscription
 service, preserved in a pnpm workspace. This port does not introduce admin features.
 

@@ -5,7 +5,7 @@ cd "$app_dir"
 python_bin="${STREAMBOT_PYTHON:-python3}"
 # This package serves checkout directly at / in its own Replit project.
 export STREAMBOT_BASE_PATH=''
-export STREAMBOT_HOST='0.0.0.0'
+export STREAMBOT_HOST="${STREAMBOT_HOST:-0.0.0.0}"
 # Trust Replit's final forwarding hop only when running inside Replit.
 if [[ -n "${REPLIT_DEV_DOMAIN:-}${REPLIT_DEPLOYMENT:-}${REPL_ID:-}" ]]; then
   export STREAMBOT_TRUST_PROXY='true'
