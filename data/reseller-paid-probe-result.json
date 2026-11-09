@@ -1,0 +1,32 @@
+{
+  "stage": "extend",
+  "provider_id": "2482634",
+  "kind": "paid",
+  "connections": 1,
+  "adult": false,
+  "status": "active",
+  "expiry_london": "2027-01-08T21:54:50+00:00",
+  "same_credentials": true,
+  "extension_count": 1,
+  "operations": [
+    {
+      "operation_type": "create",
+      "status": "succeeded",
+      "credit_cost": 1,
+      "reservation": "charged"
+    },
+    {
+      "operation_type": "extend",
+      "status": "succeeded",
+      "credit_cost": 1,
+      "reservation": "charged"
+    }
+  ],
+  "isolated_test_balance": 0,
+  "isolated_test_reserved": 0,
+  "panel_balance_delta_since_start": "2",
+  "production_database_untouched": true,
+  "credentials_not_printed": true,
+  "previous_expiry_london": "2026-12-08T21:54:50+00:00",
+  "extension_retained_existing_time": true
+}
