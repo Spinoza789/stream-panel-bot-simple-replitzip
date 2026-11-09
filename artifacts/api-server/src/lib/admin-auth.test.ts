@@ -2,7 +2,6 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { allowedEmail, bootstrapMatches, ownerEmails } from "./admin-auth";
 import { safeReturnTo } from "../routes/auth";
-import { canonicalBasePath } from "../../../../lib/replit-auth-web/src/base-path";
 test("owner email is explicit, normalized and fail-closed", () => {
   assert.equal(allowedEmail("Owner@Example.com", ["owner@example.com"]), true);
   assert.equal(allowedEmail("visitor@example.com", ["owner@example.com"]), false);
@@ -28,11 +27,8 @@ test("owner workspace proof requires configured long secret and exact match", ()
   }
 });
 test("login redirects cannot escape the admin website", () => {
-  assert.equal(canonicalBasePath("/admin/"), "/admin/");
-  assert.equal(canonicalBasePath("/admin"), "/admin/");
-  assert.equal(canonicalBasePath("/"), "/");
   assert.equal(safeReturnTo("/admin"), "/admin/");
-  assert.equal(safeReturnTo(canonicalBasePath("/admin/")), "/admin/");
+  assert.equal(safeReturnTo("/admin/"), "/admin/");
   for (const value of ["https://evil.example", "//evil.example", "/\\evil.example", "/admin/../../", "/admin/%5cevil", null]) {
     assert.equal(safeReturnTo(value), "/admin/");
   }

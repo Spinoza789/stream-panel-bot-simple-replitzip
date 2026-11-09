@@ -1,7 +1,8 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
@@ -27,9 +28,25 @@ if (!basePath) {
   );
 }
 
+// This must run before Vite's base-path guard, which otherwise returns 404
+// for the slash-less artifact root selected by the workspace router.
+function canonicalAdminRoot(req: IncomingMessage, res: ServerResponse, next: () => void) {
+  const url = new URL(req.url ?? '/', 'http://internal.invalid');
+  if (url.pathname === basePath!.replace(/\/+$/, '') && ['GET', 'HEAD'].includes(req.method ?? '')) {
+    res.writeHead(308, { Location: basePath! + url.search, 'Cache-Control': 'no-store' });
+    res.end();
+  } else next();
+}
+const canonicalBase: Plugin = {
+  name: 'canonical-admin-root',
+  configureServer(server) { server.middlewares.use(canonicalAdminRoot); },
+  configurePreviewServer(server) { server.middlewares.use(canonicalAdminRoot); },
+};
+
 export default defineConfig({
   base: basePath,
   plugins: [
+    canonicalBase,
     react(),
     tailwindcss({ optimize: false }),
     runtimeErrorOverlay(),

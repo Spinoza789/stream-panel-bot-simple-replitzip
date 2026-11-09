@@ -6,9 +6,9 @@ grants administration. No Telegram administrator ID is required for website acce
 
 ## First-owner setup
 
-1. Configure `STREAMBOT_WEB_ADMIN_EMAILS` on the server with the intended owner's
-   email (comma-separated for operational configuration). Do not commit personal
-   addresses in source.
+1. Store `STREAMBOT_WEB_ADMIN_EMAILS` as a Replit Secret with the intended owner's
+   email (comma-separated for operational configuration). Do not use shared
+   non-secret configuration: that writes the address into `.replit`.
 2. Store a unique 20–200 character setup code as the workspace secret
    `STREAMBOT_WEB_BOOTSTRAP_CODE`. Keep a private copy to enter once on the website.
 3. Open `/admin/`, choose Sign in, and use the intended Replit account. Its OIDC
