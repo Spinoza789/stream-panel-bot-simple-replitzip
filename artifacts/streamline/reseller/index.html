@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="streambot-base-path" content="__STREAMBOT_BASE__"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark"><meta name="robots" content="noindex">
+  <title>Streamline · Reseller portal</title>
+  <link rel="stylesheet" href="__STREAMBOT_BASE__/static/style.css"><link rel="stylesheet" href="__STREAMBOT_BASE__/reseller/static/reseller.css">
+  <script src="__STREAMBOT_BASE__/reseller/static/reseller.js" defer></script>
+</head>
+<body>
+  <div class="demo-banner" id="demo-banner" hidden>LOCAL DEMO <span>Simulated accounts and payments. Do not send funds.</span></div>
+  <header class="masthead"><a class="wordmark" href="__STREAMBOT_BASE__/reseller/" aria-label="Reseller portal"><span class="logo" aria-hidden="true">↗</span><span data-brand>Streamline</span></a><span class="header-label">RESELLER PORTAL</span><span class="who" id="who" hidden></span><button class="text-button" id="signout" hidden>Sign out <span aria-hidden="true">↗</span></button></header>
+  <main>
+    <div id="error" class="notice error" role="alert" hidden></div>
+    <div id="loading" class="notice" role="status">Loading…</div>
+
+    <!-- Sign in -->
+    <section id="view-signin" class="signin" hidden>
+      <span class="eyebrow"><span class="dot"></span> RESELLER ACCESS</span>
+      <h1>Your customers,<br><em>your dashboard.</em></h1>
+      <div class="signin-grid">
+        <article class="card">
+          <h2>Sign in with Telegram</h2>
+          <ol class="steps">
+            <li>Open the Streamline bot in Telegram.</li>
+            <li>Tap <strong>Become A Reseller</strong>, then <strong>🌐 Open web dashboard</strong>.</li>
+            <li>Tap the link the bot sends you. It signs you in here.</li>
+          </ol>
+          <p class="fineprint">Links work once and expire after 10 minutes. No password needed.</p>
+        </article>
+        <article class="card">
+          <h2>Or use your recovery email</h2>
+          <form id="password-form">
+            <label class="select-label" for="login-email">EMAIL</label><input id="login-email" type="email" autocomplete="username" required>
+            <label class="select-label" for="login-password">PASSWORD</label><input id="login-password" type="password" autocomplete="current-password" required minlength="10">
+            <button class="primary" type="submit">Sign in <span aria-hidden="true">↗</span></button>
+          </form>
+          <p class="fineprint">Set this up from <strong>Account</strong> after your first Telegram sign-in.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Signed-in shell -->
+    <div id="shell" hidden>
+      <nav class="tabs" id="tabs">
+        <a href="#/dashboard" data-tab="dashboard">Dashboard</a>
+        <a href="#/subscriptions" data-tab="subscriptions">Subscriptions</a>
+        <a href="#/create" data-tab="create">Create</a>
+        <a href="#/credits" data-tab="credits">Buy credits</a>
+        <a href="#/history" data-tab="history">History</a>
+        <a href="#/account" data-tab="account">Account</a>
+      </nav>
+      <div id="status-note" class="notice" hidden></div>
+
+      <section id="view-dashboard" hidden>
+        <div class="tiles">
+          <div class="tile accent"><span>AVAILABLE CREDITS</span><strong id="t-available">0</strong><small id="t-reserved"></small></div>
+          <div class="tile"><span>ACTIVE SUBSCRIPTIONS</span><strong id="t-active">0</strong></div>
+          <div class="tile"><span>EXPIRING IN 7 DAYS</span><strong id="t-expiring">0</strong></div>
+          <div class="tile"><span>TRIALS RUNNING</span><strong id="t-trials">0</strong></div>
+        </div>
+        <div class="quick">
+          <a class="primary" href="#/create">Create subscription or trial <span aria-hidden="true">↗</span></a>
+          <a class="secondary" href="#/credits">Buy credits</a>
+          <a class="secondary" href="#/subscriptions?filter=expiring">See expiring customers</a>
+        </div>
+      </section>
+
+      <section id="view-subscriptions" hidden>
+        <div class="toolbar">
+          <div class="filters" id="filters">
+            <button data-filter="active" class="chip">Active</button><button data-filter="expiring" class="chip">Expiring</button><button data-filter="expired" class="chip">Expired</button><button data-filter="trials" class="chip">Trials</button><button data-filter="all" class="chip">All</button>
+          </div>
+          <form id="search-form" class="search"><input id="search" placeholder="Search customer, username or ID" maxlength="100"><button class="secondary" type="submit">Search</button></form>
+        </div>
+        <div id="sub-list" class="list"></div>
+        <div class="pager"><button class="secondary" id="sub-prev">Previous</button><span id="sub-page"></span><button class="secondary" id="sub-next">Next</button></div>
+        <article id="sub-detail" class="card detail" hidden></article>
+      </section>
+
+      <section id="view-create" hidden>
+        <div class="create-grid">
+          <form id="create-form" class="card">
+            <h2>New customer account</h2>
+            <fieldset><legend>TYPE</legend><div class="connection-options"><button type="button" class="choice" data-kind="create" aria-pressed="true">Paid subscription</button><button type="button" class="choice" data-kind="trial" aria-pressed="false">24-hour trial</button></div></fieldset>
+            <fieldset id="months-field"><legend>DURATION</legend><div class="connection-options" id="months-options"></div></fieldset>
+            <fieldset id="connections-field"><legend>CONNECTIONS</legend><div class="connection-options" id="connections-options"></div></fieldset>
+            <fieldset><legend>CONTENT</legend><div class="connection-options"><button type="button" class="choice" data-adult="0" aria-pressed="true">No adult</button><button type="button" class="choice" data-adult="1" aria-pressed="false">With adult</button></div></fieldset>
+            <label class="select-label" for="customer-ref">CUSTOMER REFERENCE (optional, only you see it)</label><input id="customer-ref" maxlength="100" placeholder="e.g. John – living room TV">
+            <button class="primary" type="submit">Preview cost <span aria-hidden="true">↗</span></button>
+          </form>
+          <aside class="summary" id="create-summary">
+            <span class="eyebrow">COST</span>
+            <h2 id="cs-title">1 month</h2><p id="cs-detail">1 connection · No adult</p>
+            <div class="price"><span id="cs-cost">1</span><span>credits</span></div>
+            <dl><div><dt>Available</dt><dd id="cs-available">–</dd></div><div><dt>Remaining after</dt><dd id="cs-remaining">–</dd></div></dl>
+            <button class="primary" id="confirm-create" hidden>Confirm and create <span aria-hidden="true">↗</span></button>
+            <p class="fineprint" id="cs-note">Preview first. Confirming reserves credits; they are only deducted once the account is confirmed.</p>
+            <div id="op-status" class="notice" hidden></div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-credits" hidden>
+        <h2>Buy credits</h2>
+        <p class="muted">Pick a pack, choose how you'll pay, and finish on the secure checkout. Credits are added after the payment is verified on-chain.</p>
+        <div class="packs" id="packs"></div>
+        <label class="select-label" for="pay-asset">PAYMENT ASSET &amp; NETWORK</label><select id="pay-asset"></select>
+        <button class="primary" id="buy">Continue to payment <span aria-hidden="true">↗</span></button>
+        <h3 class="sub">Credit prices</h3>
+        <table class="costs" id="costs"></table>
+      </section>
+
+      <section id="view-history" hidden>
+        <h2>Credit history</h2>
+        <div id="history-list" class="list"></div>
+        <div class="pager"><button class="secondary" id="hist-prev">Previous</button><span id="hist-page"></span><button class="secondary" id="hist-next">Next</button></div>
+      </section>
+
+      <section id="view-account" hidden>
+        <div class="create-grid">
+          <article class="card">
+            <h2>Your account</h2>
+            <dl class="plain"><div><dt>Telegram ID</dt><dd id="acc-id"></dd></div><div><dt>Telegram username</dt><dd id="acc-username"></dd></div><div><dt>Status</dt><dd id="acc-status"></dd></div><div><dt>Recovery email</dt><dd id="acc-email">Not set</dd></div></dl>
+            <button class="secondary" id="signout-all">Sign out of all devices</button>
+          </article>
+          <form class="card" id="account-form">
+            <h2 id="acc-form-title">Add a recovery email and password</h2>
+            <p class="muted">Lets you sign in here without Telegram. Keep Telegram access too: it is the only way back in if you forget this password.</p>
+            <label class="select-label" for="acc-new-email">EMAIL</label><input id="acc-new-email" type="email" autocomplete="email" required>
+            <label class="select-label" for="acc-new-password">NEW PASSWORD (10+ CHARACTERS)</label><input id="acc-new-password" type="password" autocomplete="new-password" required minlength="10">
+            <div id="current-wrap" hidden><label class="select-label" for="acc-current">CURRENT PASSWORD</label><input id="acc-current" type="password" autocomplete="current-password"></div>
+            <button class="primary" type="submit">Save <span aria-hidden="true">↗</span></button>
+            <p class="notice" id="acc-saved" hidden>Saved. You can now sign in with this email and password.</p>
+          </form>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer><span data-brand>Streamline</span><span>RESELLER PORTAL</span><button class="text-button" id="support-button">Support <span aria-hidden="true">↗</span></button></footer>
+</body>
+</html>

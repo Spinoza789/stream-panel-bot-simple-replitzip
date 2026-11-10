@@ -64,6 +64,17 @@ CREATE TABLE IF NOT EXISTS rs_audit (
  id TEXT PRIMARY KEY, administrator BIGINT NOT NULL, action TEXT NOT NULL, subject TEXT NOT NULL,
  reason TEXT NOT NULL, details TEXT NOT NULL, created_at BIGINT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS rs_logins (
+ reseller_id TEXT PRIMARY KEY REFERENCES rs_resellers(id),
+ email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, updated_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rs_web_codes (
+ code_hash TEXT PRIMARY KEY, reseller_id TEXT NOT NULL REFERENCES rs_resellers(id), expires_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rs_web_sessions (
+ token_hash TEXT PRIMARY KEY, reseller_id TEXT NOT NULL REFERENCES rs_resellers(id),
+ created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL, last_seen BIGINT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS rs_operations_state ON rs_operations(status,created_at);
 CREATE INDEX IF NOT EXISTS rs_subscriptions_owner ON rs_subscriptions(reseller_id,expires_at);
 CREATE INDEX IF NOT EXISTS rs_ledger_owner ON rs_ledger(reseller_id,created_at);

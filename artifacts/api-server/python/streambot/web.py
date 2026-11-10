@@ -114,6 +114,8 @@ def create_app(service,ready=None):
 
     from .admin_web import register_admin
     register_admin(app, service)
+    from .reseller_web_routes import register_reseller_web
+    register_reseller_web(app, service)
 
     if service.config.get('base_path'):
         app.wsgi_app=DispatcherMiddleware(NotFound(),{service.config['base_path']:app.wsgi_app})

@@ -59,6 +59,8 @@ class Resellers:
             logging.getLogger(__name__).warning('Reseller tables unavailable (%s); reseller actions are disabled until setup is complete.',type(exc).__name__)
         provider=DemoProvider(service) if service.config['mode']=='demo' else PanelProvider(service)
         self.ops=Operations(self.finance,provider)
+        from .reseller_web import ResellerWeb
+        self.web=ResellerWeb(self)
 
     def require_ready(self):
         if not self.ready:raise CheckoutError('Reseller database setup is not available. Publish the development schema before enabling reseller actions.')

@@ -43,7 +43,9 @@ run bash run.sh. Do not create an Autoscale deployment or duplicate bot pollers.
 that runs the real bot code in demo mode against a throwaway database under `data/preview/`.
 Switch between a customer, the support admin and a reseller applicant from the header, tap
 inline buttons, use the Menu command list, reply to messages, and press Reset to start over.
-It never contacts Telegram, the panel or any blockchain. Per-user rate limits are off unless
+It also serves the website and reseller portal at http://127.0.0.1:8098/reseller/ against the
+same database, so the bot's **Open web dashboard** link works locally. It never contacts
+Telegram, the panel or any blockchain. Per-user rate limits are off unless
 `PREVIEW_RATE_LIMITS=1` is set.
 
 ## Connect Telegram

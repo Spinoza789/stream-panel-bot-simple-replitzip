@@ -146,7 +146,7 @@ class Ledger:
             else:raise CheckoutError('Unknown configuration option.')
             self.audit(db,actor,'configuration',category,reason,{'values':values})
 
-    def quote_purchase(self, uid, package_id, asset, request_key):
+    def quote_purchase(self, uid, package_id, asset, request_key, with_token=False):
         self.seed()
         member=self.member(uid,active=True)
         package=next((p for p in self.packages() if p['id']==package_id and p['active']),None)
@@ -156,7 +156,8 @@ class Ledger:
                   name=str(package['credits'])+' reseller credits',detail='Verified payment required',
                   gbp_price=f"{package['price_pence']//100}.{package['price_pence']%100:02d}",
                   reseller_purchase=dict(reseller_id=member['id'],package=package))
-        return self.service.quote_plan(plan,asset,owner_telegram_id=uid,request_key='rsquote:'+str(uid)+':'+request_key)['order']
+        quote=self.service.quote_plan(plan,asset,owner_telegram_id=uid,request_key='rsquote:'+str(uid)+':'+request_key)
+        return quote if with_token else quote['order']
 
     def grant(self, order_id, *, actor=None, reference=None, reason=None):
         """One purchase -> one ledger movement; no button can verify payment."""

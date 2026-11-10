@@ -33,6 +33,7 @@ from streambot.config import load_config  # noqa: E402
 HERE = Path(__file__).resolve().parent
 DATA = ROOT / 'data' / 'preview'
 PORT = int(os.environ.get('PREVIEW_PORT', '8099'))
+WEB_PORT = int(os.environ.get('PREVIEW_WEB_PORT', '8098'))  # the website (checkout + reseller portal)
 YOU = int(os.environ.get('PREVIEW_USER_ID', '8072956432'))
 ADMIN = int(os.environ.get('PREVIEW_ADMIN_ID', '999000001'))
 RESELLER = ADMIN + 1
@@ -181,7 +182,7 @@ def start_bot():
         key_path.write_bytes(Fernet.generate_key())
     env = {'APP_MODE': 'demo', 'TELEGRAM_BOT_TOKEN': 'preview', 'TELEGRAM_ENABLED': 'true',
            'SUPPORT_ADMIN_ID': str(ADMIN), 'DATABASE_PATH': str(DATA / 'preview.sqlite3'),
-           'CREDENTIAL_KEY': key_path.read_text().strip(), 'PUBLIC_URL': 'http://127.0.0.1:%d' % PORT}
+           'CREDENTIAL_KEY': key_path.read_text().strip(), 'PUBLIC_URL': 'http://127.0.0.1:%d' % WEB_PORT}
     config = load_config(ROOT / 'config.json', env=env)
     config['demo_banner'] = False  # the look-alike shows what customers see
     service = build(config)
@@ -201,6 +202,13 @@ def start_bot():
 
     threading.Thread(target=bot.run, args=(stop,), daemon=True, name='telegram-preview').start()
     threading.Thread(target=worker, daemon=True, name='account-worker').start()
+
+    def website():
+        from waitress import serve
+        from streambot.web import create_app
+        serve(create_app(service), host='127.0.0.1', port=WEB_PORT, _quiet=True)
+
+    threading.Thread(target=website, daemon=True, name='website-preview').start()
     return service, api, stop
 
 
@@ -269,6 +277,7 @@ def main():
     server = ThreadingHTTPServer(('127.0.0.1', PORT), Handler)
     server.daemon_threads = True
     print('Telegram preview (demo mode, no network): http://127.0.0.1:%d' % PORT, flush=True)
+    print('Website + reseller portal:               http://127.0.0.1:%d/reseller/' % WEB_PORT, flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

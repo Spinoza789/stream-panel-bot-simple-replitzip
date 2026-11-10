@@ -75,6 +75,7 @@ class ResellerBot:
             rows=[[button('➕ Create subscription','create'),button('🎁 Create trial','trial')],
                   [button('💳 Buy credits','packages'),button('📊 My balance','balance')],
                   [button('📺 My subscriptions','list:active:0'),button('🧾 History','history:0')],
+                  [button('🌐 Open web dashboard','web')],
                   [button('❓ Help','help'),{'text':'🔔 Notifications','callback_data':'nt:settings'}]]
             if uid==self.bot.service.config.get('support_admin_id'):rows.append([button('🛠 Administration','admin')])
             rows.append([{'text':'⬅️ Main menu','callback_data':'menu'}])
@@ -196,6 +197,12 @@ class ResellerBot:
                 self.state(uid,clear=True);self.home(uid)
             elif name=='apply':
                 self.state(uid,clear=True);self._applied(uid,sender)
+            elif name=='web':
+                if not self.store.limit('rs_web_link:'+str(uid),5,600):raise CheckoutError('Please wait a few minutes before requesting another sign-in link.')
+                url=self.r.web.login_url(self.r.web.issue_code(uid))
+                self.bot.send(uid,'🌐 Your web dashboard sign-in link (valid for 10 minutes, one use):\n'+url+
+                              '\n\nOnce signed in, open Account to add a recovery email and password so you can also sign in without Telegram.',
+                              keyboard([],False),keep=True)
             elif name=='balance':
                 member=self.r.finance.member(uid)
                 if not member:raise CheckoutError('Request reseller approval first.')

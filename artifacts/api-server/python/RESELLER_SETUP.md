@@ -107,11 +107,36 @@ new-account identification, supply a positively identified provider ID. Existing
 pre-request accounts and accounts already attached to other completed operations
 cannot be silently reused. Unknown results are never automatically refunded.
 
+## Web portal
+
+Approved and pending resellers can use a browser dashboard at `/reseller/` on the
+checkout website. It shows credits, active / expiring / trial counts, every customer
+subscription with login details and extensions, credit history, Buy credits (which
+hands over to the existing crypto checkout) and Create subscription / trial with the
+same preview-then-confirm flow and the same reservation rules as the bot.
+
+- **Sign in with Telegram.** The reseller dashboard in the bot has **🌐 Open web
+  dashboard**, which sends a one-time link (`/reseller/#code=…`) valid for 10 minutes.
+  The code travels in the URL fragment, so it never appears in server logs. Opening it
+  sets an HttpOnly, same-site session cookie scoped to `/api/reseller` for 30 days.
+- **Recovery email and password.** From **Account** a signed-in reseller can add an
+  email and password (scrypt-hashed, 10+ characters) to sign in without Telegram.
+  Changing it needs the current password. There is no email-based reset: the way back
+  in after a forgotten password is a fresh Telegram link, then set a new password.
+- Every API call is scoped to the signed-in reseller's own records. POSTs must be
+  same-origin JSON like the rest of the site. Sign-in attempts, account changes and
+  purchase quotes are rate limited. **Sign out of all devices** drops every session.
+- Tables: `rs_logins`, `rs_web_codes`, `rs_web_sessions` (additive, in
+  `streambot/reseller_schema.py`). If they are missing, the bot reports that the web
+  dashboard is unavailable and everything else keeps working.
+
 ## Schema and publishing
 
 The additive schema source is `streambot/reseller_schema.py`. It is applied to
-local SQLite during local initialization. The new tables have also been applied
-to the **managed development PostgreSQL** schema, without modifying production.
+local SQLite during local initialization. The reseller tables have been applied to
+the **managed development PostgreSQL** schema, without modifying production. The
+web-portal tables (`rs_logins`, `rs_web_codes`, `rs_web_sessions`) must be applied
+to development PostgreSQL the same way before the portal works on Postgres.
 
 Publish the app normally so Replit applies the development schema additions to
 the managed production database. Do **not** overwrite production data, run custom
