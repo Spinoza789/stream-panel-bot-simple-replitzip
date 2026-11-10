@@ -94,8 +94,9 @@ class Scenarios:
         screen=self.sent_to(77)[-1]
         self.assertIn('BECOME A RESELLER',screen['text'])
         self.assertIn('WHAT CREDITS BUY',screen['text'])
-        self.assertIn('12 months: 12 cr (1 device) · 15 cr (2 devices) · 20 cr (3 devices)',screen['text'])
-        self.assertIn('£100 → 34 credits',screen['text'])
+        self.assertIn('12 mo      12     15     20',screen['text'])
+        self.assertIn('£100 →  34 credits  (£2.94 each)',screen['text'])
+        self.assertEqual(self.sent_to(77)[-1]['parse_mode'],'HTML')
         self.assertEqual(screen['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:packages')
         self.assertIsNone(self.f.member(77))  # looking never creates an account
         self.click(77,'rs:packages')
@@ -127,7 +128,8 @@ class Scenarios:
         self.click(42,'rs:guide')
         text=self.sent_to(42)[-1]['text']
         self.assertIn('1 credit = 1 month of TV on 1 device',text)
-        self.assertIn('Example: £100 = 34 credits = 2 full-year subscriptions + 10 months to spare.',text)
+        self.assertIn('<pre>Months  1 dev  2 dev  3 dev\n 1 mo       1      2      3',text)
+        self.assertIn('<i>Example: £100 = 34 credits = 2 full-year subscriptions + 10 months spare.</i>',text)
 
     def test_dashboard_counts_follow_subscriptions(self):
         self.fund(50)

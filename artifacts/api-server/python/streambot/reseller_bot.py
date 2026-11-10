@@ -43,35 +43,37 @@ class ResellerBot:
         self.bot.send(uid,text,keyboard(rows or []),parse_mode=parse_mode,keep=keep)
 
     def credit_guide(self):
-        """What credits buy and what packs cost, from the live price tables."""
+        """What credits buy and what packs cost, as Telegram HTML built from the live price tables."""
         packages=[p for p in self.r.finance.packages() if p['active']]
-        costs=self.r.web.costs()
         by_month={}
-        for c in costs:by_month.setdefault(c['months'],{})[c['connections']]=c['credits']
-        lines=['💡 WHAT CREDITS BUY','1 credit = 1 month of TV on 1 device. Add devices or months and the price per month drops.','']
+        for c in self.r.web.costs():by_month.setdefault(c['months'],{})[c['connections']]=c['credits']
+        devices=sorted({n for row in by_month.values() for n in row})
+        table=['Months '+' '.join(f'{n} dev'.rjust(6) for n in devices)]
         for months in sorted(by_month):
-            row=by_month[months]
-            lines.append(str(months)+' month'+('s' if months>1 else '')+': '+' · '.join(str(row[n])+' cr ('+str(n)+' device'+('s' if n>1 else '')+')' for n in sorted(row)))
-        lines.append('24-hour trials for your customers are free (limits apply).')
+            table.append(f'{months:>2} mo  '+' '.join(str(by_month[months].get(n,'–')).rjust(6) for n in devices))
+        lines=['<b>💡 WHAT CREDITS BUY</b>',
+               '1 credit = 1 month of TV on 1 device.',
+               'More devices or months → cheaper per month.','',
+               '<pre>'+'\n'.join(table)+'</pre>',
+               '🎁 24-hour customer trials are free (limits apply).']
         if packages:
-            lines+=['','💰 CREDIT PACKS']
-            for p in packages:
-                each=p['price_pence']/p['credits']/100
-                lines.append('£'+str(p['price_pence']//100)+' → '+str(p['credits'])+' credits  (≈ £'+format(each,'.2f')+' per credit)')
+            width=max(len(str(p['credits'])) for p in packages)
+            rows=[f"£{p['price_pence']//100:<4}→ {str(p['credits']).rjust(width)} credits  (£{p['price_pence']/p['credits']/100:.2f} each)" for p in packages]
+            lines+=['','<b>💰 CREDIT PACKS</b>','<pre>'+'\n'.join(rows)+'</pre>']
             cheapest=min(packages,key=lambda p:p['price_pence'])
             year=by_month.get(12,{}).get(1)
             if year:
-                lines.append('Example: £'+str(cheapest['price_pence']//100)+' = '+str(cheapest['credits'])+' credits = '
-                             +str(cheapest['credits']//year)+' full-year subscriptions + '+str(cheapest['credits']%year)+' months to spare.')
+                lines.append('<i>Example: £'+str(cheapest['price_pence']//100)+' = '+str(cheapest['credits'])+' credits = '
+                             +str(cheapest['credits']//year)+' full-year subscriptions + '+str(cheapest['credits']%year)+' months spare.</i>')
         return '\n'.join(lines)
 
     def home(self,uid):
         self.r.require_ready()
         member=self.r.member(uid)
         if not member or member['status']=='pending':
-            text=('🏪 BECOME A RESELLER\n\n'
+            text=('<b>🏪 BECOME A RESELLER</b>\n\n'
                   'Sell Streamline subscriptions to your own customers and keep the margin. '
-                  'No application, no waiting: buy a credit pack and your reseller account is live.\n\n'
+                  'No application, no waiting: <b>buy a credit pack and your reseller account is live.</b>\n\n'
                   +self.credit_guide()+
                   '\n\nCreate trials and subscriptions in seconds here or on the web dashboard, and track every customer, expiry and credit.')
             rows=[[button('💳 Buy credits & start reselling','packages')],
@@ -94,7 +96,7 @@ class ResellerBot:
                   [{'text':'🔔 Notifications','callback_data':'nt:settings'}]]
             if uid==self.bot.service.config.get('support_admin_id'):rows.append([button('🛠 Administration','admin')])
             rows.append([{'text':'⬅️ Main menu','callback_data':'menu'}])
-        self.bot.send(uid,text,keyboard(rows,False))
+        self.bot.send(uid,text,keyboard(rows,False),parse_mode='HTML' if not member or member['status']=='pending' else None)
 
     def announce_status(self,target,status):
         """Tell a reseller their account was approved or suspended. Delivery problems never block the admin action."""
@@ -197,7 +199,7 @@ class ResellerBot:
             if name in ('home','apply'):
                 self.state(uid,clear=True);self.home(uid)
             elif name=='guide':
-                self.send(uid,self.credit_guide(),[[button('💳 Buy credits','packages')]])
+                self.send(uid,self.credit_guide(),[[button('💳 Buy credits','packages')]],parse_mode='HTML')
             elif name=='web':
                 if not self.store.limit('rs_web_link:'+str(uid),5,600):raise CheckoutError('Please wait a few minutes before requesting another sign-in link.')
                 url=self.r.web.login_url(self.r.web.issue_code(uid))
