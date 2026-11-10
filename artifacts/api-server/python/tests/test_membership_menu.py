@@ -94,7 +94,7 @@ class MembershipMenuTests(unittest.TestCase):
         rows = [[b['callback_data'] for b in row] for row in home['reply_markup']['inline_keyboard']]
         self.assertEqual(rows, [['menu:trial'], ['menu:plans'], ['rs:home'], ['nt:settings'],
                                 ['menu:account', 'menu:contact']])
-        self.assertIn('MEMBER ACCESS', home['text'])
+        self.assertIn('Welcome to', home['text'])
         self.assertIn('Choose an option below', home['text'])
 
     def test_legacy_more_button_returns_to_the_main_menu(self):

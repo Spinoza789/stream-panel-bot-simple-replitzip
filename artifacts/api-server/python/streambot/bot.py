@@ -109,10 +109,13 @@ class TelegramBot:
             except (KeyError,TypeError,ValueError): pass
         starting_price=('Plans from '+self.gbp(min(prices)) if prices else 'Flexible membership plans')
         demo=('🧪 DEMO MODE — orders and accounts are simulations. No real payments are accepted.\n\n'
-              if self.service.config['mode']=='demo' else '')
-        return (demo+'✨ '+self.service.config['brand']+' · MEMBER ACCESS\n\n'
-                'Your subscription, trial and account in one place.\n'
-                +starting_price+' · Choose an option below.')
+              if self.service.config['mode']=='demo' and self.service.config.get('demo_banner',True) else '')
+        return (demo+'✨ Welcome to '+self.service.config['brand']+'\n\n'
+                'Live TV, sport, movies and more on any device.\n\n'
+                '🎁 Try it free for 24 hours\n'
+                '💳 '+starting_price+' · pay in crypto\n'
+                '👤 Manage your account or talk to support\n\n'
+                'Choose an option below 👇')
 
     def account_screen(self,uid):
         accounts=self.service.linked_accounts(uid)
