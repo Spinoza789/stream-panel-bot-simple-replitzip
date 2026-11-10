@@ -5,6 +5,7 @@ const API=BASE+'/api/reseller';
 let me=null,packages=null,sub={filter:'active',page:0,search:''},hist={page:0},create={kind:'create',months:1,connections:1,adult:false},nonce=null,pollTimer=null;
 const names={ethereum:'Ethereum',solana:'Solana',bitcoin:'Bitcoin'};
 const when=ts=>new Date(ts*1000).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'});
+const whenDay=ts=>new Date(ts*1000).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Europe/London'});
 const money=p=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:2,minimumFractionDigits:0}).format(p/100);
 function error(message){$('error').textContent=message||'';$('error').hidden=!message;if(message)window.scrollTo({top:0,behavior:'smooth'});}
 class SignedOut extends Error{}
@@ -22,6 +23,7 @@ function el(tag,cls,text){const node=document.createElement(tag);if(cls)node.cla
 // ---------- shell ----------
 function signedOut(){me=null;$('shell').hidden=true;$('view-signin').hidden=false;$('signout').hidden=true;$('who').hidden=true;$('loading').hidden=true;}
 function applyMe(data){
+  if(!apps)api('/apps').then(a=>{apps=a;}).catch(()=>{});
   me=data;document.querySelectorAll('[data-brand]').forEach(n=>n.textContent=me.brand);$('demo-banner').hidden=!me.demo;
   $('who').textContent=(me.username?'@'+me.username:'ID '+me.telegram_id);$('who').hidden=false;$('signout').hidden=false;$('avatar').textContent=(me.username||'R')[0].toUpperCase();
   $('view-signin').hidden=true;$('shell').hidden=false;$('loading').hidden=true;
@@ -41,14 +43,15 @@ async function refreshMe(){applyMe(await api('/me'));}
 function route(){
   if(!me)return;
   const hash=location.hash.replace(/^#\/?/,'')||'dashboard';const [tab,query]=hash.split('?');const params=new URLSearchParams(query||'');
-  const known=['dashboard','subscriptions','create','credits','history','account'];const view=known.includes(tab)?tab:'dashboard';
+  const known=['dashboard','subscriptions','create','credits','apps','history','account'];const view=known.includes(tab)?tab:'dashboard';
   known.forEach(v=>$('view-'+v).hidden=v!==view);
   document.querySelectorAll('#tabs a').forEach(a=>a.getAttribute('data-tab')===view?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));
   error('');
-  if(view==='subscriptions'){if(params.get('filter'))sub.filter=params.get('filter');loadSubs().catch(fail);}
+  if(view==='subscriptions'){if(params.get('filter'))sub.filter=params.get('filter');loadSubs().catch(fail);if(params.get('open'))openDetail(params.get('open')).catch(fail);else $('sub-detail').hidden=true;}
   if(view==='history')loadHistory().catch(fail);
   if(view==='credits'){loadPackages().catch(fail);resumeInvoice();}
   if(view==='create')renderCreate();
+  if(view==='apps')loadApps().catch(fail);
   if(view==='dashboard'){refreshMe().catch(fail);loadHome().catch(fail);}
 }
 function fail(e){if(e instanceof SignedOut)return signedOut();error(e.message);}
@@ -65,10 +68,10 @@ function subRow(r){
   const row=el('button','row');row.type='button';
   const name=el('div');name.append(el('strong',null,r.customer_ref||r.username));name.append(el('small',null,r.username+' · '+r.provider_id));
   const kind=el('div',null,(r.kind==='trial'?'Test':'Paid')+' · '+r.connections+' device'+(r.connections>1?'s':'')+(r.adult?' · adult':''));
-  const start=el('div','hide-sm');start.append(el('small',null,'Started'));start.append(document.createTextNode(' '+when(r.starts_at)));
-  const exp=el('div');exp.append(el('small',null,'Expires'));exp.append(document.createTextNode(' '+when(r.expires_at)));
+  const start=el('div','hide-sm');start.append(el('small',null,'Started'));start.append(document.createTextNode(' '+whenDay(r.starts_at)));
+  const exp=el('div');exp.append(el('small',null,'Expires'));exp.append(document.createTextNode(' '+whenDay(r.expires_at)));
   const [label,cls]=pill(r);const p=el('span','pill '+cls.replace(':',''),label);
-  row.append(name,kind,start,exp,p);row.onclick=()=>{if(!location.hash.startsWith('#/subscriptions'))location.hash='#/subscriptions';setTimeout(()=>openDetail(r.id).catch(fail),30);};return row;
+  row.append(name,kind,start,exp,p);row.onclick=()=>{if(location.hash.startsWith('#/subscriptions'))openDetail(r.id).catch(fail);else location.hash='#/subscriptions?open='+encodeURIComponent(r.id);};return row;
 }
 function renderRows(list,items,empty){list.replaceChildren();if(!items.length)list.append(el('div','empty',empty));for(const r of items)list.append(subRow(r));}
 async function loadHome(){
@@ -80,15 +83,19 @@ async function openDetail(id){
   const data=await api('/subscriptions/'+encodeURIComponent(id));const r=data.record,box=$('sub-detail');box.replaceChildren();box.hidden=false;
   box.append(el('h2',null,(r.customer_ref||r.credentials.username)+' · '+(r.kind==='trial'?'24-hour test':'Subscription')));
   if(data.warning)box.append(Object.assign(el('div','notice error',data.warning),{}));
-  const dl=el('dl','plain');
-  for(const [k,v] of [['Subscription ID',r.provider_id],['Connections',r.connections]].concat(r.kind==='trial'?[]:[['Content',r.adult?'With adult':'No adult']]).concat([['Status',r.status],['Started',when(r.starts_at)],['Expires',when(r.expires_at)],['Last confirmed',when(r.confirmed_at)]])){const d=el('div');d.append(el('dt',null,k),el('dd',null,String(v)));dl.append(d);}
-  box.append(dl);
+  box.append(el('h3','sub','Login details to give the customer'));
   const grid=el('div','credential-grid');
   for(const [label,value] of [['USERNAME',r.credentials.username],['PASSWORD',r.credentials.password]].concat(r.credentials.server_url?[['SERVER',r.credentials.server_url]]:[])){
     const wrap=el('div');wrap.append(el('label',null,label));const code=el('code',null,value);wrap.append(code);
     const copy=el('button','text-button','Copy');copy.type='button';copy.onclick=async()=>{try{await navigator.clipboard.writeText(value);copy.textContent='Copied ✓';setTimeout(()=>copy.textContent='Copy',1600);}catch{error('Clipboard unavailable. Select and copy the text.');}};wrap.append(copy);grid.append(wrap);
   }
   box.append(grid);
+  const actions=el('div','actions');const all=el('button','primary','Copy login + setup guide');all.type='button';
+  all.onclick=async()=>{if(!apps)await loadApps().catch(fail);copyText(all,guideText(r.credentials),'Copy login + setup guide');};
+  const guideLink=el('a','secondary','Open the setup guide');guideLink.href='#/apps';actions.append(all,guideLink);box.append(actions);
+  const dl=el('dl','plain');
+  for(const [k,v] of [['Subscription ID',r.provider_id],['Connections',r.connections]].concat(r.kind==='trial'?[]:[['Content',r.adult?'With adult':'No adult']]).concat([['Status',r.status],['Started',when(r.starts_at)],['Expires',when(r.expires_at)],['Last confirmed',when(r.confirmed_at)]])){const d=el('div');d.append(el('dt',null,k),el('dd',null,String(v)));dl.append(d);}
+  box.append(el('h3','sub','Details'));box.append(dl);
   if(data.extensions.length){const h=el('h3','sub','Extensions');box.append(h);const l=el('div','muted');l.innerHTML='';for(const e of data.extensions)l.append(el('div',null,when(e.created_at)+' · +'+e.months+' months · '+e.credits+' credits · new expiry '+when(e.confirmed_expiry)));box.append(l);}
   if(me.status==='active'&&!data.warning&&['active','expired'].includes(r.status)){
     const ext=el('div','extend');ext.append(el('h3','sub',r.kind==='trial'?'Convert this test into a paid subscription':'Extend this subscription'));
@@ -113,6 +120,36 @@ async function watch(oid,node,done){
     else if(operation.status==='uncertain'){clearInterval(pollTimer);node.textContent='The provider did not confirm the result. Credits stay reserved while support checks it; do not create this customer again. '+me.support;resolve();}
     else node.textContent='Working… ('+operation.status+')';}catch(e){clearInterval(pollTimer);fail(e);resolve();}},1500);});
 }
+
+// ---------- apps & setup guide ----------
+let apps=null;
+async function copyText(button,text,label){try{await navigator.clipboard.writeText(text);const was=button.textContent;button.textContent='Copied ✓';setTimeout(()=>button.textContent=label||was,1600);}catch{error('Clipboard unavailable. Select and copy the text.');}}
+function guideText(credentials){
+  if(!apps)return '';const g=apps.guide,brand=apps.brand;const out=[];
+  if(credentials){out.push('Your '+brand+' login','Username: '+credentials.username,'Password: '+credentials.password);if(credentials.server_url)out.push('Server: '+credentials.server_url);out.push('');}
+  out.push('HOW TO INSTALL','');
+  out.push(g.firestick.title.toUpperCase());g.firestick.steps.forEach((st,i)=>out.push((i+1)+'. '+st));out.push('Downloader codes:');for(const a of g.firestick.apps)out.push('  '+a.name+': '+a.codes.join(' or '));out.push('');
+  out.push(g.apple.title.toUpperCase());g.apple.steps.forEach((st,i)=>out.push((i+1)+'. '+st));out.push('Site: '+g.apple.site,'URL code: '+g.apple.url_code,'');
+  out.push(g.android.title.toUpperCase());g.android.steps.forEach((st,i)=>out.push((i+1)+'. '+st));out.push('App links:');for(const a of g.android.apps)out.push('  '+a.name+': '+a.url);
+  return out.join('\n');
+}
+function codeChip(value){const chip=el('span','code-chip');chip.append(document.createTextNode(value));const b=el('button',null,'Copy');b.type='button';b.onclick=()=>copyText(b,value,'Copy');chip.append(b);return chip;}
+function appCard(title,steps,build){const card=el('article','card app-card');card.append(el('h2',null,title));const ol=el('ol');for(const st of steps)ol.append(el('li',null,st));card.append(ol);build(card);return card;}
+async function loadApps(){
+  if(!apps)apps=await api('/apps');const g=apps.guide,root=$('apps-content');root.replaceChildren();
+  root.append(appCard(g.firestick.title,g.firestick.steps,card=>{
+    const t=el('div','app-table');for(const a of g.firestick.apps){t.append(el('div','name',a.name));const codes=el('div','codes');for(const c of a.codes)codes.append(codeChip(c));t.append(codes);}card.append(t);
+    if(g.firestick.note)card.append(el('p','fineprint app-note',g.firestick.note));
+  }));
+  root.append(appCard(g.apple.title,g.apple.steps,card=>{
+    const t=el('div','app-table');t.append(el('div','name','Download'));const site=el('a','app-link',g.apple.site);site.href='https://'+g.apple.site;site.target='_blank';site.rel='noopener';t.append(site);
+    t.append(el('div','name','URL code'));const codes=el('div','codes');codes.append(codeChip(g.apple.url_code));t.append(codes);card.append(t);
+  }));
+  root.append(appCard(g.android.title,g.android.steps,card=>{
+    const t=el('div','app-table');for(const a of g.android.apps){t.append(el('div','name',a.name));const codes=el('div','codes');const link=el('a','app-link',a.url);link.href=a.url;link.target='_blank';link.rel='noopener';codes.append(link);const b=el('button','text-button','Copy link');b.type='button';b.onclick=()=>copyText(b,a.url,'Copy link');codes.append(b);t.append(codes);}card.append(t);
+  }));
+}
+$('copy-guide').onclick=async()=>{if(!apps)await loadApps().catch(fail);copyText($('copy-guide'),guideText(),'Copy setup guide');};
 
 // ---------- create ----------
 function renderCreate(){
@@ -154,7 +191,7 @@ $('create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('create-for
   $('confirm-create').hidden=p.preview.remaining<0;$('cs-note').textContent=p.preview.remaining<0?'Not enough credits. Buy credits first.':'Confirming reserves '+p.preview.cost+' credits; they are deducted once the provider confirms the account.';
 });};
 $('confirm-create').onclick=()=>busy($('confirm-create'),async()=>{if(!nonce)return;const c=await api('/operations/confirm',{method:'POST',data:{nonce}});nonce=null;$('confirm-create').hidden=true;
-  await watch(c.operation.id,$('op-status'),async op=>{if(op.result_id){const link=el('a','text-button','Open the new account');link.href='#/subscriptions';link.onclick=()=>setTimeout(()=>openDetail(op.result_id).catch(fail),50);$('op-status').append(document.createTextNode(' '));$('op-status').append(link);}});});
+  await watch(c.operation.id,$('op-status'),async op=>{if(op.result_id){$('op-status').textContent='Done. Opening the new account so you can copy the login…';location.hash='#/subscriptions?open='+encodeURIComponent(op.result_id);}});});
 $('buy').onclick=()=>busy($('buy'),async()=>{const pick=$('packs').dataset.pick;if(!pick)throw new Error('Choose a credit pack first.');const q=await api('/purchase',{method:'POST',data:{package_id:pick,asset_id:$('pay-asset').value}});openInvoice(q.token,q.order);});
 
 // ---------- credit payment inside the panel (existing order engine, token-authenticated) ----------

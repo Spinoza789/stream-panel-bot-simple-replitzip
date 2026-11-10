@@ -11,6 +11,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request, send_from_directory
 
 from .service import CheckoutError
+from .trial_message import APP_GUIDE
 
 COOKIE = 'rs_session'
 PORTAL = Path(__file__).resolve().parents[3] / 'streamline' / 'reseller'
@@ -157,6 +158,11 @@ def register_reseller_web(app, service):
             raise CheckoutError('Invalid page.')
         rows = resellers.finance.history(uid, page)
         return jsonify(items=rows[:10], more=len(rows) > 10, page=page)
+
+    @routes.get('/apps')
+    def apps():
+        current_uid()
+        return jsonify(brand=config['brand'], guide=APP_GUIDE)
 
     # ---- credits ---------------------------------------------------------------------------
     @routes.get('/packages')

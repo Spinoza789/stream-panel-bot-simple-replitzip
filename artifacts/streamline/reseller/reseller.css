@@ -167,3 +167,21 @@ dl.plain dt{color:var(--muted)}dl.plain dd{margin:0;text-align:right}
 @media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:56px auto 1fr}.sidenav{position:static;height:auto;flex-direction:row;align-items:center;gap:8px;padding:8px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.sidenav nav{flex-direction:row;gap:4px}.sidenav a{white-space:nowrap;padding:6px 10px}.sidenav a svg{display:none}.side-foot{margin-left:auto;padding:0 6px}.topbar .wordmark{min-width:0}.global-search{display:none}.tiles,.tiles-2{grid-template-columns:1fr 1fr}.invoice-grid,.create-grid{grid-template-columns:1fr}.summary{position:static}.packs{grid-template-columns:1fr 1fr}.row{grid-template-columns:1.4fr 1fr 1fr}.row .pill,.row .hide-sm{display:none}.page{padding:16px}}
 @media(max-width:600px){.tiles,.tiles-2{grid-template-columns:1fr}.search{width:100%}.search input{width:100%}.row{grid-template-columns:1fr 1fr}.credential-grid{grid-template-columns:1fr}.who{display:none}.page-head{flex-direction:column;align-items:flex-start}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+/* home how-it-works, apps page */
+.how-steps{margin:0;padding-left:20px;line-height:1.7}
+.how-steps li{margin-bottom:6px}
+.how-steps a{color:var(--blue);font-weight:550;margin-left:6px}
+.lead{margin:-6px 0 16px;max-width:720px}
+.app-card ol{margin:0 0 14px;padding-left:20px;line-height:1.7}
+.app-card ol li{margin-bottom:6px}
+.app-table{display:grid;grid-template-columns:160px 1fr;gap:8px 16px;align-items:center;padding-top:12px;border-top:1px solid var(--line)}
+.app-table .name{font-weight:550}
+.codes{display:flex;gap:8px;flex-wrap:wrap}
+.code-chip{display:inline-flex;align-items:center;gap:8px;padding:5px 6px 5px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.code-chip button{border:0;background:#fff;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:550;color:var(--blue);box-shadow:0 0 0 1px var(--line)}
+.code-chip button:hover{background:#eef4ff}
+.app-link{color:var(--blue);font-weight:550;overflow-wrap:anywhere}
+.app-note{margin:12px 0 0}
+.detail .actions{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+@media(max-width:600px){.app-table{grid-template-columns:1fr}}

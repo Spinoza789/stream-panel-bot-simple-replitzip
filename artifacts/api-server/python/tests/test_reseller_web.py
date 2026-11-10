@@ -173,6 +173,14 @@ class ResellerWebTests(unittest.TestCase):
         self.assertEqual(self.client.get('/reseller/static/index.html').status_code, 404)
         self.assertEqual(self.client.get('/reseller').status_code, 302)
 
+    def test_app_guide_is_available_to_signed_in_resellers(self):
+        self.assertEqual(self.client.get('/api/reseller/apps').status_code, 401)
+        self.sign_in()
+        guide = self.client.get('/api/reseller/apps').get_json()['guide']
+        self.assertEqual(guide['apple']['url_code'], 'BA896705')
+        self.assertIn('2976199', guide['firestick']['apps'][0]['codes'])
+        self.assertTrue(all(a['url'].startswith('https://') for a in guide['android']['apps']))
+
     def test_sign_out_everywhere_drops_every_session(self):
         self.sign_in()
         second = self.app.test_client()
