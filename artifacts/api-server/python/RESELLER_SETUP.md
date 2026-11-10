@@ -8,8 +8,11 @@ not a separate website or payment service.
 
 - Your existing numeric `SUPPORT_ADMIN_ID` is the reseller/financial administrator.
   Telegram usernames never grant account ownership or administrative authority.
-- Anyone can request approval. The administrator opens **Administration → Reseller
-  accounts** to approve pending accounts.
+- Anyone can apply with one tap from **Become A Reseller**. The administrator is
+  messaged immediately with an **Approve** button, and can also open
+  **Administration → Reseller accounts**. Applicants are told in Telegram when they
+  are approved or suspended, and approved resellers land on a dashboard showing
+  available credits and active / expiring / trial subscription counts.
 - **Administration** also lists purchases, pending/failed operations, the audit log
   and current configuration, and explains all administrative commands.
 - `/rsapprove TELEGRAM_ID reason` approves or resumes an account.

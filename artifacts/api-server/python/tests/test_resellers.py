@@ -86,6 +86,49 @@ class Scenarios:
         self.bot.handle({'callback_query':{'id':'click-'+str(self.message_id),'from':{'id':uid},
                         'data':action,'message':{'chat':{'id':uid,'type':'private'}}}})
 
+    def sent_to(self,uid):
+        return [p for m,p in self.calls if m=='sendMessage' and p.get('chat_id')==uid]
+
+    def test_one_tap_application_pings_admin_and_approval_notifies_the_applicant(self):
+        self.click(77,'rs:home')
+        screen=self.sent_to(77)[-1]
+        self.assertIn('BECOME A RESELLER',screen['text'])
+        self.assertEqual(screen['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:apply')
+        self.click(77,'rs:apply')
+        self.assertEqual(self.f.member(77)['status'],'pending')
+        self.assertIn('APPLICATION RECEIVED',self.sent_to(77)[-1]['text'])
+        ping=self.sent_to(9001)[-1]
+        self.assertIn('New reseller application',ping['text'])
+        self.assertIn('ID 77',ping['text'])
+        self.assertEqual(ping['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:approve:77')
+        admin_pings=len(self.sent_to(9001))
+        self.click(77,'rs:apply')  # tapping again never spams the administrator
+        self.assertEqual(len(self.sent_to(9001)),admin_pings)
+        self.click(9001,'rs:approve:77')
+        self.assertEqual(self.f.member(77)['status'],'active')
+        notice=self.sent_to(77)[-1]
+        self.assertIn('approved',notice['text'])
+        self.assertEqual(notice['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:home')
+        self.click(77,'rs:home')
+        dashboard=self.sent_to(77)[-1]
+        self.assertIn('RESELLER DASHBOARD',dashboard['text'])
+        self.assertIn('Credits: 0 available',dashboard['text'])
+        self.assertIn('0 active',dashboard['text'])
+        buttons={b['callback_data'] for row in dashboard['reply_markup']['inline_keyboard'] for b in row}
+        self.assertTrue({'rs:create','rs:trial','rs:packages','rs:balance','rs:list:active:0','rs:history:0'}<=buttons)
+        self.message(9001,'/rssuspend 77 test suspension')
+        self.assertIn('suspended',self.sent_to(77)[-1]['text'])
+
+    def test_dashboard_counts_follow_subscriptions(self):
+        self.fund(50)
+        self.create('op-dash-1',months=1)
+        self.create('op-dash-2',kind='trial')
+        counts=self.o.counts(42)
+        self.assertEqual((counts['active'],counts['trials'],counts['total']),(1,1,2))
+        self.click(42,'rs:home')
+        self.assertIn('1 active',self.sent_to(42)[-1]['text'])
+        self.assertIn('1 trial running',self.sent_to(42)[-1]['text'])
+
     def test_initial_packages_and_complete_cost_matrix(self):
         self.assertEqual([(p['price_pence'],p['credits']) for p in self.f.packages()],[(10000,34),(20000,75),(30000,129),(40000,192)])
         for months,costs in ((1,(1,2,3)),(3,(3,4,5)),(6,(6,7,8)),(9,(9,10,11)),(12,(12,15,20))):

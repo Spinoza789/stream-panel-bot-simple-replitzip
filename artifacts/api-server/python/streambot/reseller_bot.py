@@ -39,27 +39,71 @@ class ResellerBot:
         return value if value and value.get('expires',0)>now() else None
 
     def send(self,uid,text,rows=None,keep=False,parse_mode=None):
-        if self.bot.service.config['mode']=='demo':text='DEMO — simulated accounts and payments only.\n\n'+text
+        if self.bot.service.config['mode']=='demo' and self.bot.service.config.get('demo_banner',True):text='DEMO — simulated accounts and payments only.\n\n'+text
         self.bot.send(uid,text,keyboard(rows or []),parse_mode=parse_mode,keep=keep)
 
     def home(self,uid):
         self.r.require_ready()
         member=self.r.member(uid)
-        rows=[]
         if not member:
-            text='Reseller access\n\nRequest approval before buying credits or creating customer accounts.'
-            rows.append([button('Request reseller approval','apply')])
+            packages=[p for p in self.r.finance.packages() if p['active']]
+            text=('🏪 BECOME A RESELLER\n\n'
+                  'Sell Streamline subscriptions to your own customers and keep the margin.\n\n'
+                  '• Buy credits in bulk'+(' — from £'+str(min(p['price_pence'] for p in packages)//100)+' for '
+                  +str(min(packages,key=lambda p:p['price_pence'])['credits'])+' credits' if packages else '')+'\n'
+                  '• Create trials and subscriptions in seconds, right here\n'
+                  '• See every customer, expiry and credit in one place\n\n'
+                  'Tap Apply and we will approve you shortly.')
+            rows=[[button('✅ Apply now','apply')],
+                  [{'text':'💬 Questions? Contact support','callback_data':'menu:contact'}],
+                  [{'text':'⬅️ Main menu','callback_data':'menu'}]]
+        elif member['status']=='pending':
+            text=('⏳ APPLICATION RECEIVED\n\n'
+                  'Thanks! We are reviewing your reseller application. You will get a message here as soon as it is approved.')
+            rows=[[button('🔄 Check status','home')],
+                  [{'text':'💬 Contact support','callback_data':'menu:contact'}],
+                  [{'text':'⬅️ Main menu','callback_data':'menu'}]]
         else:
-            text='Reseller account: '+member['status'].upper()+'\nAvailable credits: '+str(member['available'])+'\nReserved credits: '+str(member['reserved'])
-            rows.extend([[button('My Balance','balance'),button('Buy Credits','packages')],
-                         [button('Create Subscription','create'),button('Create Trial','trial')],
-                         [button('My Subscriptions','filters')],[button('Transaction History','history:0')]])
-            if member['status']!='active':text+='\nApproval is required. Suspended accounts cannot buy, create or extend.'
-        rows.append([button('Help / Contact','help')])
-        rows.append([{'text':'Notifications & deals','callback_data':'nt:settings'}])
-        if uid==self.bot.service.config.get('support_admin_id'):rows.append([button('Administration','admin')])
-        rows.append([{'text':'Main menu','callback_data':'menu'}])
+            counts=self.r.ops.counts(uid)
+            text=('🏪 RESELLER DASHBOARD\n\n'
+                  '💳 Credits: '+str(member['available'])+' available'
+                  +(' · '+str(member['reserved'])+' reserved' if member['reserved'] else '')+'\n'
+                  '📺 Subscriptions: '+str(counts['active'])+' active · '+str(counts['expiring'])+' expiring in 7 days · '
+                  +str(counts['trials'])+' trial'+('' if counts['trials']==1 else 's')+' running')
+            if member['status']=='suspended':
+                text+='\n\n⛔ Your account is suspended. You can view records, but not buy, create or extend. '+self.bot.service.config['support']
+            rows=[[button('➕ Create subscription','create'),button('🎁 Create trial','trial')],
+                  [button('💳 Buy credits','packages'),button('📊 My balance','balance')],
+                  [button('📺 My subscriptions','list:active:0'),button('🧾 History','history:0')],
+                  [button('❓ Help','help'),{'text':'🔔 Notifications','callback_data':'nt:settings'}]]
+            if uid==self.bot.service.config.get('support_admin_id'):rows.append([button('🛠 Administration','admin')])
+            rows.append([{'text':'⬅️ Main menu','callback_data':'menu'}])
         self.bot.send(uid,text,keyboard(rows,False))
+
+    def _applied(self,uid,sender):
+        """One-tap application: register, tell the applicant, and ping the administrator with an Approve button."""
+        existing=self.r.member(uid)
+        self.r.finance.register(uid,sender.get('username',''))
+        admin=self.bot.service.config.get('support_admin_id')
+        if not existing and admin and admin!=uid:
+            who=('@'+sender['username']+' ' if sender.get('username') else '')+'(ID '+str(uid)+')'
+            try:
+                self.bot.send(admin,'🆕 New reseller application from '+who+'.',
+                              keyboard([[button('✅ Approve','approve:'+str(uid))],[button('Reseller accounts','adminlist:accounts:0')]],False),keep=True)
+            except Exception as exc:  # a blocked administrator must not break the applicant's flow
+                if getattr(exc,'code',None)!=403:raise
+        self.home(uid)
+
+    def announce_status(self,target,status):
+        """Tell a reseller their account was approved or suspended. Delivery problems never block the admin action."""
+        if status=='active':
+            text=('🎉 You are approved as a Streamline reseller!\n\n'
+                  'Buy credits, then create trials and subscriptions for your customers from your dashboard.')
+        else:
+            text='⛔ Your reseller account has been suspended. '+self.bot.service.config['support']
+        try:self.bot.send(target,text,keyboard([[button('Open reseller dashboard','home')]],False),keep=True)
+        except Exception as exc:
+            if getattr(exc,'code',None)!=403:raise
 
     def _confirmation(self,uid,state):
         preview=self.r.ops.preview(uid,state['kind'],state.get('months',0),state.get('connections',1),
@@ -148,10 +192,10 @@ class ResellerBot:
         try:
             self.r.require_ready()
             parts=action.split(':');name=parts[1]
-            if name in ('home','apply'):
-                self.state(uid,clear=True)
-                if name=='apply':self.r.finance.register(uid,sender.get('username',''))
-                self.home(uid)
+            if name=='home':
+                self.state(uid,clear=True);self.home(uid)
+            elif name=='apply':
+                self.state(uid,clear=True);self._applied(uid,sender)
             elif name=='balance':
                 member=self.r.finance.member(uid)
                 if not member:raise CheckoutError('Request reseller approval first.')
@@ -249,6 +293,7 @@ class ResellerBot:
             elif name=='approve':
                 self.r.finance.account_status(uid,int(parts[2]),'active','Approved from reseller administration')
                 self.send(uid,'Reseller approved.')
+                self.announce_status(int(parts[2]),'active')
             elif name=='reconcile':
                 self.r.ops.reconcile(uid,parts[2]);self.send(uid,'Provider result reconciled. Credits charged once; details are available to the reseller.')
             elif name=='config':
@@ -284,7 +329,9 @@ class ResellerBot:
                 self.r.require_ready();self.r.finance.admin(uid)
                 if command in ('/rsapprove','/rssuspend'):
                     target,reason=argument.split(maxsplit=1)
-                    self.r.finance.account_status(uid,int(target),'active' if command=='/rsapprove' else 'suspended',reason)
+                    status='active' if command=='/rsapprove' else 'suspended'
+                    self.r.finance.account_status(uid,int(target),status,reason)
+                    self.announce_status(int(target),status)
                 elif command=='/rscredits':
                     target,amount,reason=argument.split(maxsplit=2)
                     self.r.finance.adjust(uid,int(target),int(amount),reason,str(message['message_id']))

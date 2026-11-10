@@ -247,6 +247,18 @@ class Operations:
                     if len(matches)==11:return matches
         return matches
 
+    def counts(self,uid):
+        """Dashboard numbers for one reseller: active paid, expiring within 7 days, running trials."""
+        member=self.ledger.member(uid)
+        if not member:raise CheckoutError('Reseller account not found.')
+        with self.store.connection() as db:
+            row=db.execute(
+                "SELECT SUM(CASE WHEN kind='paid' AND status='active' AND expires_at>? THEN 1 ELSE 0 END),"
+                "SUM(CASE WHEN kind='paid' AND expires_at>? AND expires_at<=? THEN 1 ELSE 0 END),"
+                "SUM(CASE WHEN kind='trial' AND expires_at>? THEN 1 ELSE 0 END),COUNT(*) "
+                "FROM rs_subscriptions WHERE reseller_id=?",(now(),now(),now()+7*86400,now(),member['id'])).fetchone()
+        return {'active':int(row[0] or 0),'expiring':int(row[1] or 0),'trials':int(row[2] or 0),'total':int(row[3] or 0)}
+
     def refresh_listing(self,uid):
         member=self.ledger.member(uid)
         if not member:raise CheckoutError('Reseller account not found.')
