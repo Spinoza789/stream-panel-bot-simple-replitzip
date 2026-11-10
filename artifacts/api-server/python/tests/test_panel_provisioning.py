@@ -32,6 +32,7 @@ class PanelProvisioningTests(unittest.TestCase):
         self.generation = dict(generation_mode='panel',package_id='275',before_ids=['8'],prepared_at=int(time.time()))
         self.panel.account_snapshot = Mock(return_value={'8':{'panel_id':'8'},'9':self.account})
         self.panel._authenticated = True
+        self.panel._authenticated_at = time.time()
         self.post = SimpleNamespace(status_code=200,headers={},text='',url='https://panel.example.invalid/lines/create/0',
                                     json=lambda:{'redirect':'/lines'})
         self.edit = SimpleNamespace(status_code=200,headers={},url='https://panel.example.invalid/lines/edit/9',

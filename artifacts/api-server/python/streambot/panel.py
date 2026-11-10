@@ -31,8 +31,16 @@ class CreationDisabled(PanelError):
     """Account creation was not explicitly enabled."""
 
 
+class PanelSessionExpired(PanelError):
+    """The panel answered with its login page; the stored session is no longer valid."""
+
+
 class PanelClient:
-    def __init__(self, base_url, username, password, allow_create=False, session=None):
+    # The panel signs sessions out after about an hour. Re-authenticate well before that so
+    # the one request that must never be repeated (account creation) never meets a dead session.
+    SESSION_MAX_AGE = 45 * 60
+
+    def __init__(self, base_url, username, password, allow_create=False, session=None, session_max_age=None):
         parsed = urlsplit(base_url)
         if parsed.scheme not in ('https', 'http') or not parsed.netloc or parsed.username or parsed.password:
             raise PanelError('Invalid panel base URL')
@@ -41,6 +49,8 @@ class PanelClient:
         self.allow_create = allow_create
         self.session = session if session is not None else requests.Session()
         self._authenticated = False
+        self._authenticated_at = 0
+        self.session_max_age = self.SESSION_MAX_AGE if session_max_age is None else session_max_age
 
     def _url(self, path):
         url = urljoin(self.base_url, path)
@@ -86,9 +96,19 @@ class PanelClient:
                     return True
         return False
 
+    def _session_fresh(self):
+        return self._authenticated and time.time() - self._authenticated_at < self.session_max_age
+
+    def _expire_session(self):
+        self._authenticated = False
+        self._authenticated_at = 0
+
     def _login(self):
-        if self._authenticated:
+        if self._session_fresh():
             return
+        self._expire_session()
+        try: self.session.cookies.clear()
+        except Exception: pass
         response = self._request('GET', '/')
         token = self._token(self._soup(response))
         response = self._request('POST', '/', data={
@@ -103,13 +123,19 @@ class PanelClient:
         if self._is_login(response) or urlsplit(response.url).path.rstrip('/') != '/dashboard':
             raise PanelError('Panel login was not confirmed')
         self._authenticated = True
+        self._authenticated_at = time.time()
 
     def _read(self, path, **kwargs):
+        """Authenticated GET. A session the panel has signed out is renewed once and the read repeated."""
         self._login()
         response = self._request('GET', path, **kwargs)
         if self._is_login(response):
-            self._authenticated = False
-            raise PanelError('Panel session expired')
+            self._expire_session()
+            self._login()
+            response = self._request('GET', path, **kwargs)
+            if self._is_login(response):
+                self._expire_session()
+                raise PanelError('Panel session expired')
         return response
 
     def _create_form(self):
@@ -215,6 +241,14 @@ class PanelClient:
         return matches[0] if matches else None
 
     def _account_rows(self, username=''):
+        try:
+            return self._list_accounts(username)
+        except PanelSessionExpired:
+            # The DataTable POST found the session signed out; sign in again and list once more.
+            self._login()
+            return self._list_accounts(username)
+
+    def _list_accounts(self, username=''):
         response = self._read('/lines')
         soup = self._soup(response)
         endpoint, method, script = self._ajax(soup)
@@ -255,7 +289,8 @@ class PanelClient:
                     pass
                 response = self._request('POST', endpoint, data=query, headers=headers, allow_redirects=False)
                 if response.status_code >= 300 or self._is_login(response):
-                    raise PanelError('Panel listing session expired')
+                    self._expire_session()
+                    raise PanelSessionExpired('Panel listing session expired')
             try:
                 payload = response.json()
                 rows = payload['data']
