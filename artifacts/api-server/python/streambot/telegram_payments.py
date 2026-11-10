@@ -53,11 +53,6 @@ class TelegramCheckout:
         pending = order['status'] == 'pending'
         checking = pending and bool(order.get('txid'))
         if pending and not checking:
-            if time.time() <= order['expires_at']:
-                rows.append([
-                    {'text': '📋 Copy amount', 'copy_text': {'text': order['amount']}},
-                    {'text': '📋 Copy wallet', 'copy_text': {'text': order['asset']['wallet']}},
-                ])
             rows.append([{'text': "✅ I've paid — enter TXID", 'callback_data': 'pay:tx:' + oid}])
             if self.service.config['mode'] == 'demo':
                 rows.append([{'text': 'Simulate payment (demo only)', 'callback_data': 'pay:demo:' + oid}])
@@ -103,6 +98,7 @@ class TelegramCheckout:
             lines = [banner + '<b>💳 PAY WITH ' + e(asset['symbol']) + '</b>', item, '',
                      '<b>💰 SEND EXACTLY</b>', '<code>' + e(order['amount']) + '</code> ' + e(asset['symbol']),
                      '<b>on ' + e(network_name(asset)) + ' to</b>', '<code>' + e(asset['wallet']) + '</code>', '',
+                     '👆 Tap the amount or the wallet to copy it.',
                      '⚠️ Exact amount only. Do not round it. Network fees are extra.',
                      '', 'Sent it? Tap <b>I\'ve paid</b> and paste your TXID.', '',
                      '⏰ Expires ' + e(self.expiry(order))]

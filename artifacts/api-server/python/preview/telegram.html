@@ -44,7 +44,7 @@
   .bubble a,.bubble .cmd{color:var(--link);text-decoration:none;cursor:pointer}
   .bubble .cmd:hover,.bubble a:hover{text-decoration:underline}
   .bubble code,.bubble pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13.5px}
-  .bubble code{background:#0004;padding:1px 4px;border-radius:4px}
+  .bubble code{background:#0004;padding:1px 4px;border-radius:4px;cursor:pointer}
   .bubble pre{background:#0004;padding:8px;border-radius:6px;margin:4px 0;white-space:pre-wrap}
   .bubble blockquote{margin:2px 0 0;padding:6px 10px 6px 12px;border-left:3px solid var(--link);background:#ffffff14;border-radius:6px;display:block}
   .bubble .reply{border-left:2px solid var(--link);padding:2px 8px;margin:0 0 6px;font-size:13px;color:#cfd8e0;border-radius:2px;background:#ffffff0a}
@@ -259,6 +259,8 @@
     const b = e.target.closest('button');
     if (b && b.dataset.cb !== undefined) { tap(+b.closest('.row').dataset.id, b.dataset.cb); return; }
     if (b && b.dataset.url) { window.open(b.dataset.url, '_blank'); return; }
+    const code = e.target.closest('.bubble code');  // Telegram copies monospace text on tap
+    if (code) { navigator.clipboard && navigator.clipboard.writeText(code.textContent).then(() => toast('Copied to clipboard')); return; }
     const c = e.target.closest('.cmd'); if (c) { send(c.dataset.cmd); return; }
     const a = e.target.closest('.act'); if (a) setReply(+a.closest('.row').dataset.id);
   });

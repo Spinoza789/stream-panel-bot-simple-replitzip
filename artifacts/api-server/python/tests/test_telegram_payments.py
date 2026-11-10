@@ -130,7 +130,7 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertIn('Order not found', result['text'])
         self.assertNotIn(order['asset']['wallet'], result['text'])
 
-    def test_invoice_copy_buttons_use_full_amount_not_rounded_usd_price(self):
+    def test_invoice_copies_from_the_message_and_never_shows_the_rounded_usd_price(self):
         order = self.create()
         # Reproduce the customer's confusing USD-reference/USDC-amount example.
         order['plan'].update(usd_price='13.36', gbp_price='10.00')
@@ -140,14 +140,14 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertEqual(payload['parse_mode'], 'HTML')
         self.assertNotIn('13.36', payload['text'])
         self.assertIn('Do not round it', payload['text'])
+        # Telegram copies <code> text on tap, so the amount and wallet are code and there are no copy buttons.
+        self.assertIn('<code>13.356516</code>', payload['text'])
+        self.assertIn('<code>' + order['asset']['wallet'] + '</code>', payload['text'])
+        self.assertIn('Tap the amount or the wallet to copy it', payload['text'])
+        self.assertNotIn('copy_text', str(payload['reply_markup']))
         details = self.bot.checkout.details_text(order)
         self.assertLess(details.index('13.356516'), details.index('$13.36'))
         self.assertIn('NOT the amount to send', details)
-        self.assertIn('<code>' + order['asset']['wallet'] + '</code>', payload['text'])
-        copies = [button['copy_text']['text'] for row in payload['reply_markup']['inline_keyboard']
-                  for button in row if 'copy_text' in button]
-        self.assertEqual(copies, ['13.356516', order['asset']['wallet']])
-        self.assertNotIn('13.36', copies)
 
     def test_checking_payment_does_not_repeat_send_or_copy_instructions(self):
         order = self.create()
@@ -182,7 +182,7 @@ class TelegramPaymentTests(unittest.TestCase):
         details = self.bot.checkout.details_text(order)
         self.assertIn('&lt;b&gt;Fake&lt;/b&gt; &amp; other', details)
         self.assertNotIn('<a href=', details)
-        self.assertEqual(self.bot.checkout.order_keyboard(order)['inline_keyboard'][0][1]['copy_text']['text'], 'wallet<&>')
+        self.assertNotIn('<&>', text.replace('&lt;&amp;&gt;', ''))
 
     def test_every_completed_membership_has_guide_but_unfinished_orders_do_not(self):
         from streambot.trial_message import APP_DOWNLOAD_GUIDE
