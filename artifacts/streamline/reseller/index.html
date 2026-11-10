@@ -79,7 +79,7 @@
         <article class="card how">
           <h2>How it works</h2>
           <ol class="how-steps">
-            <li><strong>Buy credits.</strong> 1 credit = 1 month of TV on 1 device. <a href="#/credits">Order credits</a></li>
+            <li><strong>Buy credits.</strong> 1 credit = 1 month on 1 device. <a href="#/credits">Order credits</a></li>
             <li><strong>Create a test or subscription.</strong> It takes under a minute and the login appears straight away. <a href="#/create">Create</a></li>
             <li><strong>Send the customer their login and the setup guide.</strong> Open the account and press <em>Copy login + setup guide</em>. <a href="#/apps">See the guide</a></li>
           </ol>
@@ -93,9 +93,9 @@
         <article class="card index">
           <div class="toolbar">
             <div class="filters" id="filters">
-              <button data-filter="active" class="chip">Active</button><button data-filter="expiring" class="chip">Expiring</button><button data-filter="expired" class="chip">Expired</button><button data-filter="trials" class="chip">Tests</button><button data-filter="all" class="chip">All</button>
+              <button data-filter="active" class="chip">Active</button><button data-filter="expiring" class="chip">Expiring soon</button><button data-filter="expired" class="chip">Expired</button><button data-filter="trials" class="chip">Tests</button><button data-filter="all" class="chip">All</button>
             </div>
-            <form id="search-form" class="search"><input id="search" placeholder="Search customer, username or ID" maxlength="100"><button class="secondary" type="submit">Search</button></form>
+            <form id="search-form" class="search"><input id="search" placeholder="Search by customer, username or ID" maxlength="100"><button class="secondary" type="submit">Search</button></form>
           </div>
           <div id="sub-list" class="list"></div>
           <div class="pager"><button class="secondary" id="sub-prev">Previous</button><span id="sub-page"></span><button class="secondary" id="sub-next">Next</button></div>
@@ -108,20 +108,20 @@
         <div class="create-grid">
           <form id="create-form" class="card">
             <h2>New customer account</h2>
-            <fieldset><legend>Type</legend><div class="connection-options"><button type="button" class="choice" data-kind="create" aria-pressed="true">Paid subscription</button><button type="button" class="choice" data-kind="trial" aria-pressed="false">24-hour test</button></div></fieldset>
+            <fieldset><legend>What to create</legend><div class="connection-options"><button type="button" class="choice" data-kind="create" aria-pressed="true">Paid subscription</button><button type="button" class="choice" data-kind="trial" aria-pressed="false">24-hour test</button></div></fieldset>
             <fieldset id="months-field"><legend>Duration</legend><div class="connection-options" id="months-options"></div></fieldset>
-            <fieldset id="connections-field"><legend>Devices at the same time</legend><div class="connection-options" id="connections-options"></div><p class="fineprint">All devices must be in the same household.</p></fieldset>
+            <fieldset id="connections-field"><legend>Devices watching at the same time</legend><div class="connection-options" id="connections-options"></div><p class="fineprint">All devices must be in the same household.</p></fieldset>
             <fieldset id="content-field"><legend>Content</legend><div class="connection-options"><button type="button" class="choice" data-adult="0" aria-pressed="true">No adult</button><button type="button" class="choice" data-adult="1" aria-pressed="false">With adult</button></div></fieldset>
-            <label class="select-label" for="customer-ref">Customer reference (optional, only you see it)</label><input id="customer-ref" maxlength="100" placeholder="e.g. John – living room TV">
-            <button class="primary" type="submit">Preview cost</button>
+            <label class="select-label" for="customer-ref">Customer name or note (optional, only you see it)</label><input id="customer-ref" maxlength="100" placeholder="e.g. John – living room TV">
+            <button class="primary" type="submit">Check cost</button>
           </form>
           <aside class="summary card" id="create-summary">
-            <span class="eyebrow">Cost</span>
-            <h2 id="cs-title">1 month</h2><p id="cs-detail">1 device · No adult</p>
-            <div class="price"><span id="cs-cost">1</span><span>credits</span></div>
-            <dl><div><dt>Available</dt><dd id="cs-available">–</dd></div><div><dt>Remaining after</dt><dd id="cs-remaining">–</dd></div></dl>
+            <span class="eyebrow">Summary</span>
+            <h2 id="cs-title">1 month subscription</h2><p id="cs-detail">1 device · No adult</p>
+            <div class="price"><span id="cs-cost">1</span><span id="cs-unit">credit</span></div>
+            <dl><div><dt>Credits available</dt><dd id="cs-available">–</dd></div><div><dt>Credits left after</dt><dd id="cs-remaining">–</dd></div></dl>
             <button class="primary" id="confirm-create" hidden>Confirm and create</button>
-            <p class="fineprint" id="cs-note">Press Preview cost, then Confirm. Credits are only taken once the account is confirmed.</p>
+            <p class="fineprint" id="cs-note">Check the cost, then confirm. Credits are only taken once the account is confirmed.</p>
             <div id="op-status" class="notice" hidden></div>
           </aside>
         </div>
@@ -131,7 +131,7 @@
         <div class="page-head"><h1>Credits</h1></div>
         <div class="tiles tiles-2">
           <div class="tile accent"><span>Available credits</span><strong id="c-available">0</strong><small id="c-reserved"></small></div>
-          <div class="tile"><span>What a credit buys</span><strong class="small-strong">1 month · 1 device</strong><small>More devices or months cost fewer credits per month. Extra devices must be in the same household.</small></div>
+          <div class="tile"><span>What a credit buys</span><strong class="small-strong">1 month on 1 device</strong><small>Longer subscriptions and extra devices cost fewer credits per month. Extra devices must be in the same household.</small></div>
         </div>
         <article class="card" id="invoice-card" hidden>
           <div class="invoice-title"><div><span class="eyebrow" id="inv-label">Credit order</span><h2 id="inv-heading">Pay to add credits</h2><p id="inv-plan"></p></div><span class="status-chip" id="inv-status">AWAITING PAYMENT</span></div>
@@ -146,7 +146,7 @@
             </div>
             <div class="verification">
               <div class="expiry"><span>Quote valid for</span><strong id="inv-countdown">--:--</strong></div>
-              <form id="inv-verify-form"><label class="select-label" for="inv-txid">Transaction hash (TXID)</label><input id="inv-txid" placeholder="Paste the TXID after sending" autocomplete="off" required><button class="primary" id="inv-verify" type="submit">I've paid – check it</button></form>
+              <form id="inv-verify-form"><label class="select-label" for="inv-txid">Transaction hash (TXID)</label><input id="inv-txid" placeholder="Paste the TXID after sending" autocomplete="off" required><button class="primary" id="inv-verify" type="submit">I've paid, check now</button></form>
               <button class="secondary" id="inv-demo" type="button" hidden>Simulate payment (demo)</button>
               <p class="fineprint" id="inv-message"></p>
               <button class="text-button" id="inv-dismiss" type="button">Start a different order</button>
@@ -155,13 +155,13 @@
         </article>
         <article class="card" id="order-form">
           <h2>Order credits</h2>
-          <p class="muted">Pick a pack and how you'll pay. You pay in crypto right here; credits are added the moment the payment is verified on-chain.</p>
+          <p class="muted">Choose a pack and a coin. Credits are added as soon as the payment is confirmed on the blockchain.</p>
           <div class="packs" id="packs"></div>
-          <label class="select-label" for="pay-asset">Payment asset &amp; network</label><select id="pay-asset"></select>
-          <button class="primary" id="buy">Create payment request</button>
+          <label class="select-label" for="pay-asset">Pay with</label><select id="pay-asset"></select>
+          <button class="primary" id="buy">Continue to payment</button>
         </article>
         <article class="card">
-          <h2>Credit prices</h2>
+          <h2>What subscriptions cost</h2>
           <table class="costs" id="costs"></table>
         </article>
       </section>

@@ -57,17 +57,17 @@ function route(){
 function fail(e){if(e instanceof SignedOut)return signedOut();error(e.message);}
 
 // ---------- subscriptions ----------
-function pill(r){const now=Date.now()/1000;if(r.expires_at<=now)return ['EXPIRED','bad'];if(r.expires_at<now+7*86400)return ['EXPIRING','warn'];return [r.status.toUpperCase(),r.status==='active'?'ok:':''];}
+function pill(r){const now=Date.now()/1000;if(r.expires_at<=now)return ['Expired','bad'];if(r.expires_at<now+7*86400)return ['Expiring soon','warn'];return [r.status[0].toUpperCase()+r.status.slice(1),r.status==='active'?'ok:':''];}
 async function loadSubs(){
   document.querySelectorAll('#filters .chip').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.filter===sub.filter)));
   const data=await api('/subscriptions?filter='+encodeURIComponent(sub.filter)+'&page='+sub.page+'&search='+encodeURIComponent(sub.search));
-  renderRows($('sub-list'),data.items,'No records here yet.');
+  renderRows($('sub-list'),data.items,'No accounts match this filter.');
   $('sub-prev').disabled=!sub.page;$('sub-next').disabled=!data.more;$('sub-page').textContent='Page '+(sub.page+1);
 }
 function subRow(r){
   const row=el('button','row');row.type='button';
   const name=el('div');name.append(el('strong',null,r.customer_ref||r.username));name.append(el('small',null,r.username+' · '+r.provider_id));
-  const kind=el('div',null,(r.kind==='trial'?'Test':'Paid')+' · '+r.connections+' device'+(r.connections>1?'s':'')+(r.adult?' · adult':''));
+  const kind=el('div',null,(r.kind==='trial'?'24-hour test':'Subscription')+' · '+r.connections+' device'+(r.connections>1?'s':'')+(r.adult?' · with adult':''));
   const start=el('div','hide-sm');start.append(el('small',null,'Started'));start.append(document.createTextNode(' '+whenDay(r.starts_at)));
   const exp=el('div');exp.append(el('small',null,'Expires'));exp.append(document.createTextNode(' '+whenDay(r.expires_at)));
   const [label,cls]=pill(r);const p=el('span','pill '+cls.replace(':',''),label);
@@ -94,18 +94,18 @@ async function openDetail(id){
   all.onclick=async()=>{if(!apps)await loadApps().catch(fail);copyText(all,guideText(r.credentials),'Copy login + setup guide');};
   const guideLink=el('a','secondary','Open the setup guide');guideLink.href='#/apps';actions.append(all,guideLink);box.append(actions);
   const dl=el('dl','plain');
-  for(const [k,v] of [['Subscription ID',r.provider_id],['Connections',r.connections]].concat(r.kind==='trial'?[]:[['Content',r.adult?'With adult':'No adult']]).concat([['Status',r.status],['Started',when(r.starts_at)],['Expires',when(r.expires_at)],['Last confirmed',when(r.confirmed_at)]])){const d=el('div');d.append(el('dt',null,k),el('dd',null,String(v)));dl.append(d);}
+  for(const [k,v] of [['Subscription ID',r.provider_id],['Devices',r.connections+' device'+(r.connections>1?'s':'')]].concat(r.kind==='trial'?[]:[['Content',r.adult?'With adult':'No adult']]).concat([['Status',r.status[0].toUpperCase()+r.status.slice(1)],['Started',when(r.starts_at)],['Expires',when(r.expires_at)],['Last confirmed',when(r.confirmed_at)]])){const d=el('div');d.append(el('dt',null,k),el('dd',null,String(v)));dl.append(d);}
   box.append(el('h3','sub','Details'));box.append(dl);
-  if(data.extensions.length){const h=el('h3','sub','Extensions');box.append(h);const l=el('div','muted');l.innerHTML='';for(const e of data.extensions)l.append(el('div',null,when(e.created_at)+' · +'+e.months+' months · '+e.credits+' credits · new expiry '+when(e.confirmed_expiry)));box.append(l);}
+  if(data.extensions.length){const h=el('h3','sub','Extensions');box.append(h);const l=el('div','muted');l.innerHTML='';for(const e of data.extensions)l.append(el('div',null,when(e.created_at)+' · extended by '+e.months+' month'+(e.months>1?'s':'')+' · '+e.credits+' credit'+(e.credits===1?'':'s')+' · now expires '+when(e.confirmed_expiry)));box.append(l);}
   if(me.status==='active'&&!data.warning&&['active','expired'].includes(r.status)){
-    const ext=el('div','extend');ext.append(el('h3','sub',r.kind==='trial'?'Convert this test into a paid subscription':'Extend this subscription'));
+    const ext=el('div','extend');ext.append(el('h3','sub',r.kind==='trial'?'Upgrade this test to a paid subscription':'Extend this subscription'));
     const opts=el('div','connection-options');let months=1;
     const render=()=>{opts.replaceChildren();for(const m of [1,3,6,9,12]){const b=el('button','choice',m+' month'+(m>1?'s':''));b.type='button';b.setAttribute('aria-pressed',String(months===m));b.onclick=()=>{months=m;render();};opts.append(b);}};render();
     const go=el('button','primary');go.textContent='Preview extension';go.type='button';const status=el('div','notice');status.hidden=true;
     go.onclick=()=>busy(go,async()=>{
       const p=await api('/operations/preview',{method:'POST',data:{kind:'extend',months,connections:r.connections,adult:!!r.adult,target:r.id}});
-      status.hidden=false;status.textContent='Cost '+p.preview.cost+' credits · available '+p.preview.available+' · remaining '+p.preview.remaining+'. ';
-      if(p.preview.remaining<0){status.append(document.createTextNode('Not enough credits. '));return;}
+      status.hidden=false;status.textContent='Cost: '+p.preview.cost+' credits. Available: '+p.preview.available+'. Left after: '+p.preview.remaining+'. ';
+      if(p.preview.remaining<0){status.append(document.createTextNode('Not enough credits. Order more under Credits.'));return;}
       const ok=el('button','text-button','Confirm extension');ok.type='button';ok.onclick=()=>busy(ok,async()=>{const c=await api('/operations/confirm',{method:'POST',data:{nonce:p.nonce}});await watch(c.operation.id,status,()=>openDetail(id));});status.append(ok);
     });
     ext.append(opts,go,status);box.append(ext);
@@ -113,12 +113,12 @@ async function openDetail(id){
   box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function watch(oid,node,done){
-  clearInterval(pollTimer);node.hidden=false;node.textContent='Request queued. Creating the account with the provider…';
+  clearInterval(pollTimer);node.hidden=false;node.textContent='Creating the account…';
   await new Promise(resolve=>{pollTimer=setInterval(async()=>{try{const {operation}=await api('/operations/'+oid);
-    if(operation.status==='succeeded'){clearInterval(pollTimer);node.textContent='Done. Credits deducted: '+operation.credit_cost+'.';await refreshMe();if(done)await done(operation);resolve();}
+    if(operation.status==='succeeded'){clearInterval(pollTimer);node.textContent='Done. '+operation.credit_cost+' credit'+(operation.credit_cost===1?'':'s')+' used.';await refreshMe();if(done)await done(operation);resolve();}
     else if(operation.status==='failed'){clearInterval(pollTimer);node.textContent='The provider rejected this request. Reserved credits were released. '+(operation.message||'');await refreshMe();resolve();}
     else if(operation.status==='uncertain'){clearInterval(pollTimer);node.textContent='The provider did not confirm the result. Credits stay reserved while support checks it; do not create this customer again. '+me.support;resolve();}
-    else node.textContent='Working… ('+operation.status+')';}catch(e){clearInterval(pollTimer);fail(e);resolve();}},1500);});
+    else node.textContent='Working…';}catch(e){clearInterval(pollTimer);fail(e);resolve();}},1500);});
 }
 
 // ---------- apps & setup guide ----------
@@ -160,12 +160,12 @@ function renderCreate(){
   document.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===create.kind)));
   document.querySelectorAll('[data-adult]').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.adult==='1')===create.adult)));
   $('months-field').hidden=create.kind==='trial';$('connections-field').hidden=create.kind==='trial';$('content-field').hidden=create.kind==='trial';
-  const mo=$('months-options');mo.replaceChildren();for(const m of [1,3,6,9,12]){const b=el('button','choice',m+' mo');b.type='button';b.setAttribute('aria-pressed',String(create.months===m));b.onclick=()=>{create.months=m;renderCreate();};mo.append(b);}
+  const mo=$('months-options');mo.replaceChildren();for(const m of [1,3,6,9,12]){const b=el('button','choice',m===1?'1 month':m+' months');b.type='button';b.setAttribute('aria-pressed',String(create.months===m));b.onclick=()=>{create.months=m;renderCreate();};mo.append(b);}
   const co=$('connections-options');co.replaceChildren();for(const c of [1,2,3]){const b=el('button','choice',String(c));b.type='button';b.setAttribute('aria-pressed',String(create.connections===c));b.onclick=()=>{create.connections=c;renderCreate();};co.append(b);}
-  $('cs-title').textContent=create.kind==='trial'?'24-hour test':create.months+' month'+(create.months>1?'s':'');
+  $('cs-title').textContent=create.kind==='trial'?'24-hour test':create.months+' month'+(create.months>1?'s':'')+' subscription';
   $('cs-detail').textContent=create.kind==='trial'?'1 device · standard content':create.connections+' device'+(create.connections>1?'s':'')+' · '+(create.adult?'With adult':'No adult');
   const cost=create.kind==='trial'?0:(packages&&packages.costs.find(c=>c.months===create.months&&c.connections===create.connections)||{}).credits;
-  $('cs-cost').textContent=cost===undefined?'–':cost;$('cs-available').textContent=me?me.credits.available:'–';$('cs-remaining').textContent='–';
+  $('cs-cost').textContent=cost===undefined?'–':cost;$('cs-unit').textContent=cost===1?'credit':'credits';$('cs-available').textContent=me?me.credits.available:'–';$('cs-remaining').textContent='–';
   $('confirm-create').hidden=true;nonce=null;$('op-status').hidden=true;
   if(!packages)loadPackages().then(renderCreate).catch(()=>{});
 }
@@ -174,8 +174,8 @@ async function loadPackages(){
   const packs=$('packs');if(!packs.dataset.ready){packs.dataset.ready='1';
     for(const p of packages.packages){const b=el('button','choice');b.type='button';b.append(el('b',null,money(p.price_pence)));b.append(el('span','choice-price',p.credits+' credits'));b.onclick=()=>{packs.querySelectorAll('.choice').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');packs.dataset.pick=p.id;};packs.append(b);}
     const sel=$('pay-asset');for(const a of packages.assets){const o=el('option',null,a.symbol+' · '+(names[a.network]||a.network));o.value=a.id;sel.append(o);}
-    const t=$('costs');const months=[...new Set(packages.costs.map(c=>c.months))];const head=el('tr');head.append(el('th',null,'Months'));for(const c of [1,2,3])head.append(el('th',null,c+' connection'+(c>1?'s':'')));t.append(head);
-    for(const m of months){const tr=el('tr');tr.append(el('td',null,String(m)));for(const c of [1,2,3]){const f=packages.costs.find(x=>x.months===m&&x.connections===c);tr.append(el('td',null,f?f.credits+' cr':'–'));}t.append(tr);}
+    const t=$('costs');const months=[...new Set(packages.costs.map(c=>c.months))];const head=el('tr');head.append(el('th',null,'Duration'));for(const c of [1,2,3])head.append(el('th',null,c+' device'+(c>1?'s':'')));t.append(head);
+    for(const m of months){const tr=el('tr');tr.append(el('td',null,m===1?'1 month':m+' months'));for(const c of [1,2,3]){const f=packages.costs.find(x=>x.months===m&&x.connections===c);tr.append(el('td',null,f?f.credits+(f.credits===1?' credit':' credits'):'–'));}t.append(tr);}
   }
 }
 async function loadHistory(){
@@ -191,8 +191,8 @@ document.querySelectorAll('[data-adult]').forEach(b=>b.onclick=()=>{create.adult
 $('create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('create-form').querySelector('.primary'),async()=>{
   const data={kind:create.kind,months:create.kind==='trial'?0:create.months,connections:create.kind==='trial'?1:create.connections,adult:create.kind==='trial'?false:create.adult,customer_ref:$('customer-ref').value.trim()};
   const p=await api('/operations/preview',{method:'POST',data});nonce=p.nonce;
-  $('cs-cost').textContent=p.preview.cost;$('cs-available').textContent=p.preview.available;$('cs-remaining').textContent=p.preview.remaining;
-  $('confirm-create').hidden=p.preview.remaining<0;$('cs-note').textContent=p.preview.remaining<0?'Not enough credits. Buy credits first.':'Confirming reserves '+p.preview.cost+' credits; they are deducted once the provider confirms the account.';
+  $('cs-cost').textContent=p.preview.cost;$('cs-unit').textContent=p.preview.cost===1?'credit':'credits';$('cs-available').textContent=p.preview.available;$('cs-remaining').textContent=p.preview.remaining;
+  $('confirm-create').hidden=p.preview.remaining<0;$('cs-note').textContent=p.preview.remaining<0?'Not enough credits. Order more under Credits first.':'Confirm to reserve '+p.preview.cost+' credit'+(p.preview.cost===1?'':'s')+'. They are only taken once the account is confirmed.';
 });};
 $('confirm-create').onclick=()=>busy($('confirm-create'),async()=>{if(!nonce)return;const c=await api('/operations/confirm',{method:'POST',data:{nonce}});nonce=null;$('confirm-create').hidden=true;
   await watch(c.operation.id,$('op-status'),async op=>{if(op.result_id){$('op-status').textContent='Done. Opening the new account so you can copy the login…';location.hash='#/subscriptions?open='+encodeURIComponent(op.result_id);}});});
@@ -225,11 +225,11 @@ async function showInvoice(order){
   const asset=order.asset||{};const chip=$('inv-status');
   $('inv-plan').textContent=(order.plan&&order.plan.name)||'';$('inv-network').textContent=(asset.symbol||'')+' · '+(names[asset.network]||asset.network||'');
   $('inv-amount').textContent=(order.amount||'')+' '+(asset.symbol||'');$('inv-wallet').textContent=asset.wallet||'';
-  $('inv-quote').textContent=order.plan&&order.plan.gbp_price?'£'+order.plan.gbp_price+' at the rate locked for this quote.':'';
+  $('inv-quote').textContent=order.plan&&order.plan.gbp_price?'£'+order.plan.gbp_price+' at the exchange rate locked for this order.':'';
   $('inv-demo').hidden=!(me&&me.demo&&order.status==='pending');
   $('inv-message').textContent=order.message||'';
-  const labels={pending:order.txid?'CHECKING PAYMENT':'AWAITING PAYMENT',paid:'PAID · ADDING CREDITS',provisioning:'PAID · ADDING CREDITS',fulfilled:'CREDITS ADDED',review:'NEEDS A MANUAL CHECK',expired:'QUOTE EXPIRED'};
-  chip.textContent=labels[order.status]||order.status.toUpperCase();
+  const labels={pending:order.txid?'Checking payment':'Awaiting payment',paid:'Paid · adding credits',provisioning:'Paid · adding credits',fulfilled:'Credits added',review:'Needs a manual check',expired:'Quote expired'};
+  chip.textContent=labels[order.status]||order.status;
   $('inv-verify-form').hidden=order.status!=='pending';
   if(order.status==='fulfilled'){$('inv-heading').textContent='Credits added';$('inv-message').textContent='Your balance is updated. Thank you.';await refreshMe();}
   else $('inv-heading').textContent=order.status==='pending'?'Pay to add credits':'Payment received';

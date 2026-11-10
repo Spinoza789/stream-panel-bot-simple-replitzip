@@ -115,8 +115,8 @@ class ResellerBot:
                                    state.get('adult',False),state.get('customer_ref',''),state.get('target'))
         state=self.state(uid,dict(state,preview=preview))
         text=('Confirm '+('24-hour trial' if preview['kind']=='trial' else preview['kind']+' subscription')+
-              '\nDuration: '+('24 hours' if preview['kind']=='trial' else str(preview['months'])+' month(s)')+
-              '\nConnections: '+str(preview['connections'])+('' if preview['kind']=='trial' else '\nContent: '+('With adult' if preview['adult'] else 'No adult'))+
+              '\nDuration: '+('24 hours' if preview['kind']=='trial' else str(preview['months'])+(' month' if preview['months']==1 else ' months'))+
+              '\nDevices: '+str(preview['connections'])+('' if preview['kind']=='trial' else '\nContent: '+('With adult' if preview['adult'] else 'No adult'))+
               '\nCustomer: '+(preview['customer_ref'] or 'Not provided')+
               '\nCredit cost: '+str(preview['cost'])+'\nAvailable: '+str(preview['available'])+
               '\nRemaining after purchase: '+str(preview['remaining']))
@@ -127,7 +127,7 @@ class ResellerBot:
         self.send(uid,text,rows)
 
     def _durations(self,uid):
-        self.send(uid,'Choose a duration:',[[button(str(months)+' month(s)','duration:'+str(months))] for months in (1,3,6,9,12)])
+        self.send(uid,'How long should the subscription run?',[[button('1 month' if months==1 else str(months)+' months','duration:'+str(months))] for months in (1,3,6,9,12)])
 
     def _content(self,uid):
         self.send(uid,'Choose the content option:',[[button('With adult','adult:1'),button('No adult','adult:0')]])
@@ -142,7 +142,7 @@ class ResellerBot:
         e=escape
         text=('<u>24 Hour Trial</u>' if record['kind']=='trial' else '<u>Membership</u>')+'\n\n'+e(
               'Customer: '+(record['customer_ref'] or 'Not provided')+'\nSubscription ID: '+record['provider_id']+
-              '\nConnections: '+str(record['connections'])+('' if record['kind']=='trial' else '\nContent: '+('With adult' if record['adult'] else 'No adult'))+
+              '\nDevices: '+str(record['connections'])+('' if record['kind']=='trial' else '\nContent: '+('With adult' if record['adult'] else 'No adult'))+
               '\nStatus: '+record['status']+'\nRecorded start: '+date(record['starts_at'])+
               '\nProvider-confirmed expiry: '+date(record['expires_at'])+
               '\nLast confirmed: '+date(record['confirmed_at'])+
