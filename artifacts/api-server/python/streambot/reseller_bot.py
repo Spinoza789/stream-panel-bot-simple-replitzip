@@ -116,7 +116,7 @@ class ResellerBot:
         state=self.state(uid,dict(state,preview=preview))
         text=('Confirm '+('24-hour trial' if preview['kind']=='trial' else preview['kind']+' subscription')+
               '\nDuration: '+('24 hours' if preview['kind']=='trial' else str(preview['months'])+' month(s)')+
-              '\nConnections: '+str(preview['connections'])+'\nContent: '+('With adult' if preview['adult'] else 'No adult')+
+              '\nConnections: '+str(preview['connections'])+('' if preview['kind']=='trial' else '\nContent: '+('With adult' if preview['adult'] else 'No adult'))+
               '\nCustomer: '+(preview['customer_ref'] or 'Not provided')+
               '\nCredit cost: '+str(preview['cost'])+'\nAvailable: '+str(preview['available'])+
               '\nRemaining after purchase: '+str(preview['remaining']))
@@ -132,13 +132,17 @@ class ResellerBot:
     def _content(self,uid):
         self.send(uid,'Choose the content option:',[[button('With adult','adult:1'),button('No adult','adult:0')]])
 
+    def _reference(self,uid,state):
+        state['input']='reference';self.state(uid,state)
+        self.send(uid,'Send an optional customer name or reference (up to 100 characters), or skip it.',[[button('Skip customer reference','skip')]])
+
     def _details(self,uid,sid):
         record,warning,extensions=self.r.ops.refresh(uid,sid)
         member=self.r.finance.member(uid)
         e=escape
         text=('<u>24 Hour Trial</u>' if record['kind']=='trial' else '<u>Membership</u>')+'\n\n'+e(
               'Customer: '+(record['customer_ref'] or 'Not provided')+'\nSubscription ID: '+record['provider_id']+
-              '\nConnections: '+str(record['connections'])+'\nContent: '+('With adult' if record['adult'] else 'No adult')+
+              '\nConnections: '+str(record['connections'])+('' if record['kind']=='trial' else '\nContent: '+('With adult' if record['adult'] else 'No adult'))+
               '\nStatus: '+record['status']+'\nRecorded start: '+date(record['starts_at'])+
               '\nProvider-confirmed expiry: '+date(record['expires_at'])+
               '\nLast confirmed: '+date(record['confirmed_at'])+
@@ -239,7 +243,7 @@ class ResellerBot:
                     if warning:raise CheckoutError(warning)
                     state.update(target=record['id'],connections=record['connections'],adult=bool(record['adult']))
                 self.state(uid,state)
-                if name=='trial':self._content(uid)
+                if name=='trial':state['adult']=False;self._reference(uid,state)  # tests never ask about content
                 else:self._durations(uid)
             elif name in ('duration','connections','adult','skip'):
                 state=self.state(uid)
@@ -252,8 +256,7 @@ class ResellerBot:
                     state['connections']=int(parts[2]);self.state(uid,state);self._content(uid)
                 elif name=='adult':
                     if parts[2] not in ('0','1'):raise CheckoutError('Invalid content option.')
-                    state['adult']=parts[2]=='1';state['input']='reference';self.state(uid,state)
-                    self.send(uid,'Send an optional customer name or reference (up to 100 characters), or skip it.',[[button('Skip customer reference','skip')]])
+                    state['adult']=parts[2]=='1';self._reference(uid,state)
                 else:
                     state['customer_ref']='';state.pop('input',None);self._confirmation(uid,state)
             elif name=='confirm':

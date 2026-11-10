@@ -72,8 +72,9 @@ they are never written into the provider's description/notes.
   The panel generates credentials.
 - Nine-month packages were verified read-only: no-adult 119–121, adult 122–124.
   Other paid mappings reuse the existing verified membership configuration.
-- Trial package 275 is one connection, 24 hours. Its adult profile is the native
-  package profile; no-adult removes the verified adult-only bouquet difference
+- Trial package 275 is one connection, 24 hours. Reseller trials are always created
+  as the no-adult profile (the bot and portal no longer ask); no-adult removes the
+  verified adult-only bouquet difference
   between the native monthly profiles. Unsupported profiles fail explicitly.
 - Renewal uses the observed native POST form `/lines/extend/{id}` and its
   read-only `/lines/packages` preview, including both native identity parameters.

@@ -315,12 +315,13 @@ class Scenarios:
 
     def test_extension_preserves_profile_records_cost_and_converts_trial(self):
         self.fund(100)
-        trial=self.create(kind='trial',adult=True)
+        trial=self.create(kind='trial',adult=True)  # trials ignore the adult flag: tests are always the standard profile
         record=self.o.owned(42,trial['result_id'])
+        self.assertEqual(record['adult'],0)
         old=record['expires_at']
         extension=self.create('extend-request',kind='extend',months=12,target=record['id'])
         updated=self.o.owned(42,record['id'])
-        self.assertEqual((updated['connections'],updated['adult'],updated['kind']),(1,1,'paid'))
+        self.assertEqual((updated['connections'],updated['adult'],updated['kind']),(1,0,'paid'))
         self.assertGreater(updated['expires_at'],old)
         self.assertEqual(self.f.member(42)['balance'],88)
         _,_,history=self.o.refresh(42,record['id'])
@@ -368,6 +369,18 @@ class Scenarios:
         self.assertEqual(record['credentials']['username'],'test-user-1')
         with self.assertRaises(CheckoutError):self.preview(kind='extend',target=op['result_id'])
         self.assertEqual(self.f.member(42)['reserved'],0)
+
+    def test_bot_trial_form_never_asks_about_adult_content(self):
+        self.fund(1)
+        self.click(42,'rs:trial')
+        prompt=self.calls[-1][1]
+        self.assertIn('customer name or reference',prompt['text'])
+        self.assertNotIn('adult',str(prompt).lower())
+        self.click(42,'rs:skip')
+        confirmation=self.calls[-1][1]['text']
+        self.assertIn('Confirm 24-hour trial',confirmation)
+        self.assertNotIn('Content:',confirmation)
+        self.assertEqual(self.o.preview(42,'trial',0,1,True,'')['adult'],False)
 
     def test_reseller_flow_uses_persistent_confirmation_and_sends_download_details(self):
         self.fund(3)

@@ -37,8 +37,8 @@ class Operations:
         self.ledger.seed()
         member=self.ledger.member(uid,active=True)
         if kind not in ('create','trial','extend'):raise CheckoutError('Invalid operation.')
+        if kind=='trial':months,connections,adult=0,1,False  # 24-hour tests are always the standard (no-adult) profile
         if type(adult) is not bool:raise CheckoutError('Choose adult or no-adult content.')
-        if kind=='trial':months,connections=0,1
         if kind=='extend':
             record=self.owned(uid,target)
             connections,adult=record['connections'],bool(record['adult'])

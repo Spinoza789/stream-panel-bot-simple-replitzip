@@ -187,7 +187,7 @@ def register_reseller_web(app, service):
             connections = int(data.get('connections') or 1)
         except (TypeError, ValueError):
             raise CheckoutError('Invalid duration or connections.')
-        adult = data.get('adult')
+        adult = False if kind == 'trial' else data.get('adult')
         if not isinstance(adult, bool):
             raise CheckoutError('Choose adult or no-adult content.')
         customer_ref = str(data.get('customer_ref', ''))[:100].strip()
