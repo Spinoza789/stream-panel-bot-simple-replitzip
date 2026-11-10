@@ -89,9 +89,13 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertIn('pay:quote:month-1:usdc-ethereum', callbacks)
         invoice = self.click('pay:quote:month-1:usdc-ethereum')
         order = self.store.telegram_orders(42)[0]
-        self.assertIn('$12.50 USD', invoice['text'])
         self.assertIn('<b>💰 SEND EXACTLY</b>\n<code>' + self.service.public(order)['amount'], invoice['text'])
         self.assertEqual(invoice['parse_mode'], 'HTML')
+        self.assertNotIn('$12.50', invoice['text'])  # the reference price only appears under Details
+        self.assertLess(len(invoice['text']), 600)
+        details = self.click('pay:details:' + order['id'])
+        self.assertIn('$12.50 USD', details['text'])
+        self.assertIn('Confirmations required', details['text'])
         self.assertEqual(order['plan']['package_id'], '137')
         self.assertNotIn('Simulate payment', str(invoice))
         prompt = self.click('pay:tx:' + order['id'])
@@ -134,9 +138,11 @@ class TelegramPaymentTests(unittest.TestCase):
         self.bot.checkout.show_order(42, order)
         payload = self.calls[-1][1]
         self.assertEqual(payload['parse_mode'], 'HTML')
-        self.assertLess(payload['text'].index('13.356516'), payload['text'].index('$13.36'))
-        self.assertIn('NOT the amount to send', payload['text'])
+        self.assertNotIn('13.36', payload['text'])
         self.assertIn('Do not round it', payload['text'])
+        details = self.bot.checkout.details_text(order)
+        self.assertLess(details.index('13.356516'), details.index('$13.36'))
+        self.assertIn('NOT the amount to send', details)
         self.assertIn('<code>' + order['asset']['wallet'] + '</code>', payload['text'])
         copies = [button['copy_text']['text'] for row in payload['reply_markup']['inline_keyboard']
                   for button in row if 'copy_text' in button]
@@ -173,6 +179,9 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertIn('&lt;b&gt;Fake&lt;/b&gt; &amp; other', text)
         self.assertNotIn('<a href=', text)
         self.assertIn('<code>wallet&lt;&amp;&gt;</code>', text)
+        details = self.bot.checkout.details_text(order)
+        self.assertIn('&lt;b&gt;Fake&lt;/b&gt; &amp; other', details)
+        self.assertNotIn('<a href=', details)
         self.assertEqual(self.bot.checkout.order_keyboard(order)['inline_keyboard'][0][1]['copy_text']['text'], 'wallet<&>')
 
     def test_every_completed_membership_has_guide_but_unfinished_orders_do_not(self):
@@ -288,8 +297,8 @@ class TelegramPaymentTests(unittest.TestCase):
         self.config['mode'] = 'demo'
         response = self.click('pay:quote:month-1:btc')
         self.assertIn('DO NOT SEND FUNDS', response['text'])
-        self.assertIn('simulated, not live prices', response['text'])
         order = self.store.telegram_orders(42)[0]
+        self.assertIn('simulated, not live prices', self.click('pay:details:' + order['id'])['text'])
         self.assertTrue(order['asset']['wallet'].startswith('DEMO-'))
         self.click('pay:demo:' + order['id'])
         self.assertEqual(self.store.get(order['id'])['status'], 'paid')

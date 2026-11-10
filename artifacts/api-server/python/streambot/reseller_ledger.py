@@ -155,9 +155,9 @@ class Ledger:
         package=next((p for p in self.packages() if p['id']==package_id and p['active']),None)
         if not package:raise CheckoutError('Credit package is unavailable.')
         from .store import digest
+        gbp=f"{package['price_pence']//100}.{package['price_pence']%100:02d}"
         plan=dict(id='credits-'+package['id']+'-'+digest(json.dumps(package,sort_keys=True))[:10],
-                  name=str(package['credits'])+' reseller credits',detail='Verified payment required',
-                  gbp_price=f"{package['price_pence']//100}.{package['price_pence']%100:02d}",
+                  name=str(package['credits'])+' reseller credits',detail='£'+gbp,gbp_price=gbp,
                   reseller_purchase=dict(reseller_id=member['id'],package=package))
         quote=self.service.quote_plan(plan,asset,owner_telegram_id=uid,request_key='rsquote:'+str(uid)+':'+request_key)
         return quote if with_token else quote['order']
