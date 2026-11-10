@@ -173,8 +173,14 @@ dl.plain dt{color:var(--muted)}dl.plain dd{margin:0;text-align:right}
 .how-steps li{margin-bottom:6px}
 .how-steps a{color:var(--blue);font-weight:550;margin-left:6px}
 .lead{margin:-6px 0 16px;max-width:720px}
-.app-card ol{margin:0 0 14px;padding-left:20px;line-height:1.7}
-.app-card ol li{margin-bottom:6px}
+.step-grid{list-style:none;margin:0 0 16px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;align-items:start}
+.step{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.step img{display:block;width:100%;height:190px;object-fit:contain;background:#111;border-bottom:1px solid var(--line)}
+.app-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.app-head h2{margin:0}
+.app-icon{width:40px;height:40px;border-radius:9px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.app-icon.small{width:24px;height:24px;border-radius:6px;vertical-align:middle;margin-right:8px}
+.step-text{display:flex;gap:10px;padding:10px 12px;line-height:1.5}
+.step-n{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--text);color:#fff;font-size:12px;font-weight:650}
 .app-table{display:grid;grid-template-columns:160px 1fr;gap:8px 16px;align-items:center;padding-top:12px;border-top:1px solid var(--line)}
 .app-table .name{font-weight:550}
 .codes{display:flex;gap:8px;flex-wrap:wrap}

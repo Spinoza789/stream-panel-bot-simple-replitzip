@@ -171,6 +171,11 @@ class ResellerWebTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             response.close()
         self.assertEqual(self.client.get('/reseller/static/index.html').status_code, 404)
+        picture = self.client.get('/reseller/static/img/fire-url.png')
+        self.assertEqual(picture.status_code, 200)
+        self.assertEqual(picture.mimetype, 'image/png')
+        picture.close()
+        self.assertEqual(self.client.get('/reseller/static/img/../index.html').status_code, 404)
         self.assertEqual(self.client.get('/reseller').status_code, 302)
 
     def test_app_guide_is_available_to_signed_in_resellers(self):
@@ -179,6 +184,10 @@ class ResellerWebTests(unittest.TestCase):
         guide = self.client.get('/api/reseller/apps').get_json()['guide']
         self.assertEqual(guide['apple']['url_code'], 'BA896705')
         self.assertIn('2976199', guide['firestick']['apps'][0]['codes'])
+        for section in ('firestick', 'apple', 'android'):
+            for step in guide[section]['steps']:
+                if step.get('picture'):
+                    self.assertEqual(self.client.get('/reseller/static/' + step['picture']).status_code, 200)
         self.assertTrue(all(a['url'].startswith('https://') for a in guide['android']['apps']))
 
     def test_sign_out_everywhere_drops_every_session(self):

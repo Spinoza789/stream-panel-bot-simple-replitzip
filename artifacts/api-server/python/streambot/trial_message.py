@@ -4,13 +4,17 @@ Every builder here returns Telegram HTML (parse_mode='HTML'); dynamic values are
 from html import escape
 
 APP_GUIDE = {
+    # Pictures are real screenshots: Fire TV ones from AFTVnews (the Downloader developer), app ones from the App Store listings.
     'firestick': {
         'title': 'Amazon Fire Stick / Fire TV',
+        'icon': 'img/downloader-play-icon.png',
         'steps': [
-            'On the Fire TV home screen choose Find, then Search, and type Downloader. Install the orange Downloader app.',
-            'Go to Settings, My Fire TV, Developer options, Install unknown apps, and switch Downloader on. (If Developer options is missing, open Settings, My Fire TV, About and click the Fire TV Stick name seven times.)',
-            'Open Downloader, type one of the codes below into the URL box and press Go. Install the app when asked.',
-            'Open the app and log in with the username and password you were given.',
+            {'text': 'On the Fire TV home screen choose Find, then Search, type Downloader and install the orange Downloader app.', 'picture': 'img/fire-listing.jpg'},
+            {'text': 'Open Settings, My Fire TV, About, and click the device name seven times until it says you are a developer.', 'picture': 'img/fire-devmode.jpg'},
+            {'text': 'Go back to My Fire TV, open Developer options, then Install unknown apps, and switch Downloader ON.', 'picture': 'img/fire-unknown.jpg'},
+            {'text': 'Open Downloader, type one of the codes below into the URL box and press Go.', 'picture': 'img/fire-url.png'},
+            {'text': 'Choose Install when the app asks, then Open.', 'picture': 'img/fire-install.png'},
+            {'text': 'Log in with the username and password you were given.'},
         ],
         'apps': [
             {'name': 'Sky Live', 'codes': ['2976199', '565410', '6261787', '962396', '969828']},
@@ -21,32 +25,34 @@ APP_GUIDE = {
     },
     'apple': {
         'title': 'iPhone, iPad & Apple TV',
+        'icon': 'img/vizi-icon.jpg',
         'site': 'viziplayer.com/app',
         'url_code': 'BA896705',
         'steps': [
-            'On the device open viziplayer.com/app in Safari (or the App Store link it shows) and install the player.',
-            'Open the player and choose to add a playlist by URL code.',
-            'Enter the URL code below, then the username and password you were given.',
-            'On Apple TV, install the same app from the App Store and sign in the same way.',
+            {'text': 'Install Vizi Player from the App Store (open viziplayer.com/app on the device and it takes you there). On Apple TV search the App Store for Vizi Player.', 'picture': 'img/vizi-shot-1.jpg'},
+            {'text': 'Open the app and choose Add Playlist. In the box labelled "Playlist URL, or LinkACode.com ID" type the URL code below.'},
+            {'text': 'Enter the username and password you were given. The playlist loads and Live TV, films and series appear.', 'picture': 'img/vizi-shot-2.jpg'},
         ],
     },
     'android': {
         'title': 'Android phones, tablets & TV boxes',
+        'icon': 'img/smarters-icon.jpg',
         'steps': [
-            'Open one of the links below on the device and download the APK.',
-            'If Android asks, allow installs from this source (Settings, Apps, Special access, Install unknown apps).',
-            'Open the downloaded file to install, then open the app.',
-            'Log in with the username and password you were given.',
+            {'text': 'Open one of the links below on the device and download the APK file.'},
+            {'text': 'If Android asks, allow installs from this source (Settings, Apps, Special access, Install unknown apps).'},
+            {'text': 'Open the downloaded file, choose Install, then open the app and log in with the username and password you were given.'},
+            {'text': 'Android TV boxes can also install Downloader from Google Play and use the Fire Stick codes above.', 'picture': 'img/fire-url.png'},
         ],
         'apps': [
             {'name': 'Sky Live', 'url': 'https://tinyurl.com/256zmkh3'},
             {'name': 'Sky Glass', 'url': 'https://bit.ly/uhdglass'},
-            {'name': 'Smarters', 'url': 'https://apk.st/HVJU'},
+            {'name': 'Smarters', 'url': 'https://apk.st/HVJU', 'icon': 'img/smarters-icon.jpg'},
             {'name': 'Magic', 'url': 'https://apk.st/VPYJV'},
             {'name': 'Safe Media', 'url': 'https://tinyurl.com/4fevkw2a'},
             {'name': 'Safe Media V2', 'url': 'https://tinyurl.com/mrxhvej8'},
         ],
     },
+    'credits': 'Screenshots: AFTVnews (Downloader) and the App Store listings.',
 }
 
 

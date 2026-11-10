@@ -79,9 +79,9 @@ def register_reseller_web(app, service):
 
     @app.get('/reseller/static/<path:name>')
     def reseller_static(name):
-        if not name.endswith(('.js', '.css')):
+        if not name.endswith(('.js', '.css', '.png', '.jpg')):
             return jsonify(error='Not found.'), 404
-        return send_from_directory(str(PORTAL), name, max_age=0)
+        return send_from_directory(str(PORTAL), name, max_age=0 if name.endswith(('.js', '.css')) else 86400)
 
     # ---- sessions --------------------------------------------------------------------
     @routes.post('/session/code')

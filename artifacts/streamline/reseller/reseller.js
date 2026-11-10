@@ -128,26 +128,30 @@ function guideText(credentials){
   if(!apps)return '';const g=apps.guide,brand=apps.brand;const out=[];
   if(credentials){out.push('Your '+brand+' login','Username: '+credentials.username,'Password: '+credentials.password);if(credentials.server_url)out.push('Server: '+credentials.server_url);out.push('');}
   out.push('HOW TO INSTALL','');
-  out.push(g.firestick.title.toUpperCase());g.firestick.steps.forEach((st,i)=>out.push((i+1)+'. '+st));out.push('Downloader codes:');for(const a of g.firestick.apps)out.push('  '+a.name+': '+a.codes.join(' or '));out.push('');
-  out.push(g.apple.title.toUpperCase());g.apple.steps.forEach((st,i)=>out.push((i+1)+'. '+st));out.push('Site: '+g.apple.site,'URL code: '+g.apple.url_code,'');
-  out.push(g.android.title.toUpperCase());g.android.steps.forEach((st,i)=>out.push((i+1)+'. '+st));out.push('App links:');for(const a of g.android.apps)out.push('  '+a.name+': '+a.url);
+  out.push(g.firestick.title.toUpperCase());g.firestick.steps.forEach((st,i)=>out.push((i+1)+'. '+st.text));out.push('Downloader codes:');for(const a of g.firestick.apps)out.push('  '+a.name+': '+a.codes.join(' or '));out.push('');
+  out.push(g.apple.title.toUpperCase());g.apple.steps.forEach((st,i)=>out.push((i+1)+'. '+st.text));out.push('Site: '+g.apple.site,'URL code: '+g.apple.url_code,'');
+  out.push(g.android.title.toUpperCase());g.android.steps.forEach((st,i)=>out.push((i+1)+'. '+st.text));out.push('App links:');for(const a of g.android.apps)out.push('  '+a.name+': '+a.url);
   return out.join('\n');
 }
 function codeChip(value){const chip=el('span','code-chip');chip.append(document.createTextNode(value));const b=el('button',null,'Copy');b.type='button';b.onclick=()=>copyText(b,value,'Copy');chip.append(b);return chip;}
-function appCard(title,steps,build){const card=el('article','card app-card');card.append(el('h2',null,title));const ol=el('ol');for(const st of steps)ol.append(el('li',null,st));card.append(ol);build(card);return card;}
+function appCard(section,build){const card=el('article','card app-card');const head=el('div','app-head');if(section.icon){const ic=el('img','app-icon');ic.src=BASE+'/reseller/static/'+section.icon;ic.alt='';ic.width=40;ic.height=40;head.append(ic);}head.append(el('h2',null,section.title));card.append(head);
+  const grid=el('ol','step-grid');
+  section.steps.forEach((st,i)=>{const li=el('li','step');if(st.picture){const img=el('img');img.src=BASE+'/reseller/static/'+st.picture;img.alt='';img.loading='lazy';li.append(img);}const cap=el('div','step-text');cap.append(el('span','step-n',String(i+1)));cap.append(document.createTextNode(st.text));li.append(cap);grid.append(li);});
+  card.append(grid);build(card);return card;}
 async function loadApps(){
   if(!apps)apps=await api('/apps');const g=apps.guide,root=$('apps-content');root.replaceChildren();
-  root.append(appCard(g.firestick.title,g.firestick.steps,card=>{
+  root.append(appCard(g.firestick,card=>{
     const t=el('div','app-table');for(const a of g.firestick.apps){t.append(el('div','name',a.name));const codes=el('div','codes');for(const c of a.codes)codes.append(codeChip(c));t.append(codes);}card.append(t);
     if(g.firestick.note)card.append(el('p','fineprint app-note',g.firestick.note));
   }));
-  root.append(appCard(g.apple.title,g.apple.steps,card=>{
+  root.append(appCard(g.apple,card=>{
     const t=el('div','app-table');t.append(el('div','name','Download'));const site=el('a','app-link',g.apple.site);site.href='https://'+g.apple.site;site.target='_blank';site.rel='noopener';t.append(site);
     t.append(el('div','name','URL code'));const codes=el('div','codes');codes.append(codeChip(g.apple.url_code));t.append(codes);card.append(t);
   }));
-  root.append(appCard(g.android.title,g.android.steps,card=>{
-    const t=el('div','app-table');for(const a of g.android.apps){t.append(el('div','name',a.name));const codes=el('div','codes');const link=el('a','app-link',a.url);link.href=a.url;link.target='_blank';link.rel='noopener';codes.append(link);const b=el('button','text-button','Copy link');b.type='button';b.onclick=()=>copyText(b,a.url,'Copy link');codes.append(b);t.append(codes);}card.append(t);
+  root.append(appCard(g.android,card=>{
+    const t=el('div','app-table');for(const a of g.android.apps){const nm=el('div','name');if(a.icon){const ic=el('img','app-icon small');ic.src=BASE+'/reseller/static/'+a.icon;ic.alt='';ic.width=24;ic.height=24;nm.append(ic);}nm.append(document.createTextNode(a.name));t.append(nm);const codes=el('div','codes');const link=el('a','app-link',a.url);link.href=a.url;link.target='_blank';link.rel='noopener';codes.append(link);const b=el('button','text-button','Copy link');b.type='button';b.onclick=()=>copyText(b,a.url,'Copy link');codes.append(b);t.append(codes);}card.append(t);
   }));
+  if(g.credits)root.append(el('p','fineprint',g.credits));
 }
 $('copy-guide').onclick=async()=>{if(!apps)await loadApps().catch(fail);copyText($('copy-guide'),guideText(),'Copy setup guide');};
 
