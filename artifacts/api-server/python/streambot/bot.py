@@ -257,10 +257,10 @@ class TelegramBot:
             if self.notifications.callback(uid,action):return
             if self.reseller.callback(uid,action,sender):return
             member=self.service.resellers.member(uid)
-            if action=='menu' and member:
+            if action=='menu' and member and member['status']!='pending':
                 self.reseller.home(uid);return
-            if member and member['status']!='active' and action.startswith(('pay:','plan:','menu:trial','menu:retrytrial')):
-                raise CheckoutError('Your reseller account must be approved and active for this action.')
+            if member and member['status']=='suspended' and action.startswith(('pay:','plan:','menu:trial','menu:retrytrial')):
+                raise CheckoutError('Your reseller account is suspended. Contact support for help.')
             if action.startswith('pay:'):
                 self.checkout.handle_callback(uid,action,callback_id)
                 return

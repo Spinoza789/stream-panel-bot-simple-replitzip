@@ -203,7 +203,7 @@ class CheckoutService:
     def create_trial(self, telegram_id):
         if type(telegram_id) is not int or telegram_id<=0: raise CheckoutError('Invalid Telegram user.')
         self.resellers.guard(telegram_id)
-        if self.resellers.member(telegram_id):
+        if (self.resellers.member(telegram_id) or {}).get('status')=='active':
             raise CheckoutError('Use Reseller area → Create Trial for customer trials. Your reseller limits apply there.')
         plan = dict(id='trial',name='24-hour trial',package_id=str(self.config['trial_package_id']))
         try:
@@ -221,7 +221,7 @@ class CheckoutService:
         order = self.store.trial(telegram_id)
         if not order: raise CheckoutError('Start your trial first with /trial.')
         if order['status']!='review': return self.public(order)
-        if self.resellers.member(telegram_id):
+        if (self.resellers.member(telegram_id) or {}).get('status')=='active':
             raise CheckoutError('Contact support to recover your existing retail trial. Create customer trials from the reseller menu.')
         credentials = order['credentials']
         if credentials and credentials.get('generation_mode')=='panel':

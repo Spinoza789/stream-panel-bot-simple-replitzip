@@ -28,7 +28,7 @@ function applyMe(data){
   $('t-available').textContent=me.credits.available;$('t-reserved').textContent=me.credits.reserved?me.credits.reserved+' reserved for pending requests':'';
   $('t-active').textContent=me.counts.active;$('t-expiring').textContent=me.counts.expiring;$('t-trials').textContent=me.counts.trials;
   const note=$('status-note');
-  if(me.status==='pending'){note.textContent='Your application is being reviewed. You will be able to buy credits and create accounts once approved; you will get a Telegram message when that happens.';note.hidden=false;}
+  if(me.status==='pending'){note.textContent='Buy your first credit pack to activate your reseller account. Credits are added, and the account goes live, as soon as the payment is verified.';note.hidden=false;}
   else if(me.status==='suspended'){note.textContent='Your reseller account is suspended. You can view records but not buy, create or extend. '+me.support;note.hidden=false;}
   else note.hidden=true;
   $('acc-id').textContent=me.telegram_id;$('acc-username').textContent=me.username?'@'+me.username:'—';$('acc-status').textContent=me.status;

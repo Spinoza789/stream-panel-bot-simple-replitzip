@@ -42,26 +42,40 @@ class ResellerBot:
         if self.bot.service.config['mode']=='demo' and self.bot.service.config.get('demo_banner',True):text='DEMO — simulated accounts and payments only.\n\n'+text
         self.bot.send(uid,text,keyboard(rows or []),parse_mode=parse_mode,keep=keep)
 
+    def credit_guide(self):
+        """What credits buy and what packs cost, from the live price tables."""
+        packages=[p for p in self.r.finance.packages() if p['active']]
+        costs=self.r.web.costs()
+        by_month={}
+        for c in costs:by_month.setdefault(c['months'],{})[c['connections']]=c['credits']
+        lines=['💡 WHAT CREDITS BUY','1 credit = 1 month of TV on 1 device. Add devices or months and the price per month drops.','']
+        for months in sorted(by_month):
+            row=by_month[months]
+            lines.append(str(months)+' month'+('s' if months>1 else '')+': '+' · '.join(str(row[n])+' cr ('+str(n)+' device'+('s' if n>1 else '')+')' for n in sorted(row)))
+        lines.append('24-hour trials for your customers are free (limits apply).')
+        if packages:
+            lines+=['','💰 CREDIT PACKS']
+            for p in packages:
+                each=p['price_pence']/p['credits']/100
+                lines.append('£'+str(p['price_pence']//100)+' → '+str(p['credits'])+' credits  (≈ £'+format(each,'.2f')+' per credit)')
+            cheapest=min(packages,key=lambda p:p['price_pence'])
+            year=by_month.get(12,{}).get(1)
+            if year:
+                lines.append('Example: £'+str(cheapest['price_pence']//100)+' = '+str(cheapest['credits'])+' credits = '
+                             +str(cheapest['credits']//year)+' full-year subscriptions + '+str(cheapest['credits']%year)+' months to spare.')
+        return '\n'.join(lines)
+
     def home(self,uid):
         self.r.require_ready()
         member=self.r.member(uid)
-        if not member:
-            packages=[p for p in self.r.finance.packages() if p['active']]
+        if not member or member['status']=='pending':
             text=('🏪 BECOME A RESELLER\n\n'
-                  'Sell Streamline subscriptions to your own customers and keep the margin.\n\n'
-                  '• Buy credits in bulk'+(' — from £'+str(min(p['price_pence'] for p in packages)//100)+' for '
-                  +str(min(packages,key=lambda p:p['price_pence'])['credits'])+' credits' if packages else '')+'\n'
-                  '• Create trials and subscriptions in seconds, right here\n'
-                  '• See every customer, expiry and credit in one place\n\n'
-                  'Tap Apply and we will approve you shortly.')
-            rows=[[button('✅ Apply now','apply')],
+                  'Sell Streamline subscriptions to your own customers and keep the margin. '
+                  'No application, no waiting: buy a credit pack and your reseller account is live.\n\n'
+                  +self.credit_guide()+
+                  '\n\nCreate trials and subscriptions in seconds here or on the web dashboard, and track every customer, expiry and credit.')
+            rows=[[button('💳 Buy credits & start reselling','packages')],
                   [{'text':'💬 Questions? Contact support','callback_data':'menu:contact'}],
-                  [{'text':'⬅️ Main menu','callback_data':'menu'}]]
-        elif member['status']=='pending':
-            text=('⏳ APPLICATION RECEIVED\n\n'
-                  'Thanks! We are reviewing your reseller application. You will get a message here as soon as it is approved.')
-            rows=[[button('🔄 Check status','home')],
-                  [{'text':'💬 Contact support','callback_data':'menu:contact'}],
                   [{'text':'⬅️ Main menu','callback_data':'menu'}]]
         else:
             counts=self.r.ops.counts(uid)
@@ -76,24 +90,11 @@ class ResellerBot:
                   [button('💳 Buy credits','packages'),button('📊 My balance','balance')],
                   [button('📺 My subscriptions','list:active:0'),button('🧾 History','history:0')],
                   [button('🌐 Open web dashboard','web')],
-                  [button('❓ Help','help'),{'text':'🔔 Notifications','callback_data':'nt:settings'}]]
+                  [button('💡 What credits buy','guide'),button('❓ Help','help')],
+                  [{'text':'🔔 Notifications','callback_data':'nt:settings'}]]
             if uid==self.bot.service.config.get('support_admin_id'):rows.append([button('🛠 Administration','admin')])
             rows.append([{'text':'⬅️ Main menu','callback_data':'menu'}])
         self.bot.send(uid,text,keyboard(rows,False))
-
-    def _applied(self,uid,sender):
-        """One-tap application: register, tell the applicant, and ping the administrator with an Approve button."""
-        existing=self.r.member(uid)
-        self.r.finance.register(uid,sender.get('username',''))
-        admin=self.bot.service.config.get('support_admin_id')
-        if not existing and admin and admin!=uid:
-            who=('@'+sender['username']+' ' if sender.get('username') else '')+'(ID '+str(uid)+')'
-            try:
-                self.bot.send(admin,'🆕 New reseller application from '+who+'.',
-                              keyboard([[button('✅ Approve','approve:'+str(uid))],[button('Reseller accounts','adminlist:accounts:0')]],False),keep=True)
-            except Exception as exc:  # a blocked administrator must not break the applicant's flow
-                if getattr(exc,'code',None)!=403:raise
-        self.home(uid)
 
     def announce_status(self,target,status):
         """Tell a reseller their account was approved or suspended. Delivery problems never block the admin action."""
@@ -193,10 +194,10 @@ class ResellerBot:
         try:
             self.r.require_ready()
             parts=action.split(':');name=parts[1]
-            if name=='home':
+            if name in ('home','apply'):
                 self.state(uid,clear=True);self.home(uid)
-            elif name=='apply':
-                self.state(uid,clear=True);self._applied(uid,sender)
+            elif name=='guide':
+                self.send(uid,self.credit_guide(),[[button('💳 Buy credits','packages')]])
             elif name=='web':
                 if not self.store.limit('rs_web_link:'+str(uid),5,600):raise CheckoutError('Please wait a few minutes before requesting another sign-in link.')
                 url=self.r.web.login_url(self.r.web.issue_code(uid))
@@ -208,12 +209,17 @@ class ResellerBot:
                 if not member:raise CheckoutError('Request reseller approval first.')
                 self.send(uid,'My Balance\n\nTotal credits: '+str(member['balance'])+'\nReserved: '+str(member['reserved'])+'\nAvailable: '+str(member['available']),[[button('Requests / reserved credits','requests:0')]])
             elif name=='packages':
-                self.r.finance.member(uid,active=True);self.state(uid,clear=True)
+                self.state(uid,clear=True)
+                member=self.r.member(uid)
+                if not member:self.r.finance.register(uid,sender.get('username',''));member=self.r.member(uid)
+                if member['status']=='suspended':raise CheckoutError('Your reseller account is suspended and cannot buy credits.')
                 packages=self.r.finance.packages()
-                self.send(uid,'Buy Credits\n\nCredits are added only after blockchain verification or an authorised manual payment confirmation.',
-                          [[button(f"£{p['price_pence']//100}.{p['price_pence']%100:02d} = {p['credits']} credits",'package:'+p['id'])] for p in packages if p['active']])
+                self.send(uid,('💳 BUY CREDITS\n\nPick a pack. Pay in crypto on the next screen; credits land in your account as soon as the payment is verified'
+                               +(' and your reseller account goes live.' if member['status']=='pending' else '.')),
+                          [[button(f"£{p['price_pence']//100} → {p['credits']} credits",'package:'+p['id'])] for p in packages if p['active']]
+                          +[[button('💡 What credits buy','guide')]])
             elif name=='package':
-                self.r.finance.member(uid,active=True)
+                if (self.r.member(uid) or {}).get('status','suspended')=='suspended':raise CheckoutError('Your reseller account is suspended and cannot buy credits.')
                 self.send(uid,'Choose the crypto and network:',[[button(a['symbol']+' · '+a['network'],'buy:'+parts[2]+':'+aid)] for aid,a in self.bot.service.config['assets'].items() if a.get('enabled',True)])
             elif name=='buy':
                 self.state(uid,clear=True)
@@ -280,7 +286,7 @@ class ResellerBot:
             elif name=='clearsearch':
                 self.store.metadata('rs_search:'+str(uid),'');self._records(uid,'all',0)
             elif name=='help':
-                self.send(uid,'Reseller help\n\nApproval is required. Buy credits using the existing crypto checkout and submit the TXID. “I’ve paid” never adds credits by itself.\n\nConfirmed subscription requests reserve credits. Uncertain provider results remain reserved for support review; do not create another request for the same customer.\n\nTrial limits are separate from retail trials. Expiry times are shown in Europe/London.\n\nContact: '+self.bot.service.config['support'])
+                self.send(uid,'Reseller help\n\nAnyone can become a reseller by buying a credit pack. Pay with the crypto checkout and submit the TXID; credits are added once the payment is verified. “I’ve paid” never adds credits by itself.\n\nConfirmed subscription requests reserve credits. Uncertain provider results remain reserved for support review; do not create another request for the same customer.\n\nTrial limits are separate from retail trials. Expiry times are shown in Europe/London.\n\nContact: '+self.bot.service.config['support'])
             elif name=='admin':
                 self.r.finance.admin(uid)
                 self.send(uid,self.admin_help(),[[button('Reseller accounts','adminlist:accounts:0')],[button('Credit purchases','adminlist:purchases:0')],[button('Pending / failed operations','adminlist:operations:0')],[button('Configuration','config')],[button('Audit log','adminlist:audit:0')]])
@@ -330,7 +336,7 @@ class ResellerBot:
         uid=message['from']['id']
         member=self.r.member(uid)
         try:
-            if command=='/reseller' or command in ('/start','/help') and member:
+            if command=='/reseller' or command in ('/start','/help') and member and member['status']!='pending':
                 self.home(uid);return True
             if command.startswith('/rs'):
                 self.r.require_ready();self.r.finance.admin(uid)
@@ -366,8 +372,8 @@ class ResellerBot:
                     return True
                 else:raise CheckoutError(self.admin_help())
                 self.send(uid,'Administrator action completed and audited.');return True
-            if member and member['status']!='active' and command in ('/trial','/retrytrial','/txid'):
-                raise CheckoutError('Your reseller account must be approved and active for this action.')
+            if member and member['status']=='suspended' and command in ('/trial','/retrytrial','/txid'):
+                raise CheckoutError('Your reseller account is suspended. Contact support for help.')
             state=self.state(uid)
             if command.startswith('/') or not state or not state.get('input'):return False
             text=message.get('text','').strip()

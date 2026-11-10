@@ -107,9 +107,10 @@ class Store:
             db.execute('BEGIN IMMEDIATE')
             purchase=plan.get('reseller_purchase')
             if purchase:
-                reseller=db.execute("SELECT id FROM rs_resellers WHERE id=? AND telegram_id=? AND status='active'",
+                # Unpaid (pending) resellers buy their first pack here; only suspended accounts are refused.
+                reseller=db.execute("SELECT id FROM rs_resellers WHERE id=? AND telegram_id=? AND status IN ('pending','active')",
                                     (purchase['reseller_id'],owner_telegram_id)).fetchone()
-                if not reseller:raise ValueError('An approved active reseller account is required.')
+                if not reseller:raise ValueError('This reseller account cannot buy credits.')
             if owner_telegram_id is not None:
                 if type(owner_telegram_id) is not int or owner_telegram_id<=0 or telegram_id is not None:
                     raise ValueError('Invalid payment owner.')

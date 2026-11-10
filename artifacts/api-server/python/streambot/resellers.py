@@ -71,8 +71,8 @@ class Resellers:
     def guard(self,uid):
         if uid is None:return
         member=self.member(uid)
-        if member and member['status']!='active':
-            raise CheckoutError('Your reseller account must be approved and active before purchasing or creating accounts.')
+        if member and member['status']=='suspended':
+            raise CheckoutError('Your reseller account is suspended. Contact support before purchasing or creating accounts.')
 
     def process(self):
         if self.ready:self.ops.process()

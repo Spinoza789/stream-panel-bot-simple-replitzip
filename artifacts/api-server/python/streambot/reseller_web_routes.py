@@ -54,7 +54,7 @@ def register_reseller_web(app, service):
         member = resellers.member(uid)
         if not member:
             raise CheckoutError('Reseller account not found.')
-        counts = resellers.ops.counts(uid) if member['status'] != 'pending' else {'active': 0, 'expiring': 0, 'trials': 0, 'total': 0}
+        counts = resellers.ops.counts(uid)
         return {'brand': config['brand'], 'support': config['support'], 'support_url': config.get('support_url', ''),
                 'demo': config['mode'] == 'demo' and config.get('demo_banner', True),
                 'telegram_id': uid, 'username': member['username'], 'status': member['status'],

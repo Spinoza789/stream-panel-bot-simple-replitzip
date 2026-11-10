@@ -65,10 +65,10 @@ class ResellerWebTests(unittest.TestCase):
         with self.assertRaises(CheckoutError):
             self.web.issue_code(555)  # not a reseller
 
-    def test_pending_applicants_can_sign_in_but_only_see_their_status(self):
+    def test_unpaid_resellers_can_sign_in_and_buy_but_not_create_yet(self):
         me = self.sign_in(77)
         self.assertEqual(me['status'], 'pending')
-        self.assertEqual(self.post('/api/reseller/purchase', {'package_id': '100', 'asset_id': 'usdc-ethereum'}).status_code, 400)
+        self.assertEqual(self.post('/api/reseller/purchase', {'package_id': '100', 'asset_id': 'usdc-ethereum'}).status_code, 201)
         self.assertEqual(self.post('/api/reseller/operations/preview',
                                    {'kind': 'trial', 'months': 0, 'connections': 1, 'adult': False}).status_code, 400)
 

@@ -76,7 +76,7 @@ class TelegramCheckout:
         demo = self.service.config['mode'] == 'demo'
         if order['status']=='fulfilled' and plan.get('reseller_purchase'):
             purchase=plan['reseller_purchase']['package']
-            return ('DEMO — simulated payment.\n\n' if demo else '')+escape(str(purchase['credits']))+' credits added to your reseller account.\nPurchase: '+escape(order['id'])+'\nUse My Balance to see available and reserved credits.'
+            return ('DEMO — simulated payment.\n\n' if demo else '')+'<b>'+escape(str(purchase['credits']))+' credits added to your reseller account.</b>\nYour reseller account is active: open the Reseller dashboard or /reseller to create trials and subscriptions.\nPurchase: '+escape(order['id'])
         if order['status']=='fulfilled':
             text=membership_ready_text(plan,order['credentials'])
             return ('DEMO — DO NOT SEND FUNDS.\n\n' if demo else '')+text

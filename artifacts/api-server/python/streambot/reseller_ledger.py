@@ -55,7 +55,8 @@ class Ledger:
         row=db.execute('SELECT r.*,a.balance,a.reserved FROM rs_resellers r JOIN rs_accounts a ON a.reseller_id=r.id WHERE r.telegram_id=?',(uid,)).fetchone()
         result=dict(row) if row else None
         if active and (not result or result['status']!='active'):
-            raise CheckoutError('Your reseller account must be approved and active for this action.')
+            if not result:raise CheckoutError('Open Become A Reseller and buy a credit pack first.')
+            raise CheckoutError('Buy a credit pack to activate your reseller account first.' if result['status']=='pending' else 'Your reseller account is suspended. Contact support for help.')
         if result:result['available']=result['balance']-result['reserved']
         return result
 
@@ -148,7 +149,9 @@ class Ledger:
 
     def quote_purchase(self, uid, package_id, asset, request_key, with_token=False):
         self.seed()
-        member=self.member(uid,active=True)
+        member=self.member(uid)
+        if not member:raise CheckoutError('Open Become A Reseller first.')
+        if member['status']=='suspended':raise CheckoutError('Your reseller account is suspended and cannot buy credits.')
         package=next((p for p in self.packages() if p['id']==package_id and p['active']),None)
         if not package:raise CheckoutError('Credit package is unavailable.')
         from .store import digest
@@ -185,6 +188,8 @@ class Ledger:
             db.execute('INSERT INTO rs_ledger VALUES(?,?,?,?,?,?,?)',
                        (identifier(),purchase['reseller_id'],purchase['credits'],reason,'purchase:'+order_id,actor,now()))
             db.execute("UPDATE orders SET status='fulfilled',message='Credits added to your reseller balance.' WHERE id=?",(order_id,))
+            # Buying credits is how someone becomes a reseller: the first verified pack activates the account.
+            db.execute("UPDATE rs_resellers SET status='active',updated_at=? WHERE id=? AND status='pending'",(now(),purchase['reseller_id']))
 
     def history(self, uid, page=0):
         integer(page,0,100000)

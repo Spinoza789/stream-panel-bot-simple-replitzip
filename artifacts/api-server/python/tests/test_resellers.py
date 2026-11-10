@@ -89,35 +89,45 @@ class Scenarios:
     def sent_to(self,uid):
         return [p for m,p in self.calls if m=='sendMessage' and p.get('chat_id')==uid]
 
-    def test_one_tap_application_pings_admin_and_approval_notifies_the_applicant(self):
+    def test_anyone_becomes_a_reseller_by_buying_credits(self):
         self.click(77,'rs:home')
         screen=self.sent_to(77)[-1]
         self.assertIn('BECOME A RESELLER',screen['text'])
-        self.assertEqual(screen['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:apply')
-        self.click(77,'rs:apply')
+        self.assertIn('WHAT CREDITS BUY',screen['text'])
+        self.assertIn('12 months: 12 cr (1 device) · 15 cr (2 devices) · 20 cr (3 devices)',screen['text'])
+        self.assertIn('£100 → 34 credits',screen['text'])
+        self.assertEqual(screen['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:packages')
+        self.assertIsNone(self.f.member(77))  # looking never creates an account
+        self.click(77,'rs:packages')
         self.assertEqual(self.f.member(77)['status'],'pending')
-        self.assertIn('APPLICATION RECEIVED',self.sent_to(77)[-1]['text'])
-        ping=self.sent_to(9001)[-1]
-        self.assertIn('New reseller application',ping['text'])
-        self.assertIn('ID 77',ping['text'])
-        self.assertEqual(ping['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:approve:77')
-        admin_pings=len(self.sent_to(9001))
-        self.click(77,'rs:apply')  # tapping again never spams the administrator
-        self.assertEqual(len(self.sent_to(9001)),admin_pings)
-        self.click(9001,'rs:approve:77')
-        self.assertEqual(self.f.member(77)['status'],'active')
-        notice=self.sent_to(77)[-1]
-        self.assertIn('approved',notice['text'])
-        self.assertEqual(notice['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:home')
+        packs=self.sent_to(77)[-1]
+        self.assertIn('goes live',packs['text'])
+        self.assertEqual(packs['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:package:100')
+        self.assertEqual(len(self.sent_to(9001)),0)  # nobody has to approve anything
+        # an unpaid "reseller" is still an ordinary customer: retail trial and plans stay open
+        self.assertEqual(self.service.create_trial(77)['status'],'paid')
+        order=self.f.quote_purchase(77,'100','usdc-ethereum','join-77')
+        self.store.claim_payment(order['id'],dict(network='ethereum',txid='join-tx',amount_units=int(order['amount_units']),block_time=now(),confirmations=12))
+        self.f.grant(order['id'])
+        member=self.f.member(77)
+        self.assertEqual((member['status'],member['balance']),('active',34))
         self.click(77,'rs:home')
         dashboard=self.sent_to(77)[-1]
         self.assertIn('RESELLER DASHBOARD',dashboard['text'])
-        self.assertIn('Credits: 0 available',dashboard['text'])
-        self.assertIn('0 active',dashboard['text'])
+        self.assertIn('Credits: 34 available',dashboard['text'])
         buttons={b['callback_data'] for row in dashboard['reply_markup']['inline_keyboard'] for b in row}
-        self.assertTrue({'rs:create','rs:trial','rs:packages','rs:balance','rs:list:active:0','rs:history:0'}<=buttons)
+        self.assertTrue({'rs:create','rs:trial','rs:packages','rs:balance','rs:list:active:0','rs:history:0','rs:web','rs:guide'}<=buttons)
         self.message(9001,'/rssuspend 77 test suspension')
         self.assertIn('suspended',self.sent_to(77)[-1]['text'])
+        with self.assertRaises(CheckoutError):self.f.quote_purchase(77,'100','usdc-ethereum','join-77-again')
+        self.message(9001,'/rsapprove 77 reinstated')
+        self.assertIn('approved',self.sent_to(77)[-1]['text'])
+
+    def test_credit_guide_is_available_from_the_dashboard(self):
+        self.click(42,'rs:guide')
+        text=self.sent_to(42)[-1]['text']
+        self.assertIn('1 credit = 1 month of TV on 1 device',text)
+        self.assertIn('Example: £100 = 34 credits = 2 full-year subscriptions + 10 months to spare.',text)
 
     def test_dashboard_counts_follow_subscriptions(self):
         self.fund(50)
@@ -263,7 +273,7 @@ class Scenarios:
         for kind in ('create','trial','extend'):
             with self.assertRaises(CheckoutError):self.preview(kind=kind,target=record)
         self.click(42,'rs:create');self.click(42,'plan:duration:1')
-        self.assertIn('approved and active',self.calls[-1][1]['text'])
+        self.assertIn('suspended',self.calls[-1][1]['text'])
         self.assertEqual(len(self.provider.calls),1)
 
     def test_suspension_pauses_queued_work_without_losing_reservations(self):
