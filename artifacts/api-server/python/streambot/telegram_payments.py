@@ -76,7 +76,7 @@ class TelegramCheckout:
         demo = self.service.config['mode'] == 'demo'
         if order['status']=='fulfilled' and plan.get('reseller_purchase'):
             purchase=plan['reseller_purchase']['package']
-            return ('DEMO — simulated payment.\n\n' if demo else '')+str(purchase['credits'])+' credits added to your reseller account.\nPurchase: '+order['id']+'\nUse My Balance to see available and reserved credits.'
+            return ('DEMO — simulated payment.\n\n' if demo else '')+escape(str(purchase['credits']))+' credits added to your reseller account.\nPurchase: '+escape(order['id'])+'\nUse My Balance to see available and reserved credits.'
         if order['status']=='fulfilled':
             text=membership_ready_text(plan,order['credentials'])
             return ('DEMO — DO NOT SEND FUNDS.\n\n' if demo else '')+text
@@ -128,8 +128,7 @@ class TelegramCheckout:
 
     def show_order(self, uid, order):
         # Invoices and logins are kept as their own messages, never edited away by later navigation.
-        self.bot.send(uid, self.order_text(order), self.order_keyboard(order),
-                      parse_mode='HTML' if order['status'] != 'fulfilled' else None, keep=True)
+        self.bot.send(uid, self.order_text(order), self.order_keyboard(order), parse_mode='HTML', keep=True)
         self.store.metadata('tg_notice:' + order['id'], order['status'] + ':' + order.get('message', ''))
 
     def show_orders(self, uid):

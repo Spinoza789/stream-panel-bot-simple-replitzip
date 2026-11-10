@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 from .reseller_ledger import now
 from .service import CheckoutError
+from html import escape
 from .trial_message import APP_DOWNLOAD_GUIDE
 
 log=logging.getLogger(__name__)
@@ -37,9 +38,9 @@ class ResellerBot:
         value=self.store.unseal(self.store.metadata(key))
         return value if value and value.get('expires',0)>now() else None
 
-    def send(self,uid,text,rows=None,keep=False):
+    def send(self,uid,text,rows=None,keep=False,parse_mode=None):
         if self.bot.service.config['mode']=='demo':text='DEMO — simulated accounts and payments only.\n\n'+text
-        self.bot.send(uid,text,keyboard(rows or []),keep=keep)
+        self.bot.send(uid,text,keyboard(rows or []),parse_mode=parse_mode,keep=keep)
 
     def home(self,uid):
         self.r.require_ready()
@@ -85,25 +86,26 @@ class ResellerBot:
     def _details(self,uid,sid):
         record,warning,extensions=self.r.ops.refresh(uid,sid)
         member=self.r.finance.member(uid)
-        text=('24 Hour Trial' if record['kind']=='trial' else 'Membership')+'\n\n'+(
+        e=escape
+        text=('<u>24 Hour Trial</u>' if record['kind']=='trial' else '<u>Membership</u>')+'\n\n'+e(
               'Customer: '+(record['customer_ref'] or 'Not provided')+'\nSubscription ID: '+record['provider_id']+
               '\nConnections: '+str(record['connections'])+'\nContent: '+('With adult' if record['adult'] else 'No adult')+
               '\nStatus: '+record['status']+'\nRecorded start: '+date(record['starts_at'])+
               '\nProvider-confirmed expiry: '+date(record['expires_at'])+
               '\nLast confirmed: '+date(record['confirmed_at'])+
-              '\nAvailable credits: '+str(member['available'])+
-              '\n\nUsername: '+record['credentials']['username']+'\nPassword: '+record['credentials']['password'])
-        if record['credentials'].get('server_url'):text+='\nServer: '+record['credentials']['server_url']
-        if warning:text+='\n\n'+warning
+              '\nAvailable credits: '+str(member['available']))+(
+              '\n\n<b>Username: '+e(record['credentials']['username'])+'</b>\n<b>Password: '+e(record['credentials']['password'])+'</b>')
+        if record['credentials'].get('server_url'):text+='\nServer: '+e(record['credentials']['server_url'])
+        if warning:text+='\n\n'+e(warning)
         text+='\n\n'+APP_DOWNLOAD_GUIDE
         if extensions:
-            text+='\n\nRecent extensions:\n'+'\n'.join(date(e['created_at'])+' · '+str(e['months'])+' months · '+str(e['credits'])+' credits' for e in extensions[:5])
+            text+=e('\n\nRecent extensions:\n'+'\n'.join(date(x['created_at'])+' · '+str(x['months'])+' months · '+str(x['credits'])+' credits' for x in extensions[:5]))
             text+='\nAll extension dates, durations and charges are in Transaction History.'
         rows=[]
         if not warning and member['status']=='active' and record['status'] in ('active','expired'):
             rows.append([button('Convert trial / Extend Subscription' if record['kind']=='trial' else 'Extend Subscription','extend:'+sid)])
         rows.append([button('Refresh details','detail:'+sid),button('My Subscriptions','filters')])
-        self.send(uid,text,rows,keep=True)  # customer login details stay in the chat
+        self.send(uid,text,rows,keep=True,parse_mode='HTML')  # customer login details stay in the chat
 
     def _operation(self,uid,oid):
         op=self.r.ops.operation(uid,oid)

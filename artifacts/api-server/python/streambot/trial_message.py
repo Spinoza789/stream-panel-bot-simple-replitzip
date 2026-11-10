@@ -1,22 +1,25 @@
-"""Customer-facing setup instructions shared by trials and memberships."""
+"""Customer-facing setup instructions shared by trials and memberships.
 
-APP_DOWNLOAD_GUIDE = """APP DOWNLOAD CODES
+Every builder here returns Telegram HTML (parse_mode='HTML'); dynamic values are escaped."""
+from html import escape
+
+APP_DOWNLOAD_GUIDE = """<b>APP DOWNLOAD CODES</b>
 
 Enter a code in the Downloader app (Firestick):
-Sky Live
-2976199 • 565410 • 6261787
-962396 • 969828
+<b>Sky Live</b>
+<code>2976199</code> • <code>565410</code> • <code>6261787</code>
+<code>962396</code> • <code>969828</code>
 
-Magic
-9801832
+<b>Magic</b>
+<code>9801832</code>
 
-Safe Media
-589666 • 7400092
+<b>Safe Media</b>
+<code>589666</code> • <code>7400092</code>
 
-iPhone/Apple TV App - viziplayer.com/app
-URL Code BA896705
+<b>iPhone/Apple TV App</b> - viziplayer.com/app
+URL Code <code>BA896705</code>
 
-Android APPS
+<b>Android APPS</b>
 Sky Live: https://tinyurl.com/256zmkh3
 Sky Glass: https://bit.ly/uhdglass
 Smarters: https://apk.st/HVJU
@@ -26,16 +29,16 @@ Safe Media V2: https://tinyurl.com/mrxhvej8"""
 
 
 def trial_ready_text(credentials):
-    return account_ready_text('24 Hour Trial',credentials)
+    return account_ready_text('<u>24 Hour Trial</u>',credentials)
 
 
 def membership_ready_text(plan,credentials):
-    heading='Membership — '+plan['name']
-    if plan.get('detail'): heading+='\n'+plan['detail']
+    heading='<u>Membership — '+escape(plan['name'])+'</u>'
+    if plan.get('detail'): heading+='\n'+escape(plan['detail'])
     return account_ready_text(heading,credentials)
 
 
 def account_ready_text(heading,credentials):
     return (heading+'\n\n'
-            'Username: '+credentials['username']+'\n'
-            'Password: '+credentials['password']+'\n\n'+APP_DOWNLOAD_GUIDE)
+            '<b>Username: '+escape(credentials['username'])+'</b>\n'
+            '<b>Password: '+escape(credentials['password'])+'</b>\n\n'+APP_DOWNLOAD_GUIDE)

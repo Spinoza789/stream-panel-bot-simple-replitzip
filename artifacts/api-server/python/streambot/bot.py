@@ -204,6 +204,10 @@ class TelegramBot:
                     'before retrying this same request, or use /retrytrial. '+self.service.config['support'])
         return 'Your trial is being prepared. I will send the details here when it is ready. You can also use /trial to check.'
 
+    @staticmethod
+    def trial_mode(order):
+        return 'HTML' if order['status']=='fulfilled' else None  # login details carry formatting
+
     def trial_keyboard(self,order):
         if order['status']=='review':
             if order.get('account_identity_unknown'):
@@ -261,7 +265,7 @@ class TelegramBot:
                 self.checkout.handle_callback(uid,action,callback_id)
                 return
             self.checkout.clear_session(uid)
-            markup=self.menu_keyboard(uid);keep=False
+            markup=self.menu_keyboard(uid);keep=False;mode=None
             if action.startswith('plan:'):
                 step=self.membership_step(action)
                 if isinstance(step,dict):
@@ -277,6 +281,7 @@ class TelegramBot:
                 order=self.service.retry_trial(uid) if action=='menu:retrytrial' else self.service.create_trial(uid)
                 text,markup=self.trial_text(order),self.trial_keyboard(order)
                 keep=order['status']=='fulfilled'  # login details must stay in the chat
+                mode=self.trial_mode(order)
                 if keep: self.store.metadata('trial_sent:'+order['id'],'1')
             elif action in ('menu:account','menu:status'):
                 text,markup=self.account_screen(uid)
@@ -301,7 +306,7 @@ class TelegramBot:
                       'Login details are encrypted. Using contact support shares your identity and messages '
                       'with support. Notification preferences and delivery history are stored; deals require opt-in. '
                       'Use /notifications to manage reminders or /contact for data requests.')
-            self.send(uid,text,markup,keep=keep)
+            self.send(uid,text,markup,parse_mode=mode,keep=keep)
         except CheckoutError as exc:
             self.send(uid,str(exc),self.menu_keyboard(uid))
         except ValueError:
@@ -334,7 +339,7 @@ class TelegramBot:
             if command=='/retrytrial':
                 self.checkout.clear_session(uid)
                 order=self.service.retry_trial(uid)
-                self.send(uid,self.trial_text(order),self.trial_keyboard(order))
+                self.send(uid,self.trial_text(order),self.trial_keyboard(order),parse_mode=self.trial_mode(order),keep=order['status']=='fulfilled')
                 if order['status']=='fulfilled': self.store.metadata('trial_sent:'+order['id'],'1')
                 return
             if self.checkout.handle_message(message,command):return
@@ -343,7 +348,7 @@ class TelegramBot:
                 self.send(uid,self.menu_text(),self.menu_keyboard(uid))
             elif command=='/trial':
                 order=self.service.create_trial(uid)
-                self.send(uid,self.trial_text(order),self.trial_keyboard(order))
+                self.send(uid,self.trial_text(order),self.trial_keyboard(order),parse_mode=self.trial_mode(order),keep=order['status']=='fulfilled')
                 if order['status']=='fulfilled': self.store.metadata('trial_sent:'+order['id'],'1')
             elif command=='/link':
                 if len(parts)!=2: self.send(uid,'Use /link CODE with the one-time code from your account page.');return
@@ -363,7 +368,7 @@ class TelegramBot:
         for order_id in ids:
             order=self.store.get(order_id)
             try:
-                self.send(order['telegram_id'],self.trial_text(self.service.public(order)))
+                self.send(order['telegram_id'],self.trial_text(self.service.public(order)),parse_mode='HTML',keep=True)
                 self.store.metadata('trial_sent:'+order_id,'1')
             except Exception as exc:
                 if isinstance(exc,TelegramError) and exc.code==403:

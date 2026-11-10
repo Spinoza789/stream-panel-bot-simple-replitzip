@@ -181,7 +181,7 @@ class TelegramPaymentTests(unittest.TestCase):
         for index,plan in enumerate(self.service.config['plans']):
             credentials={'username':'test-member-'+str(index),'password':'test-password-'+str(index)}
             text=self.bot.checkout.order_text(dict(order,status='fulfilled',plan=plan,credentials=credentials))
-            self.assertTrue(text.startswith('Membership — '+plan['name']))
+            self.assertTrue(text.startswith('<u>Membership — '+plan['name']+'</u>'))
             self.assertIn(plan['detail'],text)
             self.assertIn('Username: '+credentials['username'],text)
             self.assertTrue(text.endswith(APP_DOWNLOAD_GUIDE))
