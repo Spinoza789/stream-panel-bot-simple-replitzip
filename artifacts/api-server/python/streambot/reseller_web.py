@@ -71,7 +71,7 @@ class ResellerWeb:
 
     def login_url(self, code):
         config = self.service.config
-        return config['public_url'] + config.get('base_path', '') + '/reseller/#code=' + code
+        return config['public_url'] + config.get('base_path', '') + '/#code=' + code
 
     def redeem_code(self, code):
         self.require_ready()

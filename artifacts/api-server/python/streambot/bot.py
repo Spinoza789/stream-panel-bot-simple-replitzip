@@ -124,14 +124,13 @@ class TelegramBot:
         if trial: lines.append('🎁 24-hour trial — '+trial['status'])
         lines.extend('🌐 '+a['plan']['name']+' — '+a['status']+' (order '+a['id']+')' for a in accounts)
         if not trial and not accounts:
-            lines.append('Nothing here yet. Start a free trial, choose a plan, or link an account you already have.')
+            lines.append('Nothing here yet. Start a free trial or choose a plan.')
         lines.extend(['','💬 Support: '+self.service.config['support_url']])
         rows=[]
         if not trial: rows.append([{'text':'🎁 Start free trial','callback_data':'menu:trial'}])
         elif trial['status']=='review': rows.append([{'text':'🔁 Check / retry trial','callback_data':'menu:retrytrial'}])
         elif trial['status']=='fulfilled': rows.append([{'text':'🎁 Show trial login','callback_data':'menu:trial'}])
-        rows.append([{'text':'🧾 My orders','callback_data':'pay:orders'},
-                     {'text':'🔗 Link an account','callback_data':'menu:link'}])
+        rows.append([{'text':'🧾 My orders','callback_data':'pay:orders'}])
         rows.append([{'text':'💬 Contact support','callback_data':'menu:contact'}])
         rows.append([{'text':'⬅️ Back','callback_data':'menu'}])
         return '\n'.join(lines),{'inline_keyboard':rows}

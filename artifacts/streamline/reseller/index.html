@@ -3,21 +3,19 @@
 <head>
   <meta charset="utf-8"><meta name="streambot-base-path" content="__STREAMBOT_BASE__"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark"><meta name="robots" content="noindex">
-  <title>Streamline · Reseller portal</title>
+  <title>Streamline · Reseller login</title>
   <link rel="stylesheet" href="__STREAMBOT_BASE__/static/style.css"><link rel="stylesheet" href="__STREAMBOT_BASE__/reseller/static/reseller.css">
   <script src="__STREAMBOT_BASE__/reseller/static/reseller.js" defer></script>
 </head>
 <body>
   <div class="demo-banner" id="demo-banner" hidden>LOCAL DEMO <span>Simulated accounts and payments. Do not send funds.</span></div>
-  <header class="masthead"><a class="wordmark" href="__STREAMBOT_BASE__/reseller/" aria-label="Reseller portal"><span class="logo" aria-hidden="true">↗</span><span data-brand>Streamline</span></a><span class="header-label">RESELLER PORTAL</span><span class="who" id="who" hidden></span><button class="text-button" id="signout" hidden>Sign out <span aria-hidden="true">↗</span></button></header>
+  <header class="masthead"><a class="wordmark" href="__STREAMBOT_BASE__/" aria-label="Home"><span class="logo" aria-hidden="true">↗</span><span data-brand>Streamline</span></a><span class="header-label">RESELLER PANEL</span><span class="who" id="who" hidden></span><button class="text-button" id="signout" hidden>Sign out <span aria-hidden="true">↗</span></button></header>
   <main>
     <div id="error" class="notice error" role="alert" hidden></div>
     <div id="loading" class="notice" role="status">Loading…</div>
 
-    <!-- Sign in -->
+    <!-- Sign in: the whole home page -->
     <section id="view-signin" class="signin" hidden>
-      <span class="eyebrow"><span class="dot"></span> RESELLER ACCESS</span>
-      <h1>Your customers,<br><em>your dashboard.</em></h1>
       <div class="signin-grid">
         <article class="card">
           <h2>Sign in with Telegram</h2>
@@ -26,27 +24,27 @@
             <li>Tap <strong>Become A Reseller</strong>. Once you hold credits, tap <strong>🌐 Open web dashboard</strong>.</li>
             <li>Tap the link the bot sends you. It signs you in here.</li>
           </ol>
-          <p class="fineprint">Links work once and expire after 10 minutes. No password needed.</p>
+          <p class="fineprint">Links work once and expire after 10 minutes.</p>
         </article>
         <article class="card">
-          <h2>Or use your recovery email</h2>
+          <h2>Sign in with email</h2>
           <form id="password-form">
             <label class="select-label" for="login-email">EMAIL</label><input id="login-email" type="email" autocomplete="username" required>
             <label class="select-label" for="login-password">PASSWORD</label><input id="login-password" type="password" autocomplete="current-password" required minlength="10">
             <button class="primary" type="submit">Sign in <span aria-hidden="true">↗</span></button>
           </form>
-          <p class="fineprint">Set this up from <strong>Account</strong> after your first Telegram sign-in.</p>
+          <p class="fineprint">Set this up under <strong>Account</strong> after signing in with Telegram.</p>
         </article>
       </div>
     </section>
 
-    <!-- Signed-in shell -->
+    <!-- Signed-in panel -->
     <div id="shell" hidden>
       <nav class="tabs" id="tabs">
         <a href="#/dashboard" data-tab="dashboard">Dashboard</a>
         <a href="#/subscriptions" data-tab="subscriptions">Subscriptions</a>
-        <a href="#/create" data-tab="create">Create</a>
-        <a href="#/credits" data-tab="credits">Buy credits</a>
+        <a href="#/create" data-tab="create">Create test / subscription</a>
+        <a href="#/credits" data-tab="credits">Credits</a>
         <a href="#/history" data-tab="history">History</a>
         <a href="#/account" data-tab="account">Account</a>
       </nav>
@@ -57,19 +55,19 @@
           <div class="tile accent"><span>AVAILABLE CREDITS</span><strong id="t-available">0</strong><small id="t-reserved"></small></div>
           <div class="tile"><span>ACTIVE SUBSCRIPTIONS</span><strong id="t-active">0</strong></div>
           <div class="tile"><span>EXPIRING IN 7 DAYS</span><strong id="t-expiring">0</strong></div>
-          <div class="tile"><span>TRIALS RUNNING</span><strong id="t-trials">0</strong></div>
+          <div class="tile"><span>TESTS RUNNING</span><strong id="t-trials">0</strong></div>
         </div>
         <div class="quick">
-          <a class="primary" href="#/create">Create subscription or trial <span aria-hidden="true">↗</span></a>
-          <a class="secondary" href="#/credits">Buy credits</a>
-          <a class="secondary" href="#/subscriptions?filter=expiring">See expiring customers</a>
+          <a class="primary" href="#/create">Create a test or subscription <span aria-hidden="true">↗</span></a>
+          <a class="secondary" href="#/subscriptions?filter=expiring">Expiring soon</a>
+          <a class="secondary" href="#/credits">Order credits</a>
         </div>
       </section>
 
       <section id="view-subscriptions" hidden>
         <div class="toolbar">
           <div class="filters" id="filters">
-            <button data-filter="active" class="chip">Active</button><button data-filter="expiring" class="chip">Expiring</button><button data-filter="expired" class="chip">Expired</button><button data-filter="trials" class="chip">Trials</button><button data-filter="all" class="chip">All</button>
+            <button data-filter="active" class="chip">Active</button><button data-filter="expiring" class="chip">Expiring</button><button data-filter="expired" class="chip">Expired</button><button data-filter="trials" class="chip">Tests</button><button data-filter="all" class="chip">All</button>
           </div>
           <form id="search-form" class="search"><input id="search" placeholder="Search customer, username or ID" maxlength="100"><button class="secondary" type="submit">Search</button></form>
         </div>
@@ -82,7 +80,7 @@
         <div class="create-grid">
           <form id="create-form" class="card">
             <h2>New customer account</h2>
-            <fieldset><legend>TYPE</legend><div class="connection-options"><button type="button" class="choice" data-kind="create" aria-pressed="true">Paid subscription</button><button type="button" class="choice" data-kind="trial" aria-pressed="false">24-hour trial</button></div></fieldset>
+            <fieldset><legend>TYPE</legend><div class="connection-options"><button type="button" class="choice" data-kind="create" aria-pressed="true">Paid subscription</button><button type="button" class="choice" data-kind="trial" aria-pressed="false">24-hour test</button></div></fieldset>
             <fieldset id="months-field"><legend>DURATION</legend><div class="connection-options" id="months-options"></div></fieldset>
             <fieldset id="connections-field"><legend>DEVICES AT THE SAME TIME</legend><div class="connection-options" id="connections-options"></div><p class="fineprint">All devices must be in the same household.</p></fieldset>
             <fieldset><legend>CONTENT</legend><div class="connection-options"><button type="button" class="choice" data-adult="0" aria-pressed="true">No adult</button><button type="button" class="choice" data-adult="1" aria-pressed="false">With adult</button></div></fieldset>
@@ -91,7 +89,7 @@
           </form>
           <aside class="summary" id="create-summary">
             <span class="eyebrow">COST</span>
-            <h2 id="cs-title">1 month</h2><p id="cs-detail">1 connection · No adult</p>
+            <h2 id="cs-title">1 month</h2><p id="cs-detail">1 device · No adult</p>
             <div class="price"><span id="cs-cost">1</span><span>credits</span></div>
             <dl><div><dt>Available</dt><dd id="cs-available">–</dd></div><div><dt>Remaining after</dt><dd id="cs-remaining">–</dd></div></dl>
             <button class="primary" id="confirm-create" hidden>Confirm and create <span aria-hidden="true">↗</span></button>
@@ -102,11 +100,37 @@
       </section>
 
       <section id="view-credits" hidden>
-        <h2>Buy credits</h2>
-        <p class="muted">Pick a pack, choose how you'll pay, and finish on the secure checkout. Credits are added after the payment is verified on-chain.</p>
-        <div class="packs" id="packs"></div>
-        <label class="select-label" for="pay-asset">PAYMENT ASSET &amp; NETWORK</label><select id="pay-asset"></select>
-        <button class="primary" id="buy">Continue to payment <span aria-hidden="true">↗</span></button>
+        <div class="tiles tiles-2">
+          <div class="tile accent"><span>AVAILABLE CREDITS</span><strong id="c-available">0</strong><small id="c-reserved"></small></div>
+          <div class="tile"><span>WHAT A CREDIT BUYS</span><strong class="small-strong">1 month · 1 device</strong><small>More devices or months cost fewer credits per month. Extra devices must be in the same household.</small></div>
+        </div>
+        <article class="card" id="invoice-card" hidden>
+          <div class="invoice-title"><div><span class="eyebrow" id="inv-label">CREDIT ORDER</span><h2 id="inv-heading">Pay to add credits</h2><p id="inv-plan"></p></div><span class="status-chip" id="inv-status">AWAITING PAYMENT</span></div>
+          <div class="invoice-grid">
+            <div>
+              <div class="network-tag" id="inv-network"></div>
+              <p class="select-label">SEND THIS EXACT AMOUNT</p><div class="crypto-amount" id="inv-amount"></div>
+              <p class="fineprint" id="inv-quote"></p>
+              <button class="text-button" id="inv-copy-amount" type="button">Copy amount <span aria-hidden="true">↗</span></button>
+              <div class="address-box"><img id="inv-qr" alt="Receiving wallet QR code" width="112" height="112"><div><p class="select-label">RECEIVING ADDRESS</p><code id="inv-wallet"></code><button class="text-button" id="inv-copy-wallet" type="button">Copy address <span aria-hidden="true">↗</span></button></div></div>
+              <p class="network-note" id="inv-warning">Send the exact amount shown. The small identifying suffix links this payment to your order.</p>
+            </div>
+            <div class="verification">
+              <div class="expiry"><span>Quote valid for</span><strong id="inv-countdown">--:--</strong></div>
+              <form id="inv-verify-form"><label class="select-label" for="inv-txid">TRANSACTION HASH (TXID)</label><input id="inv-txid" placeholder="Paste the TXID after sending" autocomplete="off" required><button class="primary" id="inv-verify" type="submit">I've paid – check it <span aria-hidden="true">↗</span></button></form>
+              <button class="secondary" id="inv-demo" type="button" hidden>Simulate payment (demo)</button>
+              <p class="fineprint" id="inv-message"></p>
+              <button class="text-button" id="inv-dismiss" type="button">Start a different order</button>
+            </div>
+          </div>
+        </article>
+        <div id="order-form">
+          <h2>Order credits</h2>
+          <p class="muted">Pick a pack and how you'll pay. You pay in crypto right here; credits are added the moment the payment is verified on-chain.</p>
+          <div class="packs" id="packs"></div>
+          <label class="select-label" for="pay-asset">PAYMENT ASSET &amp; NETWORK</label><select id="pay-asset"></select>
+          <button class="primary" id="buy">Create payment request <span aria-hidden="true">↗</span></button>
+        </div>
         <h3 class="sub">Credit prices</h3>
         <table class="costs" id="costs"></table>
       </section>
@@ -121,11 +145,11 @@
         <div class="create-grid">
           <article class="card">
             <h2>Your account</h2>
-            <dl class="plain"><div><dt>Telegram ID</dt><dd id="acc-id"></dd></div><div><dt>Telegram username</dt><dd id="acc-username"></dd></div><div><dt>Status</dt><dd id="acc-status"></dd></div><div><dt>Recovery email</dt><dd id="acc-email">Not set</dd></div></dl>
+            <dl class="plain"><div><dt>Telegram ID</dt><dd id="acc-id"></dd></div><div><dt>Telegram username</dt><dd id="acc-username"></dd></div><div><dt>Status</dt><dd id="acc-status"></dd></div><div><dt>Email</dt><dd id="acc-email">Not set</dd></div></dl>
             <button class="secondary" id="signout-all">Sign out of all devices</button>
           </article>
           <form class="card" id="account-form">
-            <h2 id="acc-form-title">Add a recovery email and password</h2>
+            <h2 id="acc-form-title">Add an email and password</h2>
             <p class="muted">Lets you sign in here without Telegram. Keep Telegram access too: it is the only way back in if you forget this password.</p>
             <label class="select-label" for="acc-new-email">EMAIL</label><input id="acc-new-email" type="email" autocomplete="email" required>
             <label class="select-label" for="acc-new-password">NEW PASSWORD (10+ CHARACTERS)</label><input id="acc-new-password" type="password" autocomplete="new-password" required minlength="10">
@@ -137,6 +161,6 @@
       </section>
     </div>
   </main>
-  <footer><span data-brand>Streamline</span><span>RESELLER PORTAL</span><button class="text-button" id="support-button">Support <span aria-hidden="true">↗</span></button></footer>
+  <footer><span data-brand>Streamline</span><span>RESELLER PANEL</span><button class="text-button" id="support-button">Support <span aria-hidden="true">↗</span></button></footer>
 </body>
 </html>

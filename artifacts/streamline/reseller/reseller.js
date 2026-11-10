@@ -27,6 +27,7 @@ function applyMe(data){
   $('view-signin').hidden=true;$('shell').hidden=false;$('loading').hidden=true;
   $('t-available').textContent=me.credits.available;$('t-reserved').textContent=me.credits.reserved?me.credits.reserved+' reserved for pending requests':'';
   $('t-active').textContent=me.counts.active;$('t-expiring').textContent=me.counts.expiring;$('t-trials').textContent=me.counts.trials;
+  $('c-available').textContent=me.credits.available;$('c-reserved').textContent=me.credits.reserved?me.credits.reserved+' reserved for pending requests':'';
   const note=$('status-note');
   if(me.status==='pending'){note.textContent='Buy your first credit pack to activate your reseller account. Credits are added, and the account goes live, as soon as the payment is verified.';note.hidden=false;}
   else if(me.status==='suspended'){note.textContent='Your reseller account is suspended. You can view records but not buy, create or extend. '+me.support;note.hidden=false;}
@@ -46,7 +47,7 @@ function route(){
   error('');
   if(view==='subscriptions'){if(params.get('filter'))sub.filter=params.get('filter');loadSubs().catch(fail);}
   if(view==='history')loadHistory().catch(fail);
-  if(view==='credits')loadPackages().catch(fail);
+  if(view==='credits'){loadPackages().catch(fail);resumeInvoice();}
   if(view==='create')renderCreate();
   if(view==='dashboard')refreshMe().catch(fail);
 }
@@ -62,7 +63,7 @@ async function loadSubs(){
   for(const r of data.items){
     const row=el('button','row');row.type='button';
     const name=el('div');name.append(el('strong',null,r.customer_ref||r.username));name.append(el('small',null,r.username+' · '+r.provider_id));
-    const kind=el('div',null,(r.kind==='trial'?'Trial':'Paid')+' · '+r.connections+' conn'+(r.adult?' · adult':''));
+    const kind=el('div',null,(r.kind==='trial'?'Test':'Paid')+' · '+r.connections+' device'+(r.connections>1?'s':'')+(r.adult?' · adult':''));
     const start=el('div','hide-sm');start.append(el('small',null,'Started'));start.append(document.createTextNode(' '+when(r.starts_at)));
     const exp=el('div');exp.append(el('small',null,'Expires'));exp.append(document.createTextNode(' '+when(r.expires_at)));
     const [label,cls]=pill(r);const p=el('span','pill '+cls.replace(':',''),label);
@@ -72,7 +73,7 @@ async function loadSubs(){
 }
 async function openDetail(id){
   const data=await api('/subscriptions/'+encodeURIComponent(id));const r=data.record,box=$('sub-detail');box.replaceChildren();box.hidden=false;
-  box.append(el('h2',null,(r.customer_ref||r.credentials.username)+' · '+(r.kind==='trial'?'24-hour trial':'Subscription')));
+  box.append(el('h2',null,(r.customer_ref||r.credentials.username)+' · '+(r.kind==='trial'?'24-hour test':'Subscription')));
   if(data.warning)box.append(Object.assign(el('div','notice error',data.warning),{}));
   const dl=el('dl','plain');
   for(const [k,v] of [['Subscription ID',r.provider_id],['Connections',r.connections],['Content',r.adult?'With adult':'No adult'],['Status',r.status],['Started',when(r.starts_at)],['Expires',when(r.expires_at)],['Last confirmed',when(r.confirmed_at)]]){const d=el('div');d.append(el('dt',null,k),el('dd',null,String(v)));dl.append(d);}
@@ -85,7 +86,7 @@ async function openDetail(id){
   box.append(grid);
   if(data.extensions.length){const h=el('h3','sub','Extensions');box.append(h);const l=el('div','muted');l.innerHTML='';for(const e of data.extensions)l.append(el('div',null,when(e.created_at)+' · +'+e.months+' months · '+e.credits+' credits · new expiry '+when(e.confirmed_expiry)));box.append(l);}
   if(me.status==='active'&&!data.warning&&['active','expired'].includes(r.status)){
-    const ext=el('div','extend');ext.append(el('h3','sub',r.kind==='trial'?'Convert to a paid subscription':'Extend this subscription'));
+    const ext=el('div','extend');ext.append(el('h3','sub',r.kind==='trial'?'Convert this test into a paid subscription':'Extend this subscription'));
     const opts=el('div','connection-options');let months=1;
     const render=()=>{opts.replaceChildren();for(const m of [1,3,6,9,12]){const b=el('button','choice',m+' month'+(m>1?'s':''));b.type='button';b.setAttribute('aria-pressed',String(months===m));b.onclick=()=>{months=m;render();};opts.append(b);}};render();
     const go=el('button','primary');go.textContent='Preview extension ↗';go.type='button';const status=el('div','notice');status.hidden=true;
@@ -115,8 +116,8 @@ function renderCreate(){
   $('months-field').hidden=create.kind==='trial';$('connections-field').hidden=create.kind==='trial';
   const mo=$('months-options');mo.replaceChildren();for(const m of [1,3,6,9,12]){const b=el('button','choice',m+' mo');b.type='button';b.setAttribute('aria-pressed',String(create.months===m));b.onclick=()=>{create.months=m;renderCreate();};mo.append(b);}
   const co=$('connections-options');co.replaceChildren();for(const c of [1,2,3]){const b=el('button','choice',String(c));b.type='button';b.setAttribute('aria-pressed',String(create.connections===c));b.onclick=()=>{create.connections=c;renderCreate();};co.append(b);}
-  $('cs-title').textContent=create.kind==='trial'?'24-hour trial':create.months+' month'+(create.months>1?'s':'');
-  $('cs-detail').textContent=(create.kind==='trial'?'1 connection':create.connections+' connection'+(create.connections>1?'s':''))+' · '+(create.adult?'With adult':'No adult');
+  $('cs-title').textContent=create.kind==='trial'?'24-hour test':create.months+' month'+(create.months>1?'s':'');
+  $('cs-detail').textContent=(create.kind==='trial'?'1 device':create.connections+' device'+(create.connections>1?'s':''))+' · '+(create.adult?'With adult':'No adult');
   const cost=create.kind==='trial'?0:(packages&&packages.costs.find(c=>c.months===create.months&&c.connections===create.connections)||{}).credits;
   $('cs-cost').textContent=cost===undefined?'–':cost;$('cs-available').textContent=me?me.credits.available:'–';$('cs-remaining').textContent='–';
   $('confirm-create').hidden=true;nonce=null;$('op-status').hidden=true;
@@ -149,7 +150,54 @@ $('create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('create-for
 });};
 $('confirm-create').onclick=()=>busy($('confirm-create'),async()=>{if(!nonce)return;const c=await api('/operations/confirm',{method:'POST',data:{nonce}});nonce=null;$('confirm-create').hidden=true;
   await watch(c.operation.id,$('op-status'),async op=>{if(op.result_id){const link=el('a','text-button','Open the new account ↗');link.href='#/subscriptions';link.onclick=()=>setTimeout(()=>openDetail(op.result_id).catch(fail),50);$('op-status').append(document.createTextNode(' '));$('op-status').append(link);}});});
-$('buy').onclick=()=>busy($('buy'),async()=>{const pick=$('packs').dataset.pick;if(!pick)throw new Error('Choose a credit pack first.');const q=await api('/purchase',{method:'POST',data:{package_id:pick,asset_id:$('pay-asset').value}});location.href=q.checkout;});
+$('buy').onclick=()=>busy($('buy'),async()=>{const pick=$('packs').dataset.pick;if(!pick)throw new Error('Choose a credit pack first.');const q=await api('/purchase',{method:'POST',data:{package_id:pick,asset_id:$('pay-asset').value}});openInvoice(q.token,q.order);});
+
+// ---------- credit payment inside the panel (existing order engine, token-authenticated) ----------
+let inv={token:null,order:null,poll:null,clock:null,qr:null};
+async function orderApi(path,{method='GET',data}={}){
+  const headers={'X-Order-Token':inv.token};if(method==='POST')headers['Content-Type']='application/json';
+  const response=await fetch(BASE+path,{method,headers,cache:'no-store',body:method==='POST'?JSON.stringify(data||{}):undefined});
+  const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||'This request could not be completed. Please try again.');return body;
+}
+function openInvoice(token,order){
+  inv.token=token;try{localStorage.setItem('rs-invoice',token);}catch(e){}
+  showInvoice(order);$('invoice-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function resumeInvoice(){
+  if(inv.token)return;let saved=null;try{saved=localStorage.getItem('rs-invoice');}catch(e){}
+  if(!saved)return;inv.token=saved;
+  try{showInvoice(await orderApi('/api/order'));}catch(e){closeInvoice();}
+}
+function closeInvoice(){
+  clearTimeout(inv.poll);clearInterval(inv.clock);if(inv.qr)URL.revokeObjectURL(inv.qr);
+  inv={token:null,order:null,poll:null,clock:null,qr:null};try{localStorage.removeItem('rs-invoice');}catch(e){}
+  $('invoice-card').hidden=true;$('order-form').hidden=false;
+}
+async function showInvoice(order){
+  inv.order=order;clearTimeout(inv.poll);clearInterval(inv.clock);
+  const card=$('invoice-card');card.hidden=false;$('order-form').hidden=order.status==='pending';
+  const asset=order.asset||{};const chip=$('inv-status');
+  $('inv-plan').textContent=(order.plan&&order.plan.name)||'';$('inv-network').textContent=(asset.symbol||'')+' · '+(names[asset.network]||asset.network||'');
+  $('inv-amount').textContent=(order.amount||'')+' '+(asset.symbol||'');$('inv-wallet').textContent=asset.wallet||'';
+  $('inv-quote').textContent=order.plan&&order.plan.gbp_price?'£'+order.plan.gbp_price+' at the rate locked for this quote.':'';
+  $('inv-demo').hidden=!(me&&me.demo&&order.status==='pending');
+  $('inv-message').textContent=order.message||'';
+  const labels={pending:order.txid?'CHECKING PAYMENT':'AWAITING PAYMENT',paid:'PAID · ADDING CREDITS',provisioning:'PAID · ADDING CREDITS',fulfilled:'CREDITS ADDED',review:'NEEDS A MANUAL CHECK',expired:'QUOTE EXPIRED'};
+  chip.textContent=labels[order.status]||order.status.toUpperCase();
+  $('inv-verify-form').hidden=order.status!=='pending';
+  if(order.status==='fulfilled'){$('inv-heading').textContent='Credits added';$('inv-message').textContent='Your balance is updated. Thank you.';await refreshMe();}
+  else $('inv-heading').textContent=order.status==='pending'?'Pay to add credits':'Payment received';
+  if(order.status==='pending'&&!inv.qr){try{const r=await fetch(BASE+'/api/order/qr',{headers:{'X-Order-Token':inv.token},cache:'no-store'});if(r.ok){inv.qr=URL.createObjectURL(await r.blob());$('inv-qr').src=inv.qr;}}catch(e){}}
+  const tick=()=>{const left=Math.max(0,(order.expires_at||0)-Math.floor(Date.now()/1000));$('inv-countdown').textContent=left?String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0'):'Expired';
+    if(!left&&order.status==='pending'){$('inv-warning').textContent='This quote has expired. Do not send a new payment to it. If you already paid, submit your TXID; otherwise start a new order.';}};
+  tick();inv.clock=setInterval(tick,1000);
+  if(['pending','paid','provisioning'].includes(order.status))inv.poll=setTimeout(async()=>{try{showInvoice(await orderApi('/api/order'));}catch(e){inv.poll=setTimeout(()=>resumeInvoice(),15000);}},order.status==='pending'?20000:4000);
+}
+$('inv-verify-form').onsubmit=e=>{e.preventDefault();busy($('inv-verify'),async()=>showInvoice(await orderApi('/api/order/verify',{method:'POST',data:{txid:$('inv-txid').value.trim()}})));};
+$('inv-demo').onclick=()=>busy($('inv-demo'),async()=>showInvoice(await orderApi('/api/order/demo-pay',{method:'POST'})));
+$('inv-dismiss').onclick=closeInvoice;
+$('inv-copy-amount').onclick=async()=>{try{await navigator.clipboard.writeText(String(inv.order.amount));$('inv-copy-amount').textContent='Copied ✓';setTimeout(()=>$('inv-copy-amount').textContent='Copy amount ↗',1600);}catch{error('Clipboard unavailable. Select and copy the text.');}};
+$('inv-copy-wallet').onclick=async()=>{try{await navigator.clipboard.writeText(inv.order.asset.wallet);$('inv-copy-wallet').textContent='Copied ✓';setTimeout(()=>$('inv-copy-wallet').textContent='Copy address ↗',1600);}catch{error('Clipboard unavailable. Select and copy the text.');}};
 document.querySelectorAll('#filters .chip').forEach(b=>b.onclick=()=>{sub.filter=b.dataset.filter;sub.page=0;loadSubs().catch(fail);});
 $('search-form').onsubmit=e=>{e.preventDefault();sub.search=$('search').value.trim();sub.page=0;loadSubs().catch(fail);};
 $('sub-prev').onclick=()=>{sub.page--;loadSubs().catch(fail);};$('sub-next').onclick=()=>{sub.page++;loadSubs().catch(fail);};

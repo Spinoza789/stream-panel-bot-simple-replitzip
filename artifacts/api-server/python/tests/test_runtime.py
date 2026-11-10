@@ -165,7 +165,7 @@ class StandbyHttpTests(unittest.TestCase):
         self.assertIn(b'<!doctype html>', self.client.get('/').data.lower())
         response = self.client.post('/api/orders', json={'plan_id': 'test', 'asset_id': 'test'},
                                     headers={'Origin': self.service.config['public_url']})
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 410)  # website ordering is retired; the route is reachable once active
         self.ready.clear()
         self.assertEqual(self.client.post('/api/orders', json={}).status_code, 503)
-        self.service.create_order.assert_called_once()
+        self.service.create_order.assert_not_called()

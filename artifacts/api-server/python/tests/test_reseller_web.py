@@ -44,7 +44,7 @@ class ResellerWebTests(unittest.TestCase):
     # ---- links and sessions ---------------------------------------------------------
     def test_link_points_at_the_portal_and_signs_in_once(self):
         code = self.web.issue_code(42)
-        self.assertTrue(self.web.login_url(code).startswith(ORIGIN + '/reseller/#code='))
+        self.assertTrue(self.web.login_url(code).startswith(ORIGIN + '/#code='))
         self.assertEqual(self.client.get('/api/reseller/me').status_code, 401)
         me = self.sign_in()
         self.assertEqual((me['telegram_id'], me['status'], me['username']), (42, 'active', 'reseller_42'))
@@ -162,9 +162,10 @@ class ResellerWebTests(unittest.TestCase):
         self.assertEqual(other.get('/api/reseller/operations/' + oid).status_code, 404)
 
     def test_portal_page_and_assets_are_served(self):
-        page = self.client.get('/reseller/')
+        page = self.client.get('/')
         self.assertEqual(page.status_code, 200)
         self.assertIn(b'Sign in with Telegram', page.data)
+        self.assertEqual(self.client.get('/reseller/').status_code, 302)
         for name in ('reseller.js', 'reseller.css'):
             response = self.client.get('/reseller/static/' + name)
             self.assertEqual(response.status_code, 200)

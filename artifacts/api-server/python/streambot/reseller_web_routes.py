@@ -62,14 +62,19 @@ def register_reseller_web(app, service):
                 'counts': counts, 'login': web.login(uid)}
 
     # ---- page ----------------------------------------------------------------------
-    @app.get('/reseller/')
+    @app.get('/')
     def reseller_page():
+        # The home page is the reseller sign-in and nothing else.
         html = (PORTAL / 'index.html').read_text()
         return html.replace('__STREAMBOT_BASE__', base), 200, {'Content-Type': 'text/html; charset=utf-8'}
 
+    @app.get('/reseller/')
+    def reseller_page_old():
+        return '', 302, {'Location': base + '/'}
+
     @app.get('/reseller')
     def reseller_page_slash():
-        return '', 302, {'Location': base + '/reseller/'}
+        return '', 302, {'Location': base + '/'}
 
     @app.get('/reseller/static/<path:name>')
     def reseller_static(name):

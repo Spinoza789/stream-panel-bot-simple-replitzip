@@ -113,14 +113,14 @@ cannot be silently reused. Unknown results are never automatically refunded.
 
 ## Web portal
 
-Approved and pending resellers can use a browser dashboard at `/reseller/` on the
-checkout website. It shows credits, active / expiring / trial counts, every customer
-subscription with login details and extensions, credit history, Buy credits (which
-hands over to the existing crypto checkout) and Create subscription / trial with the
+The website's home page is the reseller sign-in; memberships are sold only through the
+Telegram bot. Resellers get a browser panel at `/`. It shows credits, active / expiring / trial counts, every customer
+subscription with login details and extensions, credit history, Buy credits (paid in
+crypto inside the panel using the existing order engine) and Create subscription / trial with the
 same preview-then-confirm flow and the same reservation rules as the bot.
 
 - **Sign in with Telegram.** The reseller dashboard in the bot has **🌐 Open web
-  dashboard**, which sends a one-time link (`/reseller/#code=…`) valid for 10 minutes.
+  dashboard**, which sends a one-time link (`/#code=…`) valid for 10 minutes.
   The code travels in the URL fragment, so it never appears in server logs. Opening it
   sets an HttpOnly, same-site session cookie scoped to `/api/reseller` for 30 days.
 - **Recovery email and password.** From **Account** a signed-in reseller can add an

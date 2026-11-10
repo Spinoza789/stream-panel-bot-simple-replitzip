@@ -8,7 +8,7 @@ Run this package in a NEW, empty Python Replit project. Your existing website st
 2. Create a new Python project in Replit.
 3. Upload the CONTENTS of the extracted folder to the new project's root. Include the hidden `.replit` file and the complete `streambot` folder. `run.sh`, `config.json` and `.replit` must sit directly at the project root.
 4. In this configured workspace, dependencies are installed in Replit's managed Python environment. Click Run to start the demo workflow. For a fresh import, ask Agent to install `requirements.txt` and configure `bash run.sh` as the run command. See `replit.md` for workspace-specific instructions.
-5. Open Preview. Checkout is at `/`. Select a plan and simulate a successful payment. Demo mode creates sample credentials and never accesses your panel or blockchains.
+5. Open Preview. The home page is the reseller sign-in; memberships are sold in the Telegram bot. Demo mode creates sample credentials and never accesses your panel or blockchains.
 
 You can also upload the ZIP into the empty project's root and extract it in Shell:
 
@@ -29,7 +29,7 @@ This is a NEW project for the uploaded Simple Replit edition of stream-panel-bot
 Read README.md and LIVE_SETUP.md. Install requirements.txt in Replit's managed
 Python environment. Use bash run.sh for the Run button.
 Ensure Python 3.10+ is available and expose internal port 5000 as external
-80. Checkout is at /, with no gateway, supervisor, Node.js or existing website.
+80. The reseller sign-in is at /, with no gateway, supervisor, Node.js or existing website.
 Start in demo mode and verify a simulated checkout. Then help me add the missing
 STREAMBOT_* settings in Secrets and a direct PostgreSQL database connection.
 Do not print credentials or enable live payments or panel writes during setup.
@@ -43,7 +43,7 @@ run bash run.sh. Do not create an Autoscale deployment or duplicate bot pollers.
 that runs the real bot code in demo mode against a throwaway database under `data/preview/`.
 Switch between a customer, the support admin and a reseller applicant from the header, tap
 inline buttons, use the Menu command list, reply to messages, and press Reset to start over.
-It also serves the website and reseller portal at http://127.0.0.1:8098/reseller/ against the
+It also serves the website (reseller sign-in and panel) at http://127.0.0.1:8098/ against the
 same database, so the bot's **Open web dashboard** link works locally. It never contacts
 Telegram, the panel or any blockchain. Per-user rate limits are off unless
 `PREVIEW_RATE_LIMITS=1` is set.

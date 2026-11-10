@@ -204,7 +204,7 @@ class ResellerBot:
             elif name=='web':
                 if not self.store.limit('rs_web_link:'+str(uid),5,600):raise CheckoutError('Please wait a few minutes before requesting another sign-in link.')
                 url=self.r.web.login_url(self.r.web.issue_code(uid))
-                portal=self.bot.service.config['public_url']+self.bot.service.config.get('base_path','')+'/reseller/'
+                portal=self.bot.service.config['public_url']+self.bot.service.config.get('base_path','')+'/'
                 self.bot.send(uid,'🌐 Your web dashboard sign-in link (valid for 10 minutes, one use):\n'+url+
                               '\n\nBookmark the dashboard: '+portal+
                               '\nOnce signed in, open Account to add a recovery email and password so you can sign in there without Telegram.',

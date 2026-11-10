@@ -54,10 +54,14 @@ def create_app(service,ready=None):
     @app.errorhandler(413)
     def oversized(_): return jsonify(error='Request is too large.'),413
 
-    @app.get('/')
-    def index():
+    @app.get('/order/')
+    def legacy_order_page():
+        # Past web customers keep their private recovery links; new orders are not taken here.
         html=(Path(app.static_folder)/'index.html').read_text()
         return html.replace('__STREAMBOT_BASE__',service.config.get('base_path','')),200,{'Content-Type':'text/html; charset=utf-8'}
+
+    @app.get('/order')
+    def legacy_order_redirect(): return '',302,{'Location':service.config.get('base_path','')+'/order/'}
 
     @app.get('/healthz')
     def health(): return jsonify(status='ok',mode=service.config['mode'],workers_active=True)
@@ -76,11 +80,9 @@ def create_app(service,ready=None):
 
     @app.post('/api/orders')
     def create_order():
-        if not service.store.limit('create:'+str(request.remote_addr),10,3600):
-            return jsonify(error='You have created several quotes. Please use an existing one or try again later.'),429
-        data=request.get_json()
-        if not isinstance(data,dict): return jsonify(error='Invalid request.'),400
-        return jsonify(service.create_order(data.get('plan_id'),data.get('asset_id'))),201
+        # The website no longer sells memberships; customers order through the Telegram bot.
+        request.get_json(silent=True)  # still enforce the body-size limit before answering
+        return jsonify(error='Orders are placed through our Telegram bot, not on this website.',support_url=service.config.get('support_url','')),410
 
     @app.get('/api/order')
     def get_order(): return jsonify(service.get_order(token()))

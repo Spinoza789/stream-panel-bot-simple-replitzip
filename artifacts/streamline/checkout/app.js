@@ -87,7 +87,7 @@ async function init(){
     for(const asset of catalog.assets){const option=document.createElement('option');option.value=asset.id;option.textContent=asset.symbol+' · '+names[asset.network]+(asset.network==='ethereum'&&asset.symbol!=='ETH'?' (ERC-20)':'');$('asset').append(option);}
     renderChoices();$('loading').hidden=true;
     const params=new URLSearchParams(location.hash.slice(1));token=params.get('order');
-    if(token){await showOrder(await api('/api/order'));}else{$('workspace').hidden=false;}
+    if(token){await showOrder(await api('/api/order'));}else{document.querySelector('.intro').hidden=true;$('loading').hidden=false;$('loading').textContent='Memberships are ordered through our Telegram bot. This page only shows an existing order opened from its private link.';}
   }catch(e){$('loading').hidden=true;error(e.message);}
 }
 init();

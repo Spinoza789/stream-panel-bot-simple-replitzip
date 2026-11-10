@@ -277,7 +277,7 @@ def main():
     server = ThreadingHTTPServer(('127.0.0.1', PORT), Handler)
     server.daemon_threads = True
     print('Telegram preview (demo mode, no network): http://127.0.0.1:%d' % PORT, flush=True)
-    print('Website + reseller portal:               http://127.0.0.1:%d/reseller/' % WEB_PORT, flush=True)
+    print('Website (reseller sign-in):              http://127.0.0.1:%d/' % WEB_PORT, flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

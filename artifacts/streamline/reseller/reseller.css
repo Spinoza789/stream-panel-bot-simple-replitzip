@@ -21,6 +21,15 @@ main{min-height:calc(100vh - 230px)}
 .tile strong{display:block;font-family:Georgia,serif;font-size:44px;letter-spacing:-2px;font-weight:400;line-height:1}
 .tile small{display:block;margin-top:10px;font-size:11px;color:var(--muted)}
 .tile.accent{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.tiles-2{grid-template-columns:1fr 2fr}
+.tile .small-strong{font-size:22px;letter-spacing:-.5px;font-family:inherit;font-weight:600}
+#invoice-card{margin-bottom:28px}
+#invoice-card .invoice-grid{gap:40px}
+#invoice-card .crypto-amount{margin:6px 0 10px}
+#invoice-card .verification form{margin-top:16px}
+#invoice-card .verification .secondary{width:100%;margin-top:12px}
+#invoice-card .expiry{margin-top:4px}
+#invoice-card #inv-dismiss{display:block;margin-top:16px}
 .tile.accent span,.tile.accent small{color:#5b6650}
 .quick{display:flex;gap:12px;flex-wrap:wrap}
 .quick .primary{width:auto;gap:14px}
@@ -64,5 +73,5 @@ dl.plain{border:0;font-size:12px;margin:0 0 20px}
 dl.plain>div{padding:12px 0;border-bottom:1px solid var(--line)}
 #view-credits .primary{max-width:360px;margin-top:16px}
 #view-credits select{max-width:360px}
-@media(max-width:950px){.tiles{grid-template-columns:1fr 1fr}.create-grid,.signin-grid{grid-template-columns:1fr}.packs{grid-template-columns:1fr 1fr}.row{grid-template-columns:1.4fr 1fr 1fr}.row .pill,.row .hide-sm{display:none}}
+@media(max-width:950px){.tiles,.tiles-2{grid-template-columns:1fr 1fr}#invoice-card .invoice-grid{grid-template-columns:1fr}.create-grid,.signin-grid{grid-template-columns:1fr}.packs{grid-template-columns:1fr 1fr}.row{grid-template-columns:1.4fr 1fr 1fr}.row .pill,.row .hide-sm{display:none}}
 @media(max-width:720px){.tabs a{padding:12px 10px;font-size:11px}.tile strong{font-size:34px}.search input{width:100%}.search{width:100%}.row{grid-template-columns:1fr 1fr}}

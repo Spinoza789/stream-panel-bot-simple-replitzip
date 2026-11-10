@@ -33,12 +33,16 @@ class CheckoutPortTests(unittest.TestCase):
                                            if v.get('enabled', True))}
 
     def quote(self):
-        response = self.client.post('/api/orders', json=self.selection, headers=self.origin)
-        self.assertEqual(response.status_code, 201)
-        return response.get_json()
+        # The website no longer takes orders; existing orders (made via the bot or before) are still readable by token.
+        self.assertEqual(self.client.post('/api/orders', json=self.selection, headers=self.origin).status_code, 410)
+        return self.service.create_order(self.selection['plan_id'], self.selection['asset_id'])
 
     def test_original_frontend_and_security_headers(self):
-        response = self.client.get('/')
+        home = self.client.get('/')
+        self.assertEqual(home.status_code, 200)
+        self.assertIn(b'Sign in with Telegram', home.data)  # the home page is the reseller sign-in only
+        self.assertNotIn(b'Membership plans', home.data)
+        response = self.client.get('/order/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Streamline', response.data)
         self.assertNotIn(b'__STREAMBOT_BASE__', response.data)
@@ -88,7 +92,7 @@ class CheckoutPortTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/orders', json={'large': 'x' * 5000},
                                          headers=self.origin).status_code, 413)
         self.assertEqual(self.client.post('/api/orders', json=[],
-                                         headers=self.origin).status_code, 400)
+                                         headers=self.origin).status_code, 410)
         self.assertEqual(self.client.get('/api/order').status_code, 404)
         quote = self.quote()
         self.assertEqual(self.client.get('/api/order', headers={
@@ -102,13 +106,16 @@ class CheckoutPortTests(unittest.TestCase):
         html = client.get('/stream/').data
         self.assertIn(b'content="/stream"', html)
         self.assertIn(b'href="/stream/static/style.css"', html)
-        self.assertIn(b'src="/stream/static/app.js"', html)
+        self.assertIn(b'src="/stream/reseller/static/reseller.js"', html)
+        legacy = client.get('/stream/order/').data
+        self.assertIn(b'src="/stream/static/app.js"', legacy)
         self.assertEqual(client.get('/stream/api/catalog').status_code, 200)
-        response = client.get('/stream/static/app.js')
-        self.assertEqual(response.status_code, 200)
-        response.close()
+        for path in ('/stream/static/app.js', '/stream/reseller/static/reseller.js'):
+            response = client.get(path)
+            self.assertEqual(response.status_code, 200)
+            response.close()
         self.assertEqual(client.post('/stream/api/orders', json=self.selection,
-                                     headers=self.origin).status_code, 201)
+                                     headers=self.origin).status_code, 410)
 
     def test_live_mode_cannot_use_demo_payment_endpoint(self):
         self.config['mode'] = 'live'
