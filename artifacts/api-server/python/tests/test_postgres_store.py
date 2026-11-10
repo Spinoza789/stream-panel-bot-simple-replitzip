@@ -120,7 +120,7 @@ class PostgresIntegrationTests(unittest.TestCase):
 
     def test_one_order_overpayment_approval_and_stale_background_result(self):
         self.config['support_admin_id'] = 900
-        order = self.service.create_order('adult-month-1', 'usdc-ethereum',
+        order = self.service.create_order('month-1', 'usdc-ethereum',
                                            owner_telegram_id=self.owner)['order']
         txid = '0x' + uuid.uuid4().hex + uuid.uuid4().hex
         self.verifier.verify.return_value = dict(
@@ -140,11 +140,11 @@ class PostgresIntegrationTests(unittest.TestCase):
             approval.confirm(900, nonce)
 
     def test_owned_quotes_txid_replay_protection_and_delivery_receipts(self):
-        quote = self.service.create_order('adult-month-1', 'usdc-ethereum',
+        quote = self.service.create_order('month-1', 'usdc-ethereum',
                                          owner_telegram_id=self.owner,
                                          request_key='test:' + uuid.uuid4().hex)
         order = self.store.get(quote['order']['id'])
-        repeat = self.service.create_order('adult-month-1', 'usdc-ethereum',
+        repeat = self.service.create_order('month-1', 'usdc-ethereum',
                                           owner_telegram_id=self.owner,
                                           request_key='test:' + uuid.uuid4().hex)
         self.assertEqual(repeat['order']['id'], order['id'])

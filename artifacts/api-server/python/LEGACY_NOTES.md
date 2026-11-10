@@ -23,7 +23,7 @@ Keep its existing structure and stack.
   launcher deliberately ignores the live PostgreSQL URL and live encryption key:
   adding production Secrets must not move demo data or invalidate its credentials.
 - The Telegram membership menu selects a duration, then one screen offers every
-  connection count for both content options (🚫 no adult / 🔞 adult) with GBP
+  device count with GBP
   prices; tapping one opens the crypto/network selection, then a wallet invoice
   with a USD reference value, exact crypto amount, and expiry. Navigation screens
   edit the user's latest menu message in place; invoices, logins and prompts are

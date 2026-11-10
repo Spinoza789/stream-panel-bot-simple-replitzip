@@ -72,7 +72,7 @@ class TelegramPaymentTests(unittest.TestCase):
         sent = [p for m, p in self.calls if m == 'sendMessage']
         return sent[-1] if sent else None
 
-    def create(self, uid=42, plan='adult-month-1', asset='usdc-ethereum', request='request'):
+    def create(self, uid=42, plan='month-1', asset='usdc-ethereum', request='request'):
         return self.service.create_order(plan, asset, owner_telegram_id=uid,
                                          request_key=f'test:{uid}:{request}')['order']
 
@@ -84,15 +84,15 @@ class TelegramPaymentTests(unittest.TestCase):
         self.verifier.error = None
 
     def test_entire_quote_txid_confirmation_and_credential_delivery(self):
-        crypto = self.click('pay:choose:adult-month-1')
+        crypto = self.click('pay:choose:month-1')
         callbacks = [b['callback_data'] for row in crypto['reply_markup']['inline_keyboard'] for b in row]
-        self.assertIn('pay:quote:adult-month-1:usdc-ethereum', callbacks)
-        invoice = self.click('pay:quote:adult-month-1:usdc-ethereum')
+        self.assertIn('pay:quote:month-1:usdc-ethereum', callbacks)
+        invoice = self.click('pay:quote:month-1:usdc-ethereum')
         order = self.store.telegram_orders(42)[0]
         self.assertIn('$12.50 USD', invoice['text'])
         self.assertIn('<b>💰 SEND EXACTLY</b>\n<code>' + self.service.public(order)['amount'], invoice['text'])
         self.assertEqual(invoice['parse_mode'], 'HTML')
-        self.assertEqual(order['plan']['package_id'], '140')
+        self.assertEqual(order['plan']['package_id'], '137')
         self.assertNotIn('Simulate payment', str(invoice))
         prompt = self.click('pay:tx:' + order['id'])
         self.assertTrue(prompt['reply_markup']['force_reply'])
@@ -110,7 +110,7 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertEqual(self.store.get(order['id'])['status'], 'paid')
         self.service.provision_pending()
         self.bot.checkout.notify()
-        self.assertEqual(self.panel.calls, ['140'])
+        self.assertEqual(self.panel.calls, ['137'])
         self.assertIn('Membership — ', self.calls[-1][1]['text'])
         self.assertIn('Username:', self.calls[-1][1]['text'])
         self.assertIn('APP DOWNLOAD CODES',self.calls[-1][1]['text'])

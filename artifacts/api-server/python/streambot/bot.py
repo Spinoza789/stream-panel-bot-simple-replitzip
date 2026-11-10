@@ -136,7 +136,7 @@ class TelegramBot:
         rows.append([{'text':'⬅️ Back','callback_data':'menu'}])
         return '\n'.join(lines),{'inline_keyboard':rows}
 
-    def find_plan(self,months,adult,connections=None):
+    def find_plan(self,months,adult=False,connections=None):
         for plan in self.service.config.get('plans',[]):
             if (plan.get('months')==months
                     and bool(plan.get('adult_content',False))==adult
@@ -155,22 +155,17 @@ class TelegramBot:
     PLANS_TEXT='🌐 MEMBERSHIP PLANS\n\nChoose a subscription length:'
 
     def pick_screen(self,months):
-        """One screen for a duration: a row per content option, a button per connection count."""
-        rows=[]
-        for adult in (False,True):
-            row=[]
-            for connections in sorted({p['connections'] for p in self.service.config.get('plans',[])
-                                       if p.get('months')==months and bool(p.get('adult_content',False))==adult}):
-                plan=self.find_plan(months,adult,connections)
-                if plan:
-                    row.append({'text':('🔞' if adult else '🚫')+f' {connections} · '+self.gbp(plan['gbp_price']),
-                                'callback_data':f'plan:pick:{months}:{int(adult)}:{connections}'})
-            if row: rows.append(row)
-        if not rows: raise CheckoutError('That membership length is unavailable.')
-        rows.append([{'text':'⬅️ Back','callback_data':'menu:plans'}])
+        """One screen for a duration: a button per connection count."""
+        row=[]
+        for connections in sorted({p['connections'] for p in self.service.config.get('plans',[]) if p.get('months')==months}):
+            plan=self.find_plan(months,False,connections)
+            if plan:
+                row.append({'text':f'{connections} device'+('s' if connections!=1 else '')+' · '+self.gbp(plan['gbp_price']),
+                            'callback_data':f'plan:pick:{months}:0:{connections}'})
+        if not row: raise CheckoutError('That membership length is unavailable.')
+        rows=[row,[{'text':'⬅️ Back','callback_data':'menu:plans'}]]
         text=(f'📅 {months} month'+('s' if months!=1 else '')+'\n\n'
-              'Pick the number of connections:\n'
-              '🚫 = no adult content · 🔞 = adult content included\n\n'
+              'How many devices will watch at the same time?\n\n'
               'Prices in GBP. Nothing is ordered until you choose a coin on the next screen.')
         return text,{'inline_keyboard':rows}
 
@@ -183,8 +178,8 @@ class TelegramBot:
             return self.pick_screen(int(parts[2]))
         if parts[:2] in (['plan','pick'],['plan','connections']) and len(parts)==5:
             months=int(parts[2]);adult=parts[3];connections=int(parts[4])
-            if adult not in ('0','1'): raise CheckoutError('That content option is unavailable.')
-            plan=self.find_plan(months,adult=='1',connections)
+            if adult!='0': raise CheckoutError('Adult content plans are no longer offered. Choose a plan from Membership plans.')
+            plan=self.find_plan(months,False,connections)
             if not plan: raise CheckoutError('That membership option is unavailable.')
             return plan
         # Buttons on menus sent before this layout existed still land somewhere sensible.

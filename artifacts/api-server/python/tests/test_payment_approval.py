@@ -28,7 +28,7 @@ class PaymentApprovalTests(unittest.TestCase):
         self.config.update(mode='live', panel_writes=True)
         self.verifier, self.panel = Mock(), Mock()
         self.service = CheckoutService(self.config, self.store, self.verifier, self.panel, Rates(demo=True))
-        self.order = self.service.create_order('adult-month-1', 'usdc-ethereum',
+        self.order = self.service.create_order('month-1', 'usdc-ethereum',
                                                owner_telegram_id=42)['order']
         self.proof = dict(network='ethereum', txid=TXID,
                           amount_units=int(self.order['amount_units']) + 3484,
@@ -109,7 +109,7 @@ class PaymentApprovalTests(unittest.TestCase):
 
     def test_already_claimed_transaction_cannot_pay_another_order(self):
         nonce = self.preview()
-        other = self.service.create_order('adult-month-1', 'usdc-ethereum',
+        other = self.service.create_order('month-1', 'usdc-ethereum',
                                            owner_telegram_id=43)['order']
         self.store.claim_payment(other['id'], self.proof)
         with self.assertRaisesRegex(CheckoutError, 'already claimed'):
@@ -168,7 +168,7 @@ class PaymentApprovalTests(unittest.TestCase):
         saved = self.store.get(self.order['id'])
         self.assertEqual((saved['status'], saved['txid']), ('paid', TXID))
         self.assertIn('approved by administrator', saved['message'])
-        other = self.service.create_order('adult-month-1', 'usdc-ethereum',
+        other = self.service.create_order('month-1', 'usdc-ethereum',
                                            owner_telegram_id=44)['order']
         replacement = '0x' + 'c' * 64
         self.store.submit_tx(other['id'], replacement)

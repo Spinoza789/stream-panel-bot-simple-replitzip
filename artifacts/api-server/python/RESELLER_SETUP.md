@@ -52,7 +52,8 @@ pressing “I've paid” never grants credits.
 | 9 | 9 | 10 | 11 |
 | 12 | 12 | 15 | 20 |
 
-Adult/no-adult prices are equal. Administrator changes affect future requests,
+Adult/no-adult prices are equal. Reseller adult panel packages come from `reseller_adult_packages`
+in `config.json`; the retail catalogue itself has no adult plans. Administrator changes affect future requests,
 not the price/cost already captured on a purchase or confirmed operation.
 
 - `/rspackage PACKAGE_ID PRICE_PENCE CREDITS ACTIVE_0_OR_1 reason`

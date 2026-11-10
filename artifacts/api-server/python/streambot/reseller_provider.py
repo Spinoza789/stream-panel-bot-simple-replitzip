@@ -33,9 +33,14 @@ class PanelProvider:
     def package(self, months, connections, adult):
         if months==0:return str(self.service.config['trial_package_id'])
         if months==9:return str((122 if adult else 119)+connections-1)
-        for plan in self.service.config['plans']:
-            if plan.get('months')==months and plan.get('connections')==connections and plan['id'].startswith('adult-')==adult:
-                return str(plan['package_id'])
+        if adult:
+            # Reseller adult packages are configured separately; the retail catalogue no longer lists them.
+            pid=self.service.config.get('reseller_adult_packages',{}).get(str(months),{}).get(str(connections))
+            if pid:return str(pid)
+        else:
+            for plan in self.service.config['plans']:
+                if plan.get('months')==months and plan.get('connections')==connections and not plan.get('adult_content'):
+                    return str(plan['package_id'])
         raise PanelError('Provider package is not configured')
 
     def summary(self):

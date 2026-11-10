@@ -1,6 +1,7 @@
 """Telegram membership navigation tests; no network or live database access."""
 import copy
 import unittest
+from streambot.service import CheckoutError
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -75,19 +76,21 @@ class MembershipMenuTests(unittest.TestCase):
         return [button['callback_data'] for row in message['reply_markup']['inline_keyboard'] for button in row]
 
     def test_exact_package_mappings_and_matching_prices(self):
-        adult = {1: ['140', '141', '142'], 3: ['134', '135', '136'],
-                 6: ['128', '129', '130'], 12: ['116', '117', '118']}
-        original = {1: ['137', '138', '139'], 3: ['131', '132', '133'],
+        packages = {1: ['137', '138', '139'], 3: ['131', '132', '133'],
                     6: ['125', '126', '127'], 12: ['113', '114', '115']}
-        self.assertEqual(len(self.config['plans']), 24)
-        self.assertEqual(len({p['id'] for p in self.config['plans']}), 24)
-        for months in adult:
+        self.assertEqual(len(self.config['plans']), 12)
+        self.assertEqual(len({p['id'] for p in self.config['plans']}), 12)
+        self.assertFalse(any(p.get('adult_content') for p in self.config['plans']))
+        for months in packages:
             for connections in (1, 2, 3):
-                with_adult = self.bot.find_plan(months, True, connections)
-                no_adult = self.bot.find_plan(months, False, connections)
-                self.assertEqual(with_adult['package_id'], adult[months][connections - 1])
-                self.assertEqual(no_adult['package_id'], original[months][connections - 1])
-                self.assertEqual(with_adult['gbp_price'], no_adult['gbp_price'])
+                plan = self.bot.find_plan(months, False, connections)
+                self.assertEqual(plan['package_id'], packages[months][connections - 1])
+                self.assertIsNone(self.bot.find_plan(months, True, connections))
+
+    def test_old_adult_buttons_are_refused_politely(self):
+        with self.assertRaises(CheckoutError) as caught:
+            self.bot.membership_step('plan:pick:1:1:1')
+        self.assertIn('no longer offered', str(caught.exception))
 
     def test_main_menu_is_trial_plans_reseller_notifications_and_account_row(self):
         home = self.click('menu')
@@ -114,29 +117,20 @@ class MembershipMenuTests(unittest.TestCase):
         for months in (1, 3, 6, 12):
             pick = self.click(f'plan:duration:{months}')
             rows = pick['reply_markup']['inline_keyboard']
-            self.assertEqual(len(rows), 3)  # no-adult row, adult row, back
-            for adult, row in ((0, rows[0]), (1, rows[1])):
-                self.assertEqual([b['callback_data'] for b in row],
-                                 [f'plan:pick:{months}:{adult}:{count}' for count in (1, 2, 3)])
-                for button, count in zip(row, (1, 2, 3)):
-                    plan = self.bot.find_plan(months, bool(adult), count)
-                    price = format(float(plan['gbp_price']), '.2f').rstrip('0').rstrip('.')
-                    self.assertEqual(button['text'], ('🔞' if adult else '🚫') + f' {count} · £' + price)
-                    coins = self.click(button['callback_data'])
-                    callbacks = self.callbacks(coins)
-                    self.assertIn('CHOOSE COIN', coins['text'])
-                    self.assertIn(plan['detail'], coins['text'])
-                    self.assertTrue(all(c.startswith('pay:quote:' + plan['id'] + ':') for c in callbacks[:-1]))
-                    self.assertEqual(callbacks[-1], f'plan:duration:{months}')
-            self.assertEqual(self.callbacks(pick)[-1], 'menu:plans')
-            self.assertIn('Nothing is ordered until you choose a coin', pick['text'])
+            self.assertEqual(len(rows), 2)  # one row of device counts, then back
+            self.assertEqual([b['callback_data'] for b in rows[0]], [f'plan:pick:{months}:0:{count}' for count in (1, 2, 3)])
+            for button, count in zip(rows[0], (1, 2, 3)):
+                plan = self.bot.find_plan(months, False, count)
+                price = format(float(plan['gbp_price']), '.2f').rstrip('0').rstrip('.')
+                self.assertEqual(button['text'], f'{count} device' + ('s' if count != 1 else '') + ' · £' + price)
+            self.assertNotIn('adult', pick['text'].lower())
 
     def test_buttons_from_the_previous_layout_still_navigate(self):
         self.assertIn('plan:duration:1', self.callbacks(self.click('plan:back:duration')))
         self.assertIn('plan:pick:3:0:1', self.callbacks(self.click('plan:content:3:0')))
-        self.assertIn('plan:pick:6:1:1', self.callbacks(self.click('plan:back:content:6:1')))
+        self.assertIn('plan:pick:6:0:1', self.callbacks(self.click('plan:back:content:6:1')))
         self.assertIn('plan:pick:12:0:1', self.callbacks(self.click('plan:back:connections:12:0')))
-        self.assertIn('CHOOSE COIN', self.click('plan:connections:1:1:2')['text'])
+        self.assertIn('CHOOSE COIN', self.click('plan:connections:1:0:2')['text'])
 
     def test_navigation_edits_the_latest_menu_in_place(self):
         home = self.click('menu')
