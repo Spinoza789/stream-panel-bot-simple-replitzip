@@ -6,10 +6,10 @@ from streambot.trial_message import trial_ready_text, membership_ready_text, APP
 
 class TrialMessageTests(unittest.TestCase):
     def test_exact_layout_codes_links_and_dynamic_credentials(self):
-        expected="""<u>24 Hour Trial</u>
+        expected="""<blockquote><u>24 Hour Trial</u>
 
 <b>Username: generated-test-user</b>
-<b>Password: generated-test-password</b>
+<b>Password: generated-test-password</b></blockquote>
 
 <b>APP DOWNLOAD CODES</b>
 
@@ -41,18 +41,18 @@ Safe Media V2: https://tinyurl.com/mrxhvej8"""
 
     def test_another_customers_details_are_not_reused(self):
         text=trial_ready_text({'username':'another-test-user','password':'another-test-password'})
-        self.assertIn('<b>Username: another-test-user</b>\n<b>Password: another-test-password</b>',text)
+        self.assertIn('<b>Username: another-test-user</b>\n<b>Password: another-test-password</b></blockquote>',text)
         self.assertNotIn('generated-test-user',text)
 
     def test_membership_uses_purchased_plan_and_the_identical_guide(self):
         text=membership_ready_text({'name':'3 months','detail':'2 connections · No adult content'},
                                    {'username':'test-member','password':'test-member-password'})
-        self.assertEqual(text,'<u>Membership — 3 months</u>\n2 connections · No adult content\n\n'
-                         '<b>Username: test-member</b>\n<b>Password: test-member-password</b>\n\n'+APP_DOWNLOAD_GUIDE)
+        self.assertEqual(text,'<blockquote><u>Membership — 3 months</u>\n2 connections · No adult content\n\n'
+                         '<b>Username: test-member</b>\n<b>Password: test-member-password</b></blockquote>\n\n'+APP_DOWNLOAD_GUIDE)
 
     def test_credentials_and_plan_names_are_html_escaped(self):
         text=trial_ready_text({'username':'a<b>&c','password':'p"q'})
         self.assertIn('<b>Username: a&lt;b&gt;&amp;c</b>',text)
         self.assertNotIn('a<b>&c',text)
         text=membership_ready_text({'name':'1 <month>','detail':'x & y'},{'username':'u','password':'p'})
-        self.assertTrue(text.startswith('<u>Membership — 1 &lt;month&gt;</u>\nx &amp; y'))
+        self.assertTrue(text.startswith('<blockquote><u>Membership — 1 &lt;month&gt;</u>\nx &amp; y'))

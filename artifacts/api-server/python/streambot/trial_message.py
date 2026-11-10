@@ -39,6 +39,7 @@ def membership_ready_text(plan,credentials):
 
 
 def account_ready_text(heading,credentials):
-    return (heading+'\n\n'
+    # The heading and login details sit in one quoted box above the shared guide.
+    return ('<blockquote>'+heading+'\n\n'
             '<b>Username: '+escape(credentials['username'])+'</b>\n'
-            '<b>Password: '+escape(credentials['password'])+'</b>\n\n'+APP_DOWNLOAD_GUIDE)
+            '<b>Password: '+escape(credentials['password'])+'</b></blockquote>\n\n'+APP_DOWNLOAD_GUIDE)

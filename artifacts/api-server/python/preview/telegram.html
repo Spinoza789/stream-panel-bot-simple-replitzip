@@ -46,6 +46,7 @@
   .bubble code,.bubble pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13.5px}
   .bubble code{background:#0004;padding:1px 4px;border-radius:4px}
   .bubble pre{background:#0004;padding:8px;border-radius:6px;margin:4px 0;white-space:pre-wrap}
+  .bubble blockquote{margin:2px 0 0;padding:6px 10px 6px 12px;border-left:3px solid var(--link);background:#ffffff14;border-radius:6px;display:block}
   .bubble .reply{border-left:2px solid var(--link);padding:2px 8px;margin:0 0 6px;font-size:13px;color:#cfd8e0;border-radius:2px;background:#ffffff0a}
   .bubble .reply b{display:block;color:var(--link);font-weight:600}
   .bubble .reply span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
@@ -160,7 +161,7 @@
     .replace(/(^|[\s(])@([a-zA-Z][a-zA-Z0-9_]{3,})/g, '$1<a href="https://t.me/$2" target="_blank" rel="noopener">@$2</a>');
   function sanitizeHtml(src) {
     const doc = new DOMParser().parseFromString('<div>' + src + '</div>', 'text/html');
-    const ok = {B:1, STRONG:1, I:1, EM:1, U:1, S:1, CODE:1, PRE:1, A:1, BR:1};
+    const ok = {B:1, STRONG:1, I:1, EM:1, U:1, S:1, CODE:1, PRE:1, A:1, BR:1, BLOCKQUOTE:1};
     const walk = node => {
       let out = '';
       node.childNodes.forEach(n => {
@@ -175,7 +176,7 @@
       });
       return out;
     };
-    return walk(doc.body.firstChild);
+    return walk(doc.body.firstChild).replace(/<\/blockquote>\n/g, '</blockquote>');  // the block already breaks the line
   }
   const fmtText = m => m.parse_mode === 'HTML' ? sanitizeHtml(m.text || '') : linkify(esc(m.text || ''));
   const hhmm = ts => { const d = new Date(ts * 1000); return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'); };
