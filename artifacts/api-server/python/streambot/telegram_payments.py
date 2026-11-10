@@ -67,6 +67,13 @@ class TelegramCheckout:
                          {'text': 'Main menu', 'callback_data': 'menu'}])
         return {'inline_keyboard': rows}
 
+    def tolerance_note(self, order):
+        tolerance = self.service.config.get('payment_tolerance_usd', {})
+        under, over = tolerance.get('under', '0'), tolerance.get('over', '0')
+        if order['plan'].get('tolerance_under_units') and (under != '0' or over != '0'):
+            return 'Up to $' + escape(under) + ' short or $' + escape(over) + ' over is still accepted.'
+        return 'Exact amount only. Do not round it.'
+
     def expiry(self, order):
         return datetime.fromtimestamp(order['expires_at'], timezone.utc).strftime('%H:%M UTC, %d %b')
 
@@ -96,10 +103,10 @@ class TelegramCheckout:
                      'Already sent it in time? Tap <b>I\'ve paid</b> and enter the TXID. Otherwise go back and start a new order.']
         elif order['status'] == 'pending':
             lines = [banner + '<b>💳 PAY WITH ' + e(asset['symbol']) + '</b>', item, '',
-                     '<b>💰 SEND EXACTLY</b>', '<code>' + e(order['amount']) + '</code> ' + e(asset['symbol']),
+                     '<b>💰 AMOUNT TO SEND</b>', '<code>' + e(order['amount']) + '</code> ' + e(asset['symbol']),
                      '<b>on ' + e(network_name(asset)) + ' to</b>', '<code>' + e(asset['wallet']) + '</code>', '',
                      '👆 Tap the amount or the wallet to copy it.',
-                     '⚠️ Exact amount only. Do not round it. Network fees are extra.',
+                     '⚠️ ' + self.tolerance_note(order) + ' Network fees are extra.',
                      '', 'Sent it? Tap <b>I\'ve paid</b> and paste your TXID.', '',
                      '⏰ Expires ' + e(self.expiry(order))]
         elif order['status'] in ('paid', 'provisioning'):
@@ -128,7 +135,8 @@ class TelegramCheckout:
                  '<b>Status:</b> ' + e(order['status'].upper())]
         if plan.get('usd_price'):
             lines.extend(['', '<b>Price reference — NOT the amount to send</b>',
-                          '$' + e(plan['usd_price']) + ' USD (from £' + e(plan['gbp_price']) + '). The crypto amount above is what the wallet must receive.'])
+                          '$' + e(plan['usd_price']) + ' USD (from £' + e(plan['gbp_price']) + '). Send the crypto amount above. '
+                          + self.tolerance_note(order) + ' Anything further off needs support.'])
             if demo:
                 lines.append('Exchange rates are simulated, not live prices.')
         if order.get('txid'):
@@ -136,7 +144,7 @@ class TelegramCheckout:
         if order.get('message'):
             lines.extend(['', '<b>Update:</b> ' + e(order['message'])])
         lines.extend(['', '<b>Something went wrong?</b>',
-                      '• Sent a different amount, or the wrong coin or network? <b>Do not send more.</b> Contact support with your order ID and TXID.',
+                      '• Sent an amount outside that range, or the wrong coin or network? <b>Do not send more.</b> Contact support with your order ID and TXID.',
                       '• Paid after the quote expired? Submit the TXID anyway and contact support.',
                       '• A submitted TXID is not confirmation. Credits or logins arrive once the payment is verified on-chain.'])
         return '\n'.join(lines)

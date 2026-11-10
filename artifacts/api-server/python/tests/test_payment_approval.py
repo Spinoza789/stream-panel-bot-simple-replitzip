@@ -31,7 +31,7 @@ class PaymentApprovalTests(unittest.TestCase):
         self.order = self.service.create_order('month-1', 'usdc-ethereum',
                                                owner_telegram_id=42)['order']
         self.proof = dict(network='ethereum', txid=TXID,
-                          amount_units=int(self.order['amount_units']) + 3484,
+                          amount_units=int(self.order['amount_units']) + 5_000_000 + 3484,  # beyond the automatic $5 tolerance
                           block_time=self.order['created_at'], confirmations=62)
         self.verifier.verify.side_effect = lambda *args: copy.deepcopy(self.proof)
         self.sent = []

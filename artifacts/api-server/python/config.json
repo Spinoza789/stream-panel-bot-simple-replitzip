@@ -4,6 +4,7 @@
   "trial_package_id": "275",
   "trial_daily_limit": 20,
   "quote_minutes": 60,
+  "payment_tolerance_usd": {"under": "1", "over": "5"},
   "panel_base_url": "https://pppnc-xi7y162dn7.mobazzz.com",
   "assets": {
     "usdc-ethereum": {

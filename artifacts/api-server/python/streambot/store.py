@@ -182,6 +182,13 @@ class Store:
                        " WHERE id=? AND status='pending' AND txid=?",
                        (*values.values(), order_id, expected_txid))
 
+    def competing_orders(self, asset_id, exclude_id, block_time):
+        """Other unpaid quotes for the same asset whose payment window contains block_time."""
+        with self.connection() as db:
+            rows = db.execute("SELECT * FROM orders WHERE kind='paid' AND status='pending' AND json_extract(asset_json,'$.id')=? "
+                              "AND id!=? AND created_at<=? AND expires_at>=?", (asset_id, exclude_id, block_time, block_time)).fetchall()
+            return [self.decode(row) for row in rows]
+
     def claim_payment(self, order_id, proof):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')

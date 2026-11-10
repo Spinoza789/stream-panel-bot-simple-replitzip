@@ -45,7 +45,7 @@ async function showOrder(order){
   $('invoice-network').textContent=order.asset.symbol+' ON '+names[order.asset.network];
   $('invoice-amount').textContent=order.amount+' '+order.asset.symbol;$('wallet').textContent=order.asset.wallet;
   $('invoice-quote-details').textContent=order.matching_adjustment?'Includes an order-matching adjustment of '+order.matching_adjustment+' '+order.asset.symbol+' (at most £0.01 at the quoted rate).':'';
-  $('order-message').textContent=order.message||(catalog.demo?'Demo order: use the simulation button below. No real funds are accepted.':'Transfer the exact amount, then paste your TXID below.');
+  $('order-message').textContent=order.message||(catalog.demo?'Demo order: use the simulation button below. No real funds are accepted.':'Transfer the amount shown (up to $1 short or $5 over is fine), then paste your TXID below.');
   const statusLabels={pending:'AWAITING PAYMENT',paid:'PAYMENT CONFIRMED',provisioning:'PREPARING ACCOUNT',fulfilled:'ACCOUNT READY',review:'MANUAL CHECK'};
   $('status-chip').textContent=statusLabels[order.status]||order.status;
   $('verify-form').hidden=order.status!=='pending';$('demo-pay').hidden=!catalog.demo||order.status!=='pending';

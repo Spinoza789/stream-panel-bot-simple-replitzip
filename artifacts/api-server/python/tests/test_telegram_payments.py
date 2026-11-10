@@ -89,7 +89,7 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertIn('pay:quote:month-1:usdc-ethereum', callbacks)
         invoice = self.click('pay:quote:month-1:usdc-ethereum')
         order = self.store.telegram_orders(42)[0]
-        self.assertIn('<b>💰 SEND EXACTLY</b>\n<code>' + self.service.public(order)['amount'], invoice['text'])
+        self.assertIn('<b>💰 AMOUNT TO SEND</b>\n<code>' + self.service.public(order)['amount'], invoice['text'])
         self.assertEqual(invoice['parse_mode'], 'HTML')
         self.assertNotIn('$12.50', invoice['text'])  # the reference price only appears under Details
         self.assertLess(len(invoice['text']), 600)
@@ -139,7 +139,7 @@ class TelegramPaymentTests(unittest.TestCase):
         payload = self.calls[-1][1]
         self.assertEqual(payload['parse_mode'], 'HTML')
         self.assertNotIn('13.36', payload['text'])
-        self.assertIn('Do not round it', payload['text'])
+        self.assertIn('Up to $1 short or $5 over is still accepted', payload['text'])
         # Telegram copies <code> text on tap, so the amount and wallet are code and there are no copy buttons.
         self.assertIn('<code>13.356516</code>', payload['text'])
         self.assertIn('<code>' + order['asset']['wallet'] + '</code>', payload['text'])
@@ -157,7 +157,7 @@ class TelegramPaymentTests(unittest.TestCase):
         payload = self.calls[-1][1]
         self.assertIn('PAYMENT VERIFICATION', payload['text'])
         self.assertIn('do not send another payment', payload['text'])
-        self.assertNotIn('SEND EXACTLY', payload['text'])
+        self.assertNotIn('AMOUNT TO SEND', payload['text'])
         self.assertNotIn('copy_text', str(payload['reply_markup']))
         self.assertNotIn('pay:quote:', str(payload['reply_markup']))
         self.assertNotIn('pay:tx:', str(payload['reply_markup']))
@@ -166,7 +166,7 @@ class TelegramPaymentTests(unittest.TestCase):
         order = dict(self.create(), expires_at=0)
         text = self.bot.checkout.order_text(order)
         self.assertIn('QUOTE EXPIRED — DO NOT PAY', text)
-        self.assertNotIn('SEND EXACTLY', text)
+        self.assertNotIn('AMOUNT TO SEND', text)
         self.assertNotIn('copy_text', str(self.bot.checkout.order_keyboard(order)))
         self.assertIn('pay:tx:', str(self.bot.checkout.order_keyboard(order)))
 
@@ -225,7 +225,8 @@ class TelegramPaymentTests(unittest.TestCase):
 
     def test_wrong_amount_network_or_time_never_confirms_payment(self):
         order = self.create()
-        bad = [{'amount_units': int(order['amount_units']) - 1},
+        low, high = self.service.tolerance_range(order)
+        bad = [{'amount_units': low - 1}, {'amount_units': high + 1},
                {'network': 'bitcoin'}, {'block_time': order['created_at'] - 1},
                {'block_time': order['expires_at'] + 1}]
         for overrides in bad:
@@ -237,6 +238,51 @@ class TelegramPaymentTests(unittest.TestCase):
             self.assertIsNone(checked['txid'])
             self.service.provision_pending()
         self.assertEqual(self.panel.calls, [])
+
+    def test_payments_a_little_short_or_over_are_accepted(self):
+        # $1 short / $5 over, converted at the quote's own rate (demo: 1.25 USDC per GBP, so 1 USDC = $1).
+        order = self.create()
+        quoted = int(order['amount_units'])
+        self.assertEqual(self.service.tolerance_range(order), (quoted - 1_000_000, quoted + 5_000_000))
+        self.assertEqual(order['plan']['tolerance_under_units'], '1000000')
+        for request, delta in (('under', -1_000_000), ('over', 5_000_000), ('bit-short', -12)):
+            order = self.create(request=request)
+            self.service.submit_telegram_tx(42, order['id'], TXID[:-4] + request.ljust(4, 'f')[:4])
+            self.proof(order, amount_units=int(order['amount_units']) + delta, txid=TXID[:-4] + request.ljust(4, 'f')[:4])
+            self.service.verify_order(order_id=order['id'])
+            self.assertEqual(self.store.get(order['id'])['status'], 'paid', request)
+
+    def test_inexact_payment_never_takes_another_open_orders_money(self):
+        mine = self.create(uid=42, request='mine')
+        theirs = self.create(uid=43, request='theirs')
+        # Their exact amount submitted against my order: it is theirs, not mine.
+        self.service.submit_telegram_tx(42, mine['id'], TXID)
+        self.proof(mine, amount_units=int(theirs['amount_units']))
+        self.service.verify_order(order_id=mine['id'])
+        checked = self.store.get(mine['id'])
+        self.assertEqual(checked['status'], 'pending')
+        self.assertIsNone(checked['txid'])
+        self.assertIn('matches a different order', checked['message'])
+        # An inexact amount both open quotes could claim is left for support.
+        self.service.submit_telegram_tx(42, mine['id'], TXID)
+        self.proof(mine, amount_units=int(mine['amount_units']) - 500_000)
+        self.service.verify_order(order_id=mine['id'])
+        checked = self.store.get(mine['id'])
+        self.assertEqual(checked['status'], 'pending')
+        self.assertIn('more than one open order', checked['message'])
+        # Once the other quote is no longer open, the same payment is accepted.
+        self.store.update(theirs['id'], status='fulfilled')
+        self.service.submit_telegram_tx(42, mine['id'], TXID)
+        self.proof(mine, amount_units=int(mine['amount_units']) - 500_000)
+        self.service.verify_order(order_id=mine['id'])
+        self.assertEqual(self.store.get(mine['id'])['status'], 'paid')
+        # Their own exact payment still clears normally.
+        self.service.submit_telegram_tx(43, theirs['id'], 'b' * 64)
+        self.store.update(theirs['id'], status='pending')
+        self.service.submit_telegram_tx(43, theirs['id'], 'b' * 64)
+        self.proof(theirs, txid='b' * 64)
+        self.service.verify_order(order_id=theirs['id'])
+        self.assertEqual(self.store.get(theirs['id'])['status'], 'paid')
 
     def test_provider_outage_and_recipient_rejection_fail_closed(self):
         order = self.create()

@@ -25,9 +25,14 @@ Keep its existing structure and stack.
 - The Telegram membership menu selects a duration, then one screen offers every
   device count with GBP
   prices; tapping one opens the crypto/network selection, then a wallet invoice
-  with a USD reference value, exact crypto amount, and expiry. Navigation screens
-  edit the user's latest menu message in place; invoices, logins and prompts are
-  always separate messages. Buttons from the earlier layout keep working.
+  showing the crypto amount, network, wallet and expiry; the USD reference,
+  confirmations and help sit behind a Details button. Payments up to $1 short or
+  $5 over the quote (`payment_tolerance_usd` in config.json, converted at the
+  quote's rate) are accepted automatically, unless the amount equals or falls
+  within the tolerance of another open quote for the same asset, in which case
+  support matches it by hand. Navigation screens edit the user's latest menu
+  message in place; invoices, logins and prompts are always separate messages.
+  Buttons from the earlier layout keep working.
 - Tap the TXID button to submit a hash, or use `/txid ORDER_ID HASH`.
   The backend worker verifies payment; a submitted hash alone never marks it paid.
   My orders or `/orders` returns to invoices. Quotes, ownership, TXID entry, and

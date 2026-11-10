@@ -66,6 +66,11 @@ def load_config(path='config.json', env=None):
         else:
             for key, value in plan.get('prices', {}).items(): units(value, config['assets'][key]['decimals'])
     if not 1 <= int(config.get('quote_minutes', 60)) <= 120: raise ValueError('Invalid quote lifetime.')
+    tolerance = config.setdefault('payment_tolerance_usd', {})
+    for key in ('under', 'over'):
+        value = Decimal(str(tolerance.get(key, '0')))
+        if not value.is_finite() or value < 0 or value > 50: raise ValueError('payment_tolerance_usd.' + key + ' must be between 0 and 50 USD.')
+        tolerance[key] = str(value)
     if mode == 'live':
         from .chains import BlockchainVerifier, PaymentRejected
         url = urlparse(config['public_url'])

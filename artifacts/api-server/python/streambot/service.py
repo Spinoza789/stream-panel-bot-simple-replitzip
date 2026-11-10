@@ -1,7 +1,7 @@
 import logging
 import secrets
 import time
-from decimal import Decimal, ROUND_UP, ROUND_HALF_UP
+from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP
 from .config import display_units, units
 from .store import digest
 from .rates import Rates, RateUnavailable
@@ -57,6 +57,11 @@ class CheckoutService:
             plan['usd_price']=str((Decimal(plan['gbp_price'])*quote['usd_per_gbp']).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP))
             plan['rate_fetched_at'] = quote['fetched_at']
             base_units = int((Decimal(plan['gbp_price']) * rate * 10**asset['decimals']).to_integral_value(rounding=ROUND_UP))
+            # Payments a little under or over the quote are still accepted (see amount_check). Fixed at quote time.
+            tolerance=self.config.get('payment_tolerance_usd',{})
+            scale=quote['crypto_per_usd']*10**asset['decimals']
+            plan['tolerance_under_units']=str(int((Decimal(tolerance.get('under','0'))*scale).to_integral_value(rounding=ROUND_DOWN)))
+            plan['tolerance_over_units']=str(int((Decimal(tolerance.get('over','0'))*scale).to_integral_value(rounding=ROUND_UP)))
         else: base_units = units(plan['prices'][asset_id],asset['decimals'])
         quantum = 10**max(0,asset['decimals']-8)
         max_nonce=999
@@ -110,9 +115,9 @@ class CheckoutService:
         asset['rpc_url'] = self.config['assets'][asset['id']].get('rpc_url','')
         try:
             proof = self.verifier.verify(asset,order['txid'],order['created_at'],order['expires_at'])
-            if proof['amount_units'] != int(order['amount_units']): raise PaymentRejected('The received amount does not match this order. Do not pay again; contact support with your TXID.')
             if proof['network'] != asset['network']: raise PaymentRejected('Wrong payment network.')
             if not order['created_at'] <= proof['block_time'] <= order['expires_at']: raise PaymentRejected('The payment was made outside this quote’s time window. Contact support.')
+            self.amount_check(order,proof)
             self.store.claim_payment(order['id'],proof)
         except PaymentPending:
             self.store.update_pending_verification(order['id'],order['txid'],message='Waiting for blockchain confirmation. No need to pay again.')
@@ -121,6 +126,32 @@ class CheckoutService:
         except ChainUnavailable:
             self.store.update_pending_verification(order['id'],order['txid'],message='The blockchain provider is temporarily unavailable. We will retry automatically.')
         finally: self.store.update_pending_verification(order['id'],order['txid'],last_check=int(time.time()))
+
+    @staticmethod
+    def tolerance_range(order):
+        quoted=int(order['amount_units']); plan=order['plan']
+        return quoted-int(plan.get('tolerance_under_units',0)), quoted+int(plan.get('tolerance_over_units',0))
+
+    def amount_check(self,order,proof):
+        """Accept the exact quote, or an amount within the tolerance, unless it plainly belongs to another open order.
+
+        The exact figure (with its identifying suffix) always wins: a payment that equals
+        another open quote is that quote's, and an inexact amount that several open quotes
+        could claim is left for support rather than handed to whoever submits the TXID first.
+        """
+        from .chains import PaymentRejected
+        received=proof['amount_units']; quoted=int(order['amount_units'])
+        if received==quoted: return
+        low,high=self.tolerance_range(order)
+        if not low<=received<=high:
+            raise PaymentRejected('The received amount does not match this order. Do not pay again; contact support with your TXID.')
+        for other in self.store.competing_orders(order['asset']['id'],order['id'],proof['block_time']):
+            if received==int(other['amount_units']):
+                raise PaymentRejected('The received amount matches a different order exactly. Do not pay again; contact support with your TXID.')
+        for other in self.store.competing_orders(order['asset']['id'],order['id'],proof['block_time']):
+            other_low,other_high=self.tolerance_range(other)
+            if other_low<=received<=other_high:
+                raise PaymentRejected('The received amount is close to more than one open order, so it must be matched by hand. Do not pay again; contact support with your TXID.')
 
     def demo_pay(self, token):
         if self.config['mode']!='demo': raise CheckoutError('Demo payments are disabled.')
