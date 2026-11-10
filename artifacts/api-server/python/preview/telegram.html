@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlixFlexBot</title>
+<style>
+  :root{
+    --bg:#0e1621; --panel:#17212b; --panel-2:#1f2b38; --incoming:#182533; --outgoing:#2b5278;
+    --text:#f5f5f5; --muted:#6d7f8f; --link:#6ab3f3; --accent:#5288c1; --btn:#1c2733; --btn-hover:#243445;
+    --check:#72b3f0; --divider:#0f1a25; --toast:#000c;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .app{height:100%;display:flex;flex-direction:column;max-width:860px;margin:0 auto;position:relative;
+    background:
+      radial-gradient(1200px 500px at 20% -10%, #15202c 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 110%, #13202b 0%, transparent 60%), var(--bg)}
+  /* header */
+  .hdr{height:56px;background:var(--panel);display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #0b121a;flex:none}
+  .ava{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:600;color:#fff;font-size:18px;
+    background:linear-gradient(180deg,#f07b9a,#dc4f72)}
+  .who{flex:1;min-width:0}
+  .who b{display:block;font-weight:600;font-size:15px}
+  .who span{display:block;font-size:13px;color:var(--muted)}
+  .dev{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .dev select,.dev button{background:var(--panel-2);color:#dfe6ee;border:1px solid #0b121a;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer}
+  .dev button:hover,.dev select:hover{background:var(--btn-hover)}
+  /* chat */
+  .chat{flex:1;overflow-y:auto;padding:12px 12px 8px;scroll-behavior:smooth}
+  .day{display:flex;justify-content:center;margin:6px 0 10px}
+  .day span{background:#0008;color:#dfe6ee;font-size:13px;padding:3px 10px;border-radius:12px}
+  .row{display:flex;flex-direction:column;align-items:flex-start;margin:0 0 6px;width:fit-content;max-width:min(78%,560px)}
+  .row.haskb{width:min(78%,560px)}
+  .row.out{align-self:flex-end;align-items:flex-end;margin-left:auto}
+  .wrap{display:flex;flex-direction:column;width:100%}
+  .bubble{position:relative;background:var(--incoming);padding:7px 10px 7px 10px;border-radius:12px 12px 12px 4px;
+    white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere;min-width:60px;max-width:100%;display:inline-block}
+  .row.out .bubble{background:var(--outgoing);border-radius:12px 12px 4px 12px}
+  .bubble .meta{float:right;margin:8px 0 -4px 8px;font-size:12px;color:#8aa0b4;white-space:nowrap;user-select:none}
+  .row.out .bubble .meta{color:#a9d2f7}
+  .meta .chk{color:var(--check);margin-left:3px;font-size:13px;letter-spacing:-3px}
+  .bubble a,.bubble .cmd{color:var(--link);text-decoration:none;cursor:pointer}
+  .bubble .cmd:hover,.bubble a:hover{text-decoration:underline}
+  .bubble code,.bubble pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13.5px}
+  .bubble code{background:#0004;padding:1px 4px;border-radius:4px}
+  .bubble pre{background:#0004;padding:8px;border-radius:6px;margin:4px 0;white-space:pre-wrap}
+  .bubble .reply{border-left:2px solid var(--link);padding:2px 8px;margin:0 0 6px;font-size:13px;color:#cfd8e0;border-radius:2px;background:#ffffff0a}
+  .bubble .reply b{display:block;color:var(--link);font-weight:600}
+  .bubble .reply span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+  .kb{display:flex;flex-direction:column;gap:4px;margin-top:4px;width:100%}
+  .kb .r{display:flex;gap:4px}
+  .kb button{flex:1;background:var(--btn);color:#fff;border:0;border-radius:8px;padding:9px 10px;font:600 14px/1.3 inherit;cursor:pointer;
+    font-family:inherit;transition:background .12s;min-width:0}
+  .kb button:hover{background:var(--btn-hover)}
+  .kb button:active{transform:translateY(1px)}
+  .row .act{opacity:0;transition:opacity .15s;font-size:12px;color:var(--muted);cursor:pointer;margin:2px 4px;user-select:none}
+  .row:hover .act{opacity:1}
+  /* composer */
+  .composer{background:var(--panel);padding:8px 10px;flex:none;position:relative}
+  .replybar{display:flex;align-items:center;gap:10px;padding:4px 8px 8px;color:#cfd8e0;font-size:13px}
+  .replybar .line{border-left:2px solid var(--link);padding-left:8px;flex:1;min-width:0}
+  .replybar b{color:var(--link);display:block;font-weight:600}
+  .replybar span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .replybar .x{cursor:pointer;color:var(--muted);font-size:18px;padding:0 6px}
+  .bar{display:flex;align-items:flex-end;gap:8px}
+  .menu-btn{background:var(--accent);color:#fff;border:0;border-radius:18px;height:36px;padding:0 12px 0 10px;font:600 14px inherit;
+    font-family:inherit;display:flex;align-items:center;gap:6px;cursor:pointer;flex:none}
+  .menu-btn:hover{background:#4a7cb5}
+  .ic{width:36px;height:36px;display:grid;place-items:center;color:var(--muted);flex:none;cursor:pointer;font-size:20px}
+  .ic:hover{color:#9fb2c4}
+  .input{flex:1;background:var(--panel-2);border-radius:18px;min-height:36px;max-height:140px;padding:8px 14px;outline:0;overflow-y:auto;
+    color:var(--text);font:15px/1.35 inherit;font-family:inherit}
+  .input:empty:before{content:attr(data-ph);color:var(--muted)}
+  .send{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;border:0;display:grid;place-items:center;cursor:pointer;flex:none;font-size:18px}
+  .send:hover{background:#4a7cb5}
+  /* command popup */
+  .pop{position:absolute;left:10px;right:10px;bottom:58px;background:var(--panel);border:1px solid #0b121a;border-radius:10px;
+    box-shadow:0 6px 24px #0008;max-height:320px;overflow:auto;display:none;z-index:5}
+  .pop.open{display:block}
+  .pop .it{display:flex;gap:10px;padding:9px 14px;cursor:pointer;align-items:baseline}
+  .pop .it:hover,.pop .it.sel{background:var(--panel-2)}
+  .pop .it b{font-weight:600;min-width:110px}
+  .pop .it span{color:var(--muted);font-size:13px}
+  /* toast & alert */
+  .toast{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:var(--toast);color:#fff;padding:9px 14px;border-radius:10px;
+    font-size:14px;max-width:80%;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+  .toast.show{opacity:1}
+  .modal{position:absolute;inset:0;background:#0006;display:none;place-items:center;z-index:10}
+  .modal.show{display:grid}
+  .modal .box{background:var(--panel);border-radius:12px;padding:18px 20px 12px;max-width:360px;width:86%;box-shadow:0 10px 40px #000a}
+  .modal .box p{margin:0 0 14px;white-space:pre-wrap}
+  .modal .box button{float:right;background:none;border:0;color:var(--link);font:600 14px inherit;font-family:inherit;cursor:pointer;padding:6px 10px}
+  .empty{color:var(--muted);text-align:center;margin:40px 0;font-size:14px}
+  .empty button{display:block;margin:14px auto 0;background:var(--accent);color:#fff;border:0;border-radius:18px;padding:8px 22px;font:600 14px inherit;font-family:inherit;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hdr">
+    <div class="ava">F</div>
+    <div class="who"><b id="botname">FlixFlexBot</b><span>bot</span></div>
+    <div class="dev">
+      <span>Chatting as</span>
+      <select id="user"></select>
+      <button id="reset" title="Wipe the preview database and start over">Reset</button>
+    </div>
+  </div>
+  <div class="chat" id="chat"></div>
+  <div class="composer">
+    <div class="pop" id="pop"></div>
+    <div class="replybar" id="replybar" style="display:none">
+      <span style="color:var(--link);font-size:18px">↩</span>
+      <div class="line"><b id="rb-name"></b><span id="rb-text"></span></div>
+      <span class="x" id="rb-x">×</span>
+    </div>
+    <div class="bar">
+      <button class="menu-btn" id="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg> Menu</button>
+      <div class="ic" title="Attach"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 11.5 12.6 19.9a5.3 5.3 0 0 1-7.5-7.5l8.8-8.8a3.5 3.5 0 0 1 5 5l-8.8 8.8a1.8 1.8 0 0 1-2.5-2.5l8.1-8.1"/></svg></div>
+      <div class="input" id="input" contenteditable="true" data-ph="Write a message..."></div>
+      <div class="ic" title="Emoji"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5s1.2 2 3.5 2 3.5-2 3.5-2"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="15" cy="10" r=".8" fill="currentColor"/></svg></div>
+      <button class="send" id="send" title="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 11.5 20.5 4 13 21.5l-2-7.5-8-2.5z"/></svg></button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="modal" id="modal"><div class="box"><p id="modal-text"></p><button id="modal-ok">OK</button></div></div>
+</div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const chat = $('chat'), input = $('input'), pop = $('pop');
+  const SNAP = new URLSearchParams(location.search).has('snap');
+  let uid = null, seq = 0, users = [], commands = [], replyTo = null, polling = 0, lastCount = 0, placeholder = 'Write a message...';
+
+  // ---------- transport ----------
+  const post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  async function poll(token) {
+    while (polling === token) {
+      try {
+        const r = await fetch(`/api/state?uid=${uid}&since=${seq}`);
+        if (polling !== token) return;
+        const s = await r.json();
+        apply(s);
+        if (SNAP) return;  // ?snap=1: render once (used for screenshots)
+      } catch (e) { await new Promise(r => setTimeout(r, 800)); }
+    }
+  }
+  function switchUser(id) {
+    uid = id; seq = 0; replyTo = null; lastCount = 0; chat.innerHTML = ''; hideReply(); fillUsers();
+    try { localStorage.setItem('tg-preview-uid', String(id)); } catch (e) {}
+    poll(++polling);
+  }
+
+  // ---------- rendering ----------
+  const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const linkify = h => h
+    .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(\/[a-z][a-z0-9_]*)(?=$|[\s.,;:!?)])/gi, '$1<span class="cmd" data-cmd="$2">$2</span>')
+    .replace(/(^|[\s(])@([a-zA-Z][a-zA-Z0-9_]{3,})/g, '$1<a href="https://t.me/$2" target="_blank" rel="noopener">@$2</a>');
+  function sanitizeHtml(src) {
+    const doc = new DOMParser().parseFromString('<div>' + src + '</div>', 'text/html');
+    const ok = {B:1, STRONG:1, I:1, EM:1, U:1, S:1, CODE:1, PRE:1, A:1, BR:1};
+    const walk = node => {
+      let out = '';
+      node.childNodes.forEach(n => {
+        if (n.nodeType === 3) out += linkify(esc(n.textContent));
+        else if (n.nodeType === 1) {
+          const t = n.tagName;
+          if (!ok[t]) { out += walk(n); return; }
+          if (t === 'BR') { out += '\n'; return; }
+          if (t === 'A') { const href = n.getAttribute('href') || '#'; out += `<a href="${esc(href)}" target="_blank" rel="noopener">${walk(n)}</a>`; return; }
+          out += `<${t.toLowerCase()}>${walk(n)}</${t.toLowerCase()}>`;
+        }
+      });
+      return out;
+    };
+    return walk(doc.body.firstChild);
+  }
+  const fmtText = m => m.parse_mode === 'HTML' ? sanitizeHtml(m.text || '') : linkify(esc(m.text || ''));
+  const hhmm = ts => { const d = new Date(ts * 1000); return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'); };
+  const byId = {};
+  function render(messages) {
+    const atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
+    chat.innerHTML = '';
+    messages.forEach(m => byId[m.message_id] = m);
+    if (!messages.length) {
+      chat.innerHTML = `<div class="empty">No messages here yet…<button id="startbtn">START</button></div>`;
+      $('startbtn').onclick = () => send('/start');
+      return;
+    }
+    const day = document.createElement('div'); day.className = 'day'; day.innerHTML = '<span>Today</span>'; chat.appendChild(day);
+    for (const m of messages) {
+      const out = m.from === 'user';
+      const row = document.createElement('div'); row.className = 'row ' + (out ? 'out' : 'in') + (m.reply_markup && m.reply_markup.inline_keyboard ? ' haskb' : ''); row.dataset.id = m.message_id;
+      let reply = '';
+      if (m.reply_to_message_id && byId[m.reply_to_message_id]) {
+        const r = byId[m.reply_to_message_id];
+        reply = `<div class="reply"><b>${r.from === 'user' ? 'You' : 'FlixFlexBot'}</b><span>${esc((r.text || '').slice(0, 90))}</span></div>`;
+      }
+      const meta = `<span class="meta">${hhmm(m.date)}${out ? '<span class="chk">✓✓</span>' : ''}</span>`;
+      let kb = '';
+      const ik = m.reply_markup && m.reply_markup.inline_keyboard;
+      if (ik && ik.length) {
+        kb = '<div class="kb">' + ik.map(r => '<div class="r">' + r.map(b => {
+          if (b.url) return `<button data-url="${esc(b.url)}">${esc(b.text)} ↗</button>`;
+          return `<button data-cb="${esc(b.callback_data || '')}">${esc(b.text)}</button>`;
+        }).join('') + '</div>').join('') + '</div>';
+      }
+      row.innerHTML = `<div class="wrap"><div class="bubble">${reply}${fmtText(m)}${meta}</div>${kb}</div><span class="act" title="Reply">↩ Reply</span>`;
+      chat.appendChild(row);
+    }
+    if (atBottom || messages.length !== lastCount) chat.scrollTop = chat.scrollHeight;
+    lastCount = messages.length;
+  }
+  function apply(s) {
+    seq = s.seq;
+    if (!users.length || users.length !== s.users.length) { users = s.users; fillUsers(); }
+    commands = s.commands || [];
+    $('botname').textContent = s.bot.username;
+    render(s.messages);
+    // Telegram applies a force_reply prompt automatically.
+    const last = s.messages[s.messages.length - 1];
+    if (last && last.from === 'bot' && last.reply_markup && last.reply_markup.force_reply && !replyTo) {
+      setReply(last.message_id);
+      input.dataset.ph = last.reply_markup.input_field_placeholder || 'Write a message...';
+    }
+    for (const t of s.toasts) t.alert ? alert_(t.text) : toast(t.text);
+  }
+  function fillUsers() {
+    const sel = $('user'); sel.innerHTML = '';
+    users.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = `${u.label} · ${u.id}`; sel.appendChild(o); });
+    const o = document.createElement('option'); o.value = 'custom'; o.textContent = 'Custom ID…'; sel.appendChild(o);
+    sel.value = String(uid);
+  }
+
+  // ---------- actions ----------
+  async function send(text) {
+    text = (text || '').trim(); if (!text) return;
+    const body = {uid, text}; if (replyTo) body.reply_to = replyTo;
+    input.textContent = ''; hideReply(); pop.classList.remove('open');
+    await post('/api/send', body);
+  }
+  function tap(message_id, data) { post('/api/tap', {uid, message_id, data}); }
+  function setReply(id) {
+    const m = byId[id]; if (!m) return; replyTo = id;
+    $('rb-name').textContent = m.from === 'user' ? 'You' : 'FlixFlexBot';
+    $('rb-text').textContent = (m.text || '').slice(0, 120);
+    $('replybar').style.display = 'flex'; input.focus();
+  }
+  function hideReply() { replyTo = null; $('replybar').style.display = 'none'; input.dataset.ph = placeholder; }
+  let toastTimer;
+  function toast(text) { const t = $('toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
+  function alert_(text) { $('modal-text').textContent = text; $('modal').classList.add('show'); }
+  $('modal-ok').onclick = () => $('modal').classList.remove('show');
+
+  chat.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b && b.dataset.cb !== undefined) { tap(+b.closest('.row').dataset.id, b.dataset.cb); return; }
+    if (b && b.dataset.url) { window.open(b.dataset.url, '_blank'); return; }
+    const c = e.target.closest('.cmd'); if (c) { send(c.dataset.cmd); return; }
+    const a = e.target.closest('.act'); if (a) setReply(+a.closest('.row').dataset.id);
+  });
+  $('rb-x').onclick = hideReply;
+  $('send').onclick = () => send(input.textContent);
+  input.addEventListener('keydown', e => {
+    if (pop.classList.contains('open') && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab')) { e.preventDefault(); movePop(e.key === 'ArrowUp' ? -1 : 1); return; }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const sel = pop.querySelector('.it.sel');
+      if (pop.classList.contains('open') && sel) { send(sel.dataset.cmd); return; }
+      send(input.textContent);
+    }
+    if (e.key === 'Escape') { pop.classList.remove('open'); hideReply(); }
+  });
+  input.addEventListener('input', () => {
+    const t = input.textContent;
+    if (t.startsWith('/') && !t.includes(' ')) showPop(t.slice(1).toLowerCase(), false); else pop.classList.remove('open');
+  });
+  function showPop(filter, all) {
+    const list = commands.filter(c => all || c.command.startsWith(filter));
+    if (!list.length) { pop.classList.remove('open'); return; }
+    pop.innerHTML = list.map((c, i) => `<div class="it${i ? '' : ' sel'}" data-cmd="/${c.command}"><b>/${c.command}</b><span>${esc(c.description)}</span></div>`).join('');
+    pop.classList.add('open');
+  }
+  function movePop(d) {
+    const its = [...pop.querySelectorAll('.it')]; const i = its.findIndex(x => x.classList.contains('sel'));
+    its.forEach(x => x.classList.remove('sel')); its[(i + d + its.length) % its.length].classList.add('sel');
+  }
+  pop.addEventListener('click', e => { const it = e.target.closest('.it'); if (it) send(it.dataset.cmd); });
+  $('menu').onclick = () => pop.classList.contains('open') ? pop.classList.remove('open') : showPop('', true);
+  document.addEventListener('click', e => { if (!e.target.closest('#pop') && !e.target.closest('#menu') && !e.target.closest('#input')) pop.classList.remove('open'); });
+  $('user').onchange = e => {
+    if (e.target.value === 'custom') { const v = prompt('Telegram user ID to chat as:'); if (v && /^\d+$/.test(v)) switchUser(+v); else fillUsers(); return; }
+    switchUser(+e.target.value);
+  };
+  $('reset').onclick = async () => {
+    if (!confirm('Wipe the preview database (orders, trials, reseller accounts) and restart?')) return;
+    await post('/api/reset', {}); toast('Restarting…');
+    setTimeout(() => location.reload(), 1800);
+  };
+
+  // ---------- boot ----------
+  let saved = null; try { saved = +localStorage.getItem('tg-preview-uid') || null; } catch (e) {}
+  fetch('/api/state?uid=0&since=0').then(r => r.json()).then(s => { users = s.users; switchUser(saved || users[0].id); });
+})();
+</script>
+</body>
+</html>

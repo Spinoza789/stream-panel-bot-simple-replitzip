@@ -37,6 +37,15 @@ For publication use Reserved VM, web server, one instance, build bash install.sh
 run bash run.sh. Do not create an Autoscale deployment or duplicate bot pollers.
 ```
 
+## Try the Telegram bot locally
+
+`python3 preview/telegram_preview.py` opens a Telegram look-alike at http://127.0.0.1:8099
+that runs the real bot code in demo mode against a throwaway database under `data/preview/`.
+Switch between a customer, the support admin and a reseller applicant from the header, tap
+inline buttons, use the Menu command list, reply to messages, and press Reset to start over.
+It never contacts Telegram, the panel or any blockchain. Per-user rate limits are off unless
+`PREVIEW_RATE_LIMITS=1` is set.
+
 ## Connect Telegram
 
 Create a bot using Telegram's official @BotFather (`/newbot`). In Replit Secrets, add `STREAMBOT_TELEGRAM_BOT_TOKEN`, then set `STREAMBOT_TELEGRAM_ENABLED=true`. Restart. While logged into @InterRamit, send your bot `/start` and `/myid`. Save the number returned as Secret `STREAMBOT_SUPPORT_ADMIN_ID` and restart. Customers send `/contact`; you use Telegram's Reply action on their incoming support messages to answer them.
