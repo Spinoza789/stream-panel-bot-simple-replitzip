@@ -89,15 +89,17 @@ class MembershipMenuTests(unittest.TestCase):
                 self.assertEqual(no_adult['package_id'], original[months][connections - 1])
                 self.assertEqual(with_adult['gbp_price'], no_adult['gbp_price'])
 
-    def test_main_menu_is_compact_and_more_holds_the_rest(self):
+    def test_main_menu_is_trial_plans_reseller_notifications_and_account_row(self):
         home = self.click('menu')
-        self.assertEqual(self.callbacks(home), ['menu:plans', 'menu:trial', 'pay:orders', 'menu:account', 'menu:more'])
-        more = self.click('menu:more')
-        self.assertEqual(self.callbacks(more), ['nt:settings', 'rs:home', 'menu:about', 'menu:privacy', 'menu'])
+        rows = [[b['callback_data'] for b in row] for row in home['reply_markup']['inline_keyboard']]
+        self.assertEqual(rows, [['menu:trial'], ['menu:plans'], ['rs:home'], ['nt:settings'],
+                                ['menu:account', 'menu:contact']])
+        self.assertIn('MEMBER ACCESS', home['text'])
+        self.assertIn('Choose an option below', home['text'])
 
-    def test_reseller_area_is_promoted_for_admin(self):
-        self.config['support_admin_id'] = 42
-        self.assertIn('rs:home', self.callbacks(self.click('menu')))
+    def test_legacy_more_button_returns_to_the_main_menu(self):
+        more = self.click('menu:more')
+        self.assertEqual(self.callbacks(more), self.callbacks(self.click('menu')))
 
     def test_duration_buttons_and_back_to_main_menu(self):
         message = self.click('menu:plans')

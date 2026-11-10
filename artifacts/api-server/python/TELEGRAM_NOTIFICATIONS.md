@@ -6,7 +6,7 @@ announcements are performed during development verification.
 
 ## Customer controls
 
-Open **More → Notifications & deals** or send `/notifications`. The option is also
+Open **Notifications & deals** on the main menu or send `/notifications`. The option is also
 on the reseller menu.
 
 - Expiry reminders default to on.

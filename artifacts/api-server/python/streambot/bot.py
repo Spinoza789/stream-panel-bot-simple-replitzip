@@ -89,22 +89,13 @@ class TelegramBot:
         return uid is not None and uid==self.service.config.get('support_admin_id')
 
     def menu_keyboard(self,uid=None):
-        rows=[[{'text':'🌐 Membership plans','callback_data':'menu:plans'}],
-              [{'text':'🎁 Free 24-hour trial','callback_data':'menu:trial'}],
-              [{'text':'🧾 My orders','callback_data':'pay:orders'}],
-              [{'text':'👤 My account & support','callback_data':'menu:account'}]]
-        if uid is not None and (self.is_admin(uid) or self.service.resellers.member(uid)):
-            rows.append([{'text':'🏪 Reseller area','callback_data':'rs:home'}])
-        rows.append([{'text':'⋯ More','callback_data':'menu:more'}])
-        return {'inline_keyboard':rows}
-
-    def more_keyboard(self):
         return {'inline_keyboard':[
-            [{'text':'🔔 Notifications & deals','callback_data':'nt:settings'}],
-            [{'text':'🏪 Reseller area','callback_data':'rs:home'}],
-            [{'text':'ℹ️ About','callback_data':'menu:about'},
-             {'text':'🔒 Privacy','callback_data':'menu:privacy'}],
-            [{'text':'⬅️ Back','callback_data':'menu'}],
+            [{'text':'🎁 Click For 24 hour Trial','callback_data':'menu:trial'}],
+            [{'text':'🌐 Subscription Plans','callback_data':'menu:plans'}],
+            [{'text':'🏪 Become A Reseller','callback_data':'rs:home'}],
+            [{'text':'🔔 Notifications','callback_data':'nt:settings'}],
+            [{'text':'📋 My account','callback_data':'menu:account'},
+             {'text':'💬 Contact support','callback_data':'menu:contact'}],
         ]}
 
     @staticmethod
@@ -120,8 +111,8 @@ class TelegramBot:
         demo=('🧪 DEMO MODE — orders and accounts are simulations. No real payments are accepted.\n\n'
               if self.service.config['mode']=='demo' else '')
         return (demo+'✨ '+self.service.config['brand']+' · MEMBER ACCESS\n\n'
-                +starting_price+' · free 24-hour trial · pay in crypto.\n'
-                'What would you like to do?')
+                'Your subscription, trial and account in one place.\n'
+                +starting_price+' · Choose an option below.')
 
     def account_screen(self,uid):
         accounts=self.service.linked_accounts(uid)
@@ -277,8 +268,8 @@ class TelegramBot:
                 text=self.menu_text()
             elif action=='menu:plans':
                 text,markup=self.PLANS_TEXT,self.duration_keyboard()
-            elif action=='menu:more':
-                text,markup='⋯ MORE\n\nNotifications, reseller access and information.',self.more_keyboard()
+            elif action=='menu:more':  # "More" button on menus sent before this layout
+                text=self.menu_text()
             elif action in ('menu:trial','menu:retrytrial'):
                 order=self.service.retry_trial(uid) if action=='menu:retrytrial' else self.service.create_trial(uid)
                 text,markup=self.trial_text(order),self.trial_keyboard(order)
