@@ -6,8 +6,8 @@ announcements are performed during development verification.
 
 ## Customer controls
 
-Open **Notifications & deals** or send `/notifications`. This option is available
-in both the ordinary customer and reseller menus.
+Open **More → Notifications & deals** or send `/notifications`. The option is also
+on the reseller menu.
 
 - Expiry reminders default to on.
 - Paid subscriptions receive reminders in the 7-day, 3-day and 1-day windows.

@@ -36,9 +36,18 @@ class TelegramCheckout:
             if asset.get('enabled', True):
                 label = asset['symbol'] + ' · ' + network_name(asset)
                 rows.append([{'text': label, 'callback_data': f"pay:quote:{plan['id']}:{asset['id']}"}])
-        rows.append([{'text': '⬅️ Back', 'callback_data':
-                     f"plan:connections:{plan['months']}:{int(bool(plan.get('adult_content')))}:{plan['connections']}"}])
+        rows.append([{'text': '⬅️ Back', 'callback_data': f"plan:duration:{plan['months']}"}])
         return {'inline_keyboard': rows}
+
+    def choose(self, uid, plan):
+        """Coin/network picker for a chosen plan; no order exists until a coin is tapped."""
+        self.clear_session(uid)
+        self.bot.send(uid, '<b>🪙 CHOOSE COIN &amp; NETWORK</b>\n\n' +
+                      escape(plan['name'] + ' · ' + plan.get('detail', '')) +
+                      '\n\nThe next screen shows the <b>exact crypto amount to send</b> and a copyable wallet.'
+                      '\n⚠️ The rounded USD price is a reference only. Do not use it as the transfer amount.'
+                      '\n\nExisting invoices stay in <b>My orders</b>. Never pay two invoices for the same purchase.',
+                      self.crypto_keyboard(plan), parse_mode='HTML')
 
     def order_keyboard(self, order):
         oid = order['id']
@@ -118,8 +127,9 @@ class TelegramCheckout:
         return '\n'.join(lines)
 
     def show_order(self, uid, order):
+        # Invoices and logins are kept as their own messages, never edited away by later navigation.
         self.bot.send(uid, self.order_text(order), self.order_keyboard(order),
-                      parse_mode='HTML' if order['status'] != 'fulfilled' else None)
+                      parse_mode='HTML' if order['status'] != 'fulfilled' else None, keep=True)
         self.store.metadata('tg_notice:' + order['id'], order['status'] + ':' + order.get('message', ''))
 
     def show_orders(self, uid):
@@ -139,16 +149,10 @@ class TelegramCheckout:
                 self.clear_session(uid)
                 self.show_orders(uid)
             elif len(parts) == 3 and parts[1] == 'choose':
-                self.clear_session(uid)
                 plan = next((p for p in self.service.config['plans'] if p['id'] == parts[2]), None)
                 if not plan:
                     raise CheckoutError('Membership not found. Please start again.')
-                self.bot.send(uid, '<b>🪙 CHOOSE COIN &amp; NETWORK</b>\n\n' +
-                              escape(plan['name'] + ' · ' + plan.get('detail', '')) +
-                              '\n\nThe next screen shows the <b>exact crypto amount to send</b> and a copyable wallet.'
-                              '\n⚠️ The rounded USD price is a reference only. Do not use it as the transfer amount.'
-                              '\n\nExisting invoices stay in <b>My orders</b>. Never pay two invoices for the same purchase.',
-                              self.crypto_keyboard(plan), parse_mode='HTML')
+                self.choose(uid, plan)
             elif len(parts) == 4 and parts[1] == 'quote':
                 self.clear_session(uid)
                 result = self.service.create_order(parts[2], parts[3], owner_telegram_id=uid,
@@ -163,7 +167,7 @@ class TelegramCheckout:
                                            '\nWe verify the payment on the blockchain. <b>Do not send another payment.</b>'
                                            '\n\nSend /cancel to stop TXID entry.',
                                            {'force_reply': True, 'selective': True,
-                                            'input_field_placeholder': 'Paste transaction hash'}, parse_mode='HTML')
+                                            'input_field_placeholder': 'Paste transaction hash'}, parse_mode='HTML', keep=True)
                     self.store.metadata(self.session_key(uid), self.store.seal({
                         'order_id': order['id'], 'prompt_id': prompt.get('message_id'),
                         'expires_at': int(time.time()) + 900}))

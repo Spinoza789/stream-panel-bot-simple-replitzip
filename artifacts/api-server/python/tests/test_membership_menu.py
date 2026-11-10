@@ -17,7 +17,7 @@ class MemoryStore:
 
     def metadata(self, key, value=None):
         if value is not None:
-            self.values[key] = value
+            self.values[key] = str(value)
         return self.values.get(key)
 
 
@@ -25,12 +25,22 @@ class TelegramAPI:
     def __init__(self):
         self.calls = []
         self.ack_error = None
+        self.edit_error = None
+        self.next_id = 10
 
     def __call__(self, method, payload):
         self.calls.append((method, copy.deepcopy(payload)))
         if method == 'answerCallbackQuery' and self.ack_error:
             raise TelegramError(self.ack_error, method)
-        return {'message_id': 1}
+        if method == 'editMessageText':
+            if self.edit_error:
+                code, description = self.edit_error
+                raise TelegramError(code, method, description=description)
+            return {'message_id': payload['message_id']}
+        if method != 'sendMessage':
+            return True
+        self.next_id += 1
+        return {'message_id': self.next_id}
 
 
 class MembershipMenuTests(unittest.TestCase):
@@ -39,20 +49,26 @@ class MembershipMenuTests(unittest.TestCase):
         self.config = load_config(path, env={'APP_MODE': 'demo'})
         self.api = TelegramAPI()
         self.store = MemoryStore()
-        service=SimpleNamespace(config=self.config,store=self.store,
-                                resellers=SimpleNamespace(member=lambda uid:None))
+        service = SimpleNamespace(config=self.config, store=self.store,
+                                  resellers=SimpleNamespace(member=lambda uid: None),
+                                  create_order=self.fail_create_order)
         self.bot = TelegramBot(service, api=self.api)
 
-    def click(self, action, private=True):
+    @staticmethod
+    def fail_create_order(*args, **kwargs):
+        raise AssertionError('Navigation must never create an order.')
+
+    def click(self, action, private=True, message_id=None):
         self.api.calls.clear()
-        self.bot.handle({'callback_query': {
-            'id': 'test-callback',
-            'from': {'id': 42},
-            'message': {'chat': {'id': 42 if private else -100, 'type': 'private' if private else 'group'}},
-            'data': action,
-        }})
-        sent = [payload for method, payload in self.api.calls if method == 'sendMessage']
-        return sent[-1] if sent else None
+        message = {'chat': {'id': 42 if private else -100, 'type': 'private' if private else 'group'}}
+        if message_id is not None:
+            message['message_id'] = message_id
+        self.bot.handle({'callback_query': {'id': 'test-callback', 'from': {'id': 42}, 'message': message, 'data': action}})
+        shown = [payload for method, payload in self.api.calls if method in ('sendMessage', 'editMessageText')]
+        return shown[-1] if shown else None
+
+    def methods(self):
+        return [method for method, _ in self.api.calls]
 
     @staticmethod
     def callbacks(message):
@@ -73,6 +89,16 @@ class MembershipMenuTests(unittest.TestCase):
                 self.assertEqual(no_adult['package_id'], original[months][connections - 1])
                 self.assertEqual(with_adult['gbp_price'], no_adult['gbp_price'])
 
+    def test_main_menu_is_compact_and_more_holds_the_rest(self):
+        home = self.click('menu')
+        self.assertEqual(self.callbacks(home), ['menu:plans', 'menu:trial', 'pay:orders', 'menu:account', 'menu:more'])
+        more = self.click('menu:more')
+        self.assertEqual(self.callbacks(more), ['nt:settings', 'rs:home', 'menu:about', 'menu:privacy', 'menu'])
+
+    def test_reseller_area_is_promoted_for_admin(self):
+        self.config['support_admin_id'] = 42
+        self.assertIn('rs:home', self.callbacks(self.click('menu')))
+
     def test_duration_buttons_and_back_to_main_menu(self):
         message = self.click('menu:plans')
         self.assertEqual(self.callbacks(message), [
@@ -82,31 +108,60 @@ class MembershipMenuTests(unittest.TestCase):
         home = self.click('menu')
         self.assertIn('menu:plans', self.callbacks(home))
 
-    def test_all_combinations_and_back_paths_through_real_callback_handler(self):
+    def test_three_taps_from_plans_to_coin_choice(self):
         for months in (1, 3, 6, 12):
-            content = self.click(f'plan:duration:{months}')
-            self.assertEqual(self.callbacks(content), [
-                f'plan:content:{months}:0', f'plan:content:{months}:1', 'plan:back:duration',
-            ])
-            for adult in (0, 1):
-                connections = self.click(f'plan:content:{months}:{adult}')
-                expected = [f'plan:connections:{months}:{adult}:{count}' for count in (1, 2, 3)]
-                self.assertEqual(self.callbacks(connections), expected + [f'plan:back:content:{months}:{adult}'])
-                for count in (1, 2, 3):
-                    summary = self.click(f'plan:connections:{months}:{adult}:{count}')
+            pick = self.click(f'plan:duration:{months}')
+            rows = pick['reply_markup']['inline_keyboard']
+            self.assertEqual(len(rows), 3)  # no-adult row, adult row, back
+            for adult, row in ((0, rows[0]), (1, rows[1])):
+                self.assertEqual([b['callback_data'] for b in row],
+                                 [f'plan:pick:{months}:{adult}:{count}' for count in (1, 2, 3)])
+                for button, count in zip(row, (1, 2, 3)):
                     plan = self.bot.find_plan(months, bool(adult), count)
-                    self.assertIn('MEMBERSHIP SELECTED', summary['text'])
-                    self.assertIn('With adult content' if adult else 'No adult content', summary['text'])
-                    self.assertIn(f'{count} connection', summary['text'])
                     price = format(float(plan['gbp_price']), '.2f').rstrip('0').rstrip('.')
-                    self.assertIn('£' + price, summary['text'])
-                    self.assertIn('no order or payment has been created', summary['text'])
-                    self.assertEqual(self.callbacks(summary)[0], 'pay:choose:' + plan['id'])
-                    back = self.callbacks(summary)[1]
-                    self.assertEqual(self.callbacks(self.click(back)), self.callbacks(connections))
-                back_to_content = self.callbacks(connections)[-1]
-                self.assertEqual(self.callbacks(self.click(back_to_content)), self.callbacks(content))
-            self.assertEqual(self.callbacks(self.click('plan:back:duration')), self.callbacks(self.click('menu:plans')))
+                    self.assertEqual(button['text'], ('🔞' if adult else '🚫') + f' {count} · £' + price)
+                    coins = self.click(button['callback_data'])
+                    callbacks = self.callbacks(coins)
+                    self.assertIn('CHOOSE COIN', coins['text'])
+                    self.assertIn(plan['detail'], coins['text'])
+                    self.assertTrue(all(c.startswith('pay:quote:' + plan['id'] + ':') for c in callbacks[:-1]))
+                    self.assertEqual(callbacks[-1], f'plan:duration:{months}')
+            self.assertEqual(self.callbacks(pick)[-1], 'menu:plans')
+            self.assertIn('Nothing is ordered until you choose a coin', pick['text'])
+
+    def test_buttons_from_the_previous_layout_still_navigate(self):
+        self.assertIn('plan:duration:1', self.callbacks(self.click('plan:back:duration')))
+        self.assertIn('plan:pick:3:0:1', self.callbacks(self.click('plan:content:3:0')))
+        self.assertIn('plan:pick:6:1:1', self.callbacks(self.click('plan:back:content:6:1')))
+        self.assertIn('plan:pick:12:0:1', self.callbacks(self.click('plan:back:connections:12:0')))
+        self.assertIn('CHOOSE COIN', self.click('plan:connections:1:1:2')['text'])
+
+    def test_navigation_edits_the_latest_menu_in_place(self):
+        home = self.click('menu')
+        self.assertEqual(self.methods(), ['answerCallbackQuery', 'sendMessage'])
+        self.assertEqual(self.store.values['tg_nav:' + self.bot.nav_key(42)[7:]], '11')
+        plans = self.click('menu:plans', message_id=11)
+        self.assertEqual(self.methods(), ['answerCallbackQuery', 'editMessageText'])
+        self.assertEqual(self.api.calls[-1][1]['message_id'], 11)
+        self.assertIn('plan:duration:1', self.callbacks(plans))
+        # An older menu further up the chat gets a fresh message instead.
+        self.click('menu:plans', message_id=3)
+        self.assertEqual(self.methods(), ['answerCallbackQuery', 'sendMessage'])
+        # Taps without a message id (or on a kept message) also send fresh messages.
+        self.click('menu')
+        self.assertEqual(self.methods(), ['answerCallbackQuery', 'sendMessage'])
+
+    def test_edit_refusals_fall_back_safely(self):
+        self.click('menu')
+        self.api.edit_error = (400, "Bad Request: message is not modified")
+        self.click('menu', message_id=11)
+        self.assertEqual(self.methods(), ['answerCallbackQuery', 'editMessageText'])  # no duplicate menu
+        self.api.edit_error = (400, "Bad Request: message can't be edited")
+        self.click('menu:plans', message_id=11)
+        self.assertEqual(self.methods(), ['answerCallbackQuery', 'editMessageText', 'sendMessage'])
+        self.api.edit_error = (429, 'Too Many Requests')
+        with self.assertRaises(TelegramError):
+            self.click('menu:plans', message_id=12)
 
     def test_expired_acknowledgement_does_not_block_menu(self):
         self.api.ack_error = 400
@@ -120,15 +175,15 @@ class MembershipMenuTests(unittest.TestCase):
 
     def test_invalid_callbacks_do_not_crash_or_select_a_plan(self):
         for action in ('plan:duration:bad', 'plan:duration:99', 'plan:duration:1:extra',
-                       'plan:content:1:2', 'plan:connections:1:1:99', 'plan:back:connections:1:bad'):
+                       'plan:pick:1:2:1', 'plan:pick:1:1:99', 'plan:pick:1:1', 'plan:back:connections:1:bad', 'plan:nope'):
             with self.subTest(action=action):
                 result = self.click(action)
                 self.assertIsNotNone(result)
-                self.assertNotIn('MEMBERSHIP SELECTED', result['text'])
+                self.assertNotIn('CHOOSE COIN', result['text'])
                 self.assertIn('menu:plans', self.callbacks(result))
 
     def test_no_membership_actions_in_group_chats(self):
-        self.assertIsNone(self.click('plan:connections:1:1:1', private=False))
+        self.assertIsNone(self.click('plan:pick:1:1:1', private=False))
         self.assertEqual(self.store.values, {})
 
 

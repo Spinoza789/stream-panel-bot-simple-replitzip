@@ -37,9 +37,9 @@ class ResellerBot:
         value=self.store.unseal(self.store.metadata(key))
         return value if value and value.get('expires',0)>now() else None
 
-    def send(self,uid,text,rows=None):
+    def send(self,uid,text,rows=None,keep=False):
         if self.bot.service.config['mode']=='demo':text='DEMO — simulated accounts and payments only.\n\n'+text
-        self.bot.send(uid,text,keyboard(rows or []))
+        self.bot.send(uid,text,keyboard(rows or []),keep=keep)
 
     def home(self,uid):
         self.r.require_ready()
@@ -103,7 +103,7 @@ class ResellerBot:
         if not warning and member['status']=='active' and record['status'] in ('active','expired'):
             rows.append([button('Convert trial / Extend Subscription' if record['kind']=='trial' else 'Extend Subscription','extend:'+sid)])
         rows.append([button('Refresh details','detail:'+sid),button('My Subscriptions','filters')])
-        self.send(uid,text,rows)
+        self.send(uid,text,rows,keep=True)  # customer login details stay in the chat
 
     def _operation(self,uid,oid):
         op=self.r.ops.operation(uid,oid)
