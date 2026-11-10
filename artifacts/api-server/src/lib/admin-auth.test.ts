@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { allowedEmail, bootstrapMatches, ownerEmails } from "./admin-auth";
-import { safeReturnTo } from "../routes/auth";
+import { hashPassword, verifyPassword } from "./password-auth";
 test("owner email is explicit, normalized and fail-closed", () => {
   assert.equal(allowedEmail("Owner@Example.com", ["owner@example.com"]), true);
   assert.equal(allowedEmail("visitor@example.com", ["owner@example.com"]), false);
@@ -26,11 +26,12 @@ test("owner workspace proof requires configured long secret and exact match", ()
     else process.env.STREAMBOT_WEB_BOOTSTRAP_CODE = saved;
   }
 });
-test("login redirects cannot escape the admin website", () => {
-  assert.equal(safeReturnTo("/admin"), "/admin/");
-  assert.equal(safeReturnTo("/admin/"), "/admin/");
-  for (const value of ["https://evil.example", "//evil.example", "/\\evil.example", "/admin/../../", "/admin/%5cevil", null]) {
-    assert.equal(safeReturnTo(value), "/admin/");
-  }
-  assert.equal(safeReturnTo("/admin/orders"), "/admin/orders");
+test("passwords have unique salts and reject wrong or malformed credentials", async () => {
+  const one = await hashPassword("test-only-password-123");
+  const two = await hashPassword("test-only-password-123");
+  assert.notEqual(one, two);
+  assert.equal(one.includes("test-only-password"), false);
+  assert.equal(await verifyPassword("test-only-password-123", one), true);
+  assert.equal(await verifyPassword("incorrect-password-123", one), false);
+  assert.equal(await verifyPassword("test-only-password-123", ""), false);
 });

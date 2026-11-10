@@ -3,20 +3,24 @@
 ## Website administration
 
 The owner-only portal is served at `/admin/`; see `ADMIN_DASHBOARD.md`.
-The user selected Replit sign-in after managed Clerk provisioning rejected the
-imported project name. Do not switch providers without asking.
-Use `STREAMBOT_WEB_ADMIN_EMAILS` for the explicit owner email allowlist.
+The user explicitly requested normal username/email-and-password login instead
+of Replit sign-in. Keep the website login independent of Replit accounts.
+Use `STREAMBOT_WEB_ADMIN_EMAILS` for the approved first-owner setup email.
 Store it as a Replit Secret, not a shared non-secret setting that commits personal
 email addresses to `.replit`.
 First owner setup additionally requires `STREAMBOT_WEB_BOOTSTRAP_CODE` (20–200
-characters) entered on the website. The backend atomically binds the owner to the
-immutable OIDC subject; the code cannot replace an existing owner.
+characters) entered on the website. It creates one local owner, not public signup.
+The setup code cannot overwrite an existing local password account. It may migrate
+the previous Replit owner binding once while preserving its audit history.
+Passwords are salted scrypt hashes inside the existing encrypted business metadata;
+normal login uses secure opaque server-side sessions. Settings changes require the
+current password and revoke other sessions. Prior OIDC sessions are rejected.
 Do not grant admin to the first signup, trust browser role headers, or tie website
 access to the Telegram administrator ID. Existing Python provisioning remains
 authoritative; the API gateway supervises one loopback-only Python backend.
 
 Streamline is an existing Python Flask/Waitress checkout and Telegram subscription
-service, preserved in a pnpm workspace. This port does not introduce admin features.
+service, preserved in a pnpm workspace, with a separate owner administration portal.
 
 ## Run and verify
 

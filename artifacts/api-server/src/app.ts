@@ -9,6 +9,7 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(pinoHttp({ logger, serializers: {
   req: req => ({ id: req.id, method: req.method, url: req.url?.split("?")[0] }),
   res: res => ({ statusCode: res.statusCode }),
@@ -23,7 +24,8 @@ app.use((req, res, next) => {
 // Existing checkout stays byte-for-byte proxied BEFORE body parsing.
 app.use((req, res, next) => {
   if (req.path === "/api/admin" || req.path.startsWith("/api/admin/") ||
-      ["/api/auth/user", "/api/login", "/api/callback", "/api/logout"].includes(req.path)) next();
+      req.path.startsWith("/api/auth/") ||
+      ["/api/login", "/api/callback", "/api/logout"].includes(req.path)) next();
   else legacyProxy(req, res);
 });
 app.use(cookieParser());

@@ -28,11 +28,14 @@ import type {
   AdminOverview,
   AdminStatus,
   AuthUserEnvelope,
-  BeginBrowserLoginParams,
   HealthStatus,
   ListAdminOrdersParams,
-  LogoutBrowserSessionParams,
-  OwnerClaim,
+  PasswordAccount,
+  PasswordAccountInput,
+  PasswordAuthStatus,
+  PasswordLoginInput,
+  PasswordLogoutInput,
+  PasswordSetupInput,
   RecoveryConfirmation,
   RecoveryDraft,
   RecoveryPreviewInput,
@@ -215,202 +218,30 @@ export function useGetCurrentAuthUser<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getBeginBrowserLoginUrl = (params?: BeginBrowserLoginParams) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : String(value));
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/login?${stringifiedParams}`
-    : `/api/login`;
+export const getGetPasswordAuthStatusUrl = () => {
+  return `/api/auth/status`;
 };
 
-export const beginBrowserLogin = async (
-  params?: BeginBrowserLoginParams,
+export const getPasswordAuthStatus = async (
   options?: Parameters<typeof customFetch>[1],
-): Promise<unknown> => {
-  return customFetch<unknown>(getBeginBrowserLoginUrl(params), {
+): Promise<PasswordAuthStatus> => {
+  return customFetch<PasswordAuthStatus>(getGetPasswordAuthStatusUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getBeginBrowserLoginQueryKey = (
-  params?: BeginBrowserLoginParams,
-) => {
-  return [`/api/login`, ...(params ? [params] : [])] as const;
+export const getGetPasswordAuthStatusQueryKey = () => {
+  return [`/api/auth/status`] as const;
 };
 
-export const getBeginBrowserLoginQueryOptions = <
-  TData = Awaited<ReturnType<typeof beginBrowserLogin>>,
-  TError = ErrorType<void>,
->(
-  params?: BeginBrowserLoginParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof beginBrowserLogin>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ?? getBeginBrowserLoginQueryKey(params);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof beginBrowserLogin>>
-  > = ({ signal }) => beginBrowserLogin(params, { signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof beginBrowserLogin>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type BeginBrowserLoginQueryResult = NonNullable<
-  Awaited<ReturnType<typeof beginBrowserLogin>>
->;
-export type BeginBrowserLoginQueryError = ErrorType<void>;
-
-export function useBeginBrowserLogin<
-  TData = Awaited<ReturnType<typeof beginBrowserLogin>>,
-  TError = ErrorType<void>,
->(
-  params: undefined | BeginBrowserLoginParams,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof beginBrowserLogin>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof beginBrowserLogin>>,
-          TError,
-          Awaited<ReturnType<typeof beginBrowserLogin>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useBeginBrowserLogin<
-  TData = Awaited<ReturnType<typeof beginBrowserLogin>>,
-  TError = ErrorType<void>,
->(
-  params?: BeginBrowserLoginParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof beginBrowserLogin>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof beginBrowserLogin>>,
-          TError,
-          Awaited<ReturnType<typeof beginBrowserLogin>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useBeginBrowserLogin<
-  TData = Awaited<ReturnType<typeof beginBrowserLogin>>,
-  TError = ErrorType<void>,
->(
-  params?: BeginBrowserLoginParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof beginBrowserLogin>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useBeginBrowserLogin<
-  TData = Awaited<ReturnType<typeof beginBrowserLogin>>,
-  TError = ErrorType<void>,
->(
-  params?: BeginBrowserLoginParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof beginBrowserLogin>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-} {
-  const queryOptions = getBeginBrowserLoginQueryOptions(params, options);
-
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-export const getHandleBrowserLoginCallbackUrl = () => {
-  return `/api/callback`;
-};
-
-export const handleBrowserLoginCallback = async (
-  options?: Parameters<typeof customFetch>[1],
-): Promise<unknown> => {
-  return customFetch<unknown>(getHandleBrowserLoginCallbackUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getHandleBrowserLoginCallbackQueryKey = () => {
-  return [`/api/callback`] as const;
-};
-
-export const getHandleBrowserLoginCallbackQueryOptions = <
-  TData = Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
-  TError = ErrorType<void>,
+export const getGetPasswordAuthStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPasswordAuthStatus>>,
+  TError = ErrorType<unknown>,
 >(options?: {
   query?: Partial<
     UseQueryOptions<
-      Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+      Awaited<ReturnType<typeof getPasswordAuthStatus>>,
       TError,
       TData
     >
@@ -419,42 +250,41 @@ export const getHandleBrowserLoginCallbackQueryOptions = <
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getHandleBrowserLoginCallbackQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetPasswordAuthStatusQueryKey();
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof handleBrowserLoginCallback>>
-  > = ({ signal }) => handleBrowserLoginCallback({ signal, ...requestOptions });
+    Awaited<ReturnType<typeof getPasswordAuthStatus>>
+  > = ({ signal }) => getPasswordAuthStatus({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+    Awaited<ReturnType<typeof getPasswordAuthStatus>>,
     TError,
     TData
   > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type HandleBrowserLoginCallbackQueryResult = NonNullable<
-  Awaited<ReturnType<typeof handleBrowserLoginCallback>>
+export type GetPasswordAuthStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPasswordAuthStatus>>
 >;
-export type HandleBrowserLoginCallbackQueryError = ErrorType<void>;
+export type GetPasswordAuthStatusQueryError = ErrorType<unknown>;
 
-export function useHandleBrowserLoginCallback<
-  TData = Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
-  TError = ErrorType<void>,
+export function useGetPasswordAuthStatus<
+  TData = Awaited<ReturnType<typeof getPasswordAuthStatus>>,
+  TError = ErrorType<unknown>,
 >(
   options: {
     query: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+        Awaited<ReturnType<typeof getPasswordAuthStatus>>,
         TError,
         TData
       >
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+          Awaited<ReturnType<typeof getPasswordAuthStatus>>,
           TError,
-          Awaited<ReturnType<typeof handleBrowserLoginCallback>>
+          Awaited<ReturnType<typeof getPasswordAuthStatus>>
         >,
         "initialData"
       >;
@@ -464,23 +294,23 @@ export function useHandleBrowserLoginCallback<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useHandleBrowserLoginCallback<
-  TData = Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
-  TError = ErrorType<void>,
+export function useGetPasswordAuthStatus<
+  TData = Awaited<ReturnType<typeof getPasswordAuthStatus>>,
+  TError = ErrorType<unknown>,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+        Awaited<ReturnType<typeof getPasswordAuthStatus>>,
         TError,
         TData
       >
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+          Awaited<ReturnType<typeof getPasswordAuthStatus>>,
           TError,
-          Awaited<ReturnType<typeof handleBrowserLoginCallback>>
+          Awaited<ReturnType<typeof getPasswordAuthStatus>>
         >,
         "initialData"
       >;
@@ -490,14 +320,14 @@ export function useHandleBrowserLoginCallback<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useHandleBrowserLoginCallback<
-  TData = Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
-  TError = ErrorType<void>,
+export function useGetPasswordAuthStatus<
+  TData = Awaited<ReturnType<typeof getPasswordAuthStatus>>,
+  TError = ErrorType<unknown>,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+        Awaited<ReturnType<typeof getPasswordAuthStatus>>,
         TError,
         TData
       >
@@ -509,14 +339,14 @@ export function useHandleBrowserLoginCallback<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 
-export function useHandleBrowserLoginCallback<
-  TData = Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
-  TError = ErrorType<void>,
+export function useGetPasswordAuthStatus<
+  TData = Awaited<ReturnType<typeof getPasswordAuthStatus>>,
+  TError = ErrorType<unknown>,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof handleBrowserLoginCallback>>,
+        Awaited<ReturnType<typeof getPasswordAuthStatus>>,
         TError,
         TData
       >
@@ -527,7 +357,7 @@ export function useHandleBrowserLoginCallback<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getHandleBrowserLoginCallbackQueryOptions(options);
+  const queryOptions = getGetPasswordAuthStatusQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,
@@ -537,189 +367,14 @@ export function useHandleBrowserLoginCallback<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getLogoutBrowserSessionUrl = (
-  params?: LogoutBrowserSessionParams,
-) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : String(value));
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/logout?${stringifiedParams}`
-    : `/api/logout`;
+export const getPasswordLoginUrl = () => {
+  return `/api/auth/login`;
 };
 
-export const logoutBrowserSession = async (
-  params?: LogoutBrowserSessionParams,
+export const passwordLogin = async (
+  passwordLoginInput: PasswordLoginInput,
   options?: Parameters<typeof customFetch>[1],
-): Promise<unknown> => {
-  return customFetch<unknown>(getLogoutBrowserSessionUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getLogoutBrowserSessionQueryKey = (
-  params?: LogoutBrowserSessionParams,
-) => {
-  return [`/api/logout`, ...(params ? [params] : [])] as const;
-};
-
-export const getLogoutBrowserSessionQueryOptions = <
-  TData = Awaited<ReturnType<typeof logoutBrowserSession>>,
-  TError = ErrorType<void>,
->(
-  params?: LogoutBrowserSessionParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof logoutBrowserSession>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ?? getLogoutBrowserSessionQueryKey(params);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof logoutBrowserSession>>
-  > = ({ signal }) =>
-    logoutBrowserSession(params, { signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof logoutBrowserSession>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type LogoutBrowserSessionQueryResult = NonNullable<
-  Awaited<ReturnType<typeof logoutBrowserSession>>
->;
-export type LogoutBrowserSessionQueryError = ErrorType<void>;
-
-export function useLogoutBrowserSession<
-  TData = Awaited<ReturnType<typeof logoutBrowserSession>>,
-  TError = ErrorType<void>,
->(
-  params: undefined | LogoutBrowserSessionParams,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof logoutBrowserSession>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof logoutBrowserSession>>,
-          TError,
-          Awaited<ReturnType<typeof logoutBrowserSession>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useLogoutBrowserSession<
-  TData = Awaited<ReturnType<typeof logoutBrowserSession>>,
-  TError = ErrorType<void>,
->(
-  params?: LogoutBrowserSessionParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof logoutBrowserSession>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof logoutBrowserSession>>,
-          TError,
-          Awaited<ReturnType<typeof logoutBrowserSession>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useLogoutBrowserSession<
-  TData = Awaited<ReturnType<typeof logoutBrowserSession>>,
-  TError = ErrorType<void>,
->(
-  params?: LogoutBrowserSessionParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof logoutBrowserSession>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useLogoutBrowserSession<
-  TData = Awaited<ReturnType<typeof logoutBrowserSession>>,
-  TError = ErrorType<void>,
->(
-  params?: LogoutBrowserSessionParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof logoutBrowserSession>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-} {
-  const queryOptions = getLogoutBrowserSessionQueryOptions(params, options);
-
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-export const getClaimAdminOwnerUrl = () => {
-  return `/api/admin/claim-owner`;
-};
-
-export const claimAdminOwner = async (
-  ownerClaim: OwnerClaim,
-  options?: Parameters<typeof customFetch>[1],
-): Promise<AdminAccess> => {
+): Promise<AuthUserEnvelope> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
   ): Record<string, string | readonly string[]> => {
@@ -741,37 +396,37 @@ export const claimAdminOwner = async (
     }
     return headers;
   };
-  return customFetch<AdminAccess>(getClaimAdminOwnerUrl(), {
+  return customFetch<AuthUserEnvelope>(getPasswordLoginUrl(), {
     ...options,
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...getHeaders(options?.headers),
     },
-    body: JSON.stringify(ownerClaim),
+    body: JSON.stringify(passwordLoginInput),
   });
 };
 
-export const getClaimAdminOwnerMutationKey = () => ["claimAdminOwner"] as const;
+export const getPasswordLoginMutationKey = () => ["passwordLogin"] as const;
 
-export const getClaimAdminOwnerMutationOptions = <
+export const getPasswordLoginMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof claimAdminOwner>>,
+    Awaited<ReturnType<typeof passwordLogin>>,
     TError,
-    ClaimAdminOwnerMutationVariables,
+    PasswordLoginMutationVariables,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof claimAdminOwner>>,
+  Awaited<ReturnType<typeof passwordLogin>>,
   TError,
-  ClaimAdminOwnerMutationVariables,
+  PasswordLoginMutationVariables,
   TContext
 > => {
-  const mutationKey = getClaimAdminOwnerMutationKey();
+  const mutationKey = getPasswordLoginMutationKey();
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -781,45 +436,540 @@ export const getClaimAdminOwnerMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof claimAdminOwner>>,
-    ClaimAdminOwnerMutationVariables
+    Awaited<ReturnType<typeof passwordLogin>>,
+    PasswordLoginMutationVariables
   > = (props) => {
     const { data } = props ?? {};
 
-    return claimAdminOwner(data, requestOptions);
+    return passwordLogin(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type ClaimAdminOwnerMutationResult = NonNullable<
-  Awaited<ReturnType<typeof claimAdminOwner>>
+export type PasswordLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof passwordLogin>>
 >;
-export type ClaimAdminOwnerMutationBody = BodyType<OwnerClaim>;
-export type ClaimAdminOwnerMutationError = ErrorType<unknown>;
-export type ClaimAdminOwnerMutationVariables = { data: BodyType<OwnerClaim> };
+export type PasswordLoginMutationBody = BodyType<PasswordLoginInput>;
+export type PasswordLoginMutationError = ErrorType<unknown>;
+export type PasswordLoginMutationVariables = {
+  data: BodyType<PasswordLoginInput>;
+};
 
-export const useClaimAdminOwner = <
+export const usePasswordLogin = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(
   options?: {
     mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof claimAdminOwner>>,
+      Awaited<ReturnType<typeof passwordLogin>>,
       TError,
-      ClaimAdminOwnerMutationVariables,
+      PasswordLoginMutationVariables,
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
-  Awaited<ReturnType<typeof claimAdminOwner>>,
+  Awaited<ReturnType<typeof passwordLogin>>,
   TError,
-  ClaimAdminOwnerMutationVariables,
+  PasswordLoginMutationVariables,
   TContext
 > => {
-  return useMutation(getClaimAdminOwnerMutationOptions(options), queryClient);
+  return useMutation(getPasswordLoginMutationOptions(options), queryClient);
+};
+
+export const getSetupPasswordOwnerUrl = () => {
+  return `/api/auth/setup`;
+};
+
+export const setupPasswordOwner = async (
+  passwordSetupInput: PasswordSetupInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AuthUserEnvelope> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AuthUserEnvelope>(getSetupPasswordOwnerUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordSetupInput),
+  });
+};
+
+export const getSetupPasswordOwnerMutationKey = () =>
+  ["setupPasswordOwner"] as const;
+
+export const getSetupPasswordOwnerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setupPasswordOwner>>,
+    TError,
+    SetupPasswordOwnerMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setupPasswordOwner>>,
+  TError,
+  SetupPasswordOwnerMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetupPasswordOwnerMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setupPasswordOwner>>,
+    SetupPasswordOwnerMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setupPasswordOwner(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetupPasswordOwnerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setupPasswordOwner>>
+>;
+export type SetupPasswordOwnerMutationBody = BodyType<PasswordSetupInput>;
+export type SetupPasswordOwnerMutationError = ErrorType<unknown>;
+export type SetupPasswordOwnerMutationVariables = {
+  data: BodyType<PasswordSetupInput>;
+};
+
+export const useSetupPasswordOwner = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setupPasswordOwner>>,
+      TError,
+      SetupPasswordOwnerMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setupPasswordOwner>>,
+  TError,
+  SetupPasswordOwnerMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getSetupPasswordOwnerMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getPasswordLogoutUrl = () => {
+  return `/api/auth/logout`;
+};
+
+export const passwordLogout = async (
+  passwordLogoutInput: PasswordLogoutInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AuthUserEnvelope> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AuthUserEnvelope>(getPasswordLogoutUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordLogoutInput),
+  });
+};
+
+export const getPasswordLogoutMutationKey = () => ["passwordLogout"] as const;
+
+export const getPasswordLogoutMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof passwordLogout>>,
+    TError,
+    PasswordLogoutMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof passwordLogout>>,
+  TError,
+  PasswordLogoutMutationVariables,
+  TContext
+> => {
+  const mutationKey = getPasswordLogoutMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof passwordLogout>>,
+    PasswordLogoutMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return passwordLogout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PasswordLogoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof passwordLogout>>
+>;
+export type PasswordLogoutMutationBody = BodyType<PasswordLogoutInput>;
+export type PasswordLogoutMutationError = ErrorType<unknown>;
+export type PasswordLogoutMutationVariables = {
+  data: BodyType<PasswordLogoutInput>;
+};
+
+export const usePasswordLogout = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof passwordLogout>>,
+      TError,
+      PasswordLogoutMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof passwordLogout>>,
+  TError,
+  PasswordLogoutMutationVariables,
+  TContext
+> => {
+  return useMutation(getPasswordLogoutMutationOptions(options), queryClient);
+};
+
+export const getGetPasswordAccountUrl = () => {
+  return `/api/auth/account`;
+};
+
+export const getPasswordAccount = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<PasswordAccount> => {
+  return customFetch<PasswordAccount>(getGetPasswordAccountUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPasswordAccountQueryKey = () => {
+  return [`/api/auth/account`] as const;
+};
+
+export const getGetPasswordAccountQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPasswordAccount>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof getPasswordAccount>>,
+      TError,
+      TData
+    >
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPasswordAccountQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPasswordAccount>>
+  > = ({ signal }) => getPasswordAccount({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPasswordAccount>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetPasswordAccountQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPasswordAccount>>
+>;
+export type GetPasswordAccountQueryError = ErrorType<unknown>;
+
+export function useGetPasswordAccount<
+  TData = Awaited<ReturnType<typeof getPasswordAccount>>,
+  TError = ErrorType<unknown>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPasswordAccount>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPasswordAccount>>,
+          TError,
+          Awaited<ReturnType<typeof getPasswordAccount>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPasswordAccount<
+  TData = Awaited<ReturnType<typeof getPasswordAccount>>,
+  TError = ErrorType<unknown>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPasswordAccount>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPasswordAccount>>,
+          TError,
+          Awaited<ReturnType<typeof getPasswordAccount>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetPasswordAccount<
+  TData = Awaited<ReturnType<typeof getPasswordAccount>>,
+  TError = ErrorType<unknown>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPasswordAccount>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetPasswordAccount<
+  TData = Awaited<ReturnType<typeof getPasswordAccount>>,
+  TError = ErrorType<unknown>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getPasswordAccount>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetPasswordAccountQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdatePasswordAccountUrl = () => {
+  return `/api/auth/account`;
+};
+
+export const updatePasswordAccount = async (
+  passwordAccountInput: PasswordAccountInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<PasswordAccount> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<PasswordAccount>(getUpdatePasswordAccountUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordAccountInput),
+  });
+};
+
+export const getUpdatePasswordAccountMutationKey = () =>
+  ["updatePasswordAccount"] as const;
+
+export const getUpdatePasswordAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePasswordAccount>>,
+    TError,
+    UpdatePasswordAccountMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePasswordAccount>>,
+  TError,
+  UpdatePasswordAccountMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdatePasswordAccountMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePasswordAccount>>,
+    UpdatePasswordAccountMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updatePasswordAccount(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePasswordAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePasswordAccount>>
+>;
+export type UpdatePasswordAccountMutationBody = BodyType<PasswordAccountInput>;
+export type UpdatePasswordAccountMutationError = ErrorType<unknown>;
+export type UpdatePasswordAccountMutationVariables = {
+  data: BodyType<PasswordAccountInput>;
+};
+
+export const useUpdatePasswordAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updatePasswordAccount>>,
+      TError,
+      UpdatePasswordAccountMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updatePasswordAccount>>,
+  TError,
+  UpdatePasswordAccountMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getUpdatePasswordAccountMutationOptions(options),
+    queryClient,
+  );
 };
 
 export const getGetAdminAccessUrl = () => {

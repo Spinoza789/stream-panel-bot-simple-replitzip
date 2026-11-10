@@ -19,7 +19,8 @@ WARNING = ('Verify from provisioning logs that account creation never started. '
            'Missing saved credentials alone are not proof. If a request may have '
            'been submitted, cancel and reconcile the existing panel account. '
            'Confirmation queues this original trial only; it may create one account.')
-ACTOR_PATTERN = r'replit:[A-Za-z0-9_-]{1,128}:[a-f0-9]{64}'
+ACTOR_PATTERN = r'(?:replit|local):[A-Za-z0-9_-]{1,128}:[a-f0-9]{64}'
+NONCE_PRUNE_SQL = 'DELETE FROM metadata WHERE key LIKE ? AND value<?'
 
 
 class WebTrialRecovery(TrialRecovery):
@@ -53,6 +54,8 @@ def register_admin(app, service):
     routes = Blueprint('admin_internal', __name__)
     recovery = WebTrialRecovery(service)
     store = service.store
+    from .web_password_auth import register_password_routes
+    register_password_routes(routes, store)
 
     @routes.before_request
     def authenticate():
@@ -80,8 +83,9 @@ def register_admin(app, service):
             if db.execute('SELECT value FROM metadata WHERE key=?', (replay_key,)).fetchone():
                 return jsonify(error='Request already used.'), 409
             # Only gateway-generated integer timestamps live under this namespace.
-            db.execute("DELETE FROM metadata WHERE key LIKE 'admin_bridge_nonce:%' AND value<?",
-                       (str(int(time.time()) - 60),))
+            # The LIKE percent must be a bound value: psycopg interprets a raw
+            # percent in SQL with parameters as its own placeholder syntax.
+            db.execute(NONCE_PRUNE_SQL, ('admin_bridge_nonce:%', str(int(time.time()) - 60)))
             db.execute('INSERT INTO metadata VALUES(?,?)', (replay_key, timestamp))
         request.admin_actor = actor
 

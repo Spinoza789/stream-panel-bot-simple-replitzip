@@ -2,6 +2,7 @@ import { useGetAdminStatus, getGetAdminStatusQueryKey, useGetAdminAccess, getGet
 import { Check, Minus } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
+import { OwnerLoginPanel } from "@/components/admin/owner-login";
 import { Bar, ErrorState, PageHeader, Panel } from "@/components/admin/bits";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/format";
@@ -25,7 +26,7 @@ function Row({ label, on, help, testid }: { label: string; on: boolean; help: st
 }
 
 function Settings() {
-  usePageMeta("Settings", "Configuration readiness and owner access guidance for Streamline Admin.");
+  usePageMeta("Settings", "Configuration readiness and owner login settings for Streamline Admin.");
   const ready = useAdminReady();
   const st = useGetAdminStatus({ query: { enabled: ready, queryKey: getGetAdminStatusQueryKey(), ...LIVE } });
   const acc = useGetAdminAccess({ query: { enabled: ready, queryKey: getGetAdminAccessQueryKey() } });
@@ -55,6 +56,7 @@ function Settings() {
               </div>
             )}
           </Panel>
+          <div className="space-y-5">
           <Panel title="Owner access">
             {acc.data ? (
               <dl className="space-y-2 text-sm">
@@ -64,9 +66,11 @@ function Settings() {
               </dl>
             ) : <Bar className="h-20" />}
             <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-              The owner is bound to a single Replit account on the server, set once with the setup code. Access can't be granted from the browser; changing the owner is a server-side task. No Telegram admin role is required.
+              The desk opens for one local owner account, created once with the server setup code. Access can't be granted from the browser. No Telegram admin role is required.
             </p>
           </Panel>
+          <OwnerLoginPanel />
+          </div>
         </div>
       )}
     </>

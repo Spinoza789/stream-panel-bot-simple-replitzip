@@ -21,12 +21,73 @@ export interface AuthUserEnvelope {
   user: AuthUser | null;
 }
 
-export interface OwnerClaim {
+export interface PasswordAuthStatus {
+  configured: boolean;
+  setupAvailable: boolean;
+}
+
+export interface PasswordLogoutInput {
+  [key: string]: unknown;
+}
+
+export interface PasswordLoginInput {
+  /**
+   * @minLength 3
+   * @maxLength 254
+   */
+  identifier: string;
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  password: string;
+}
+
+export interface PasswordSetupInput {
+  /**
+   * @minLength 3
+   * @maxLength 32
+   * @pattern ^[A-Za-z0-9_][A-Za-z0-9_.-]*$
+   */
+  username: string;
+  /** @maxLength 254 */
+  email: string;
+  /**
+   * @minLength 12
+   * @maxLength 128
+   */
+  password: string;
   /**
    * @minLength 20
    * @maxLength 200
    */
-  code: string;
+  setupCode: string;
+}
+
+export interface PasswordAccount {
+  username: string;
+  email: string;
+}
+
+export interface PasswordAccountInput {
+  /**
+   * @minLength 3
+   * @maxLength 32
+   * @pattern ^[A-Za-z0-9_][A-Za-z0-9_.-]*$
+   */
+  username: string;
+  /** @maxLength 254 */
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  currentPassword: string;
+  /**
+   * @minLength 12
+   * @maxLength 128
+   */
+  newPassword?: string;
 }
 
 export interface AdminAccess {
@@ -112,14 +173,6 @@ export interface RecoveryResult {
 export interface HealthStatus {
   status: string;
 }
-
-export type BeginBrowserLoginParams = {
-  returnTo?: string;
-};
-
-export type LogoutBrowserSessionParams = {
-  returnTo?: string;
-};
 
 export type ListAdminOrdersParams = {
   /**

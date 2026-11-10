@@ -1,10 +1,10 @@
 import { Router, type IRouter } from "express";
 import {
-  ConfirmTrialRecoveryBody, ClaimAdminOwnerBody, GetAdminAccessResponse, GetAdminOverviewResponse,
+  ConfirmTrialRecoveryBody, GetAdminAccessResponse, GetAdminOverviewResponse,
   ListAdminOrdersQueryParams, ListAdminOrdersResponse, GetAdminOrderResponse,
   GetAdminStatusResponse, PreviewTrialRecoveryResponse, ConfirmTrialRecoveryResponse,
 } from "@workspace/api-zod";
-import { authConfigured, sessionActor, ownerEmails, allowedEmail, bootstrapMatches, ownerState, requireOwner } from "../lib/admin-auth";
+import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
 import { adminRequest } from "../lib/python-bridge";
 
 const router: IRouter = Router();
@@ -16,15 +16,12 @@ router.get("/access", async (req, res) => {
   try {
     const actor = sessionActor(req);
     const state = actor ? await ownerState(actor) : { claimed: false, matches: false };
-    const emailAllowed = allowedEmail(req.user?.email);
     res.json(GetAdminAccessResponse.parse({
       authenticated: req.isAuthenticated(),
-      authorized: state.matches && emailAllowed,
-      ownerConfigured: !!ownerEmails().length && (state.claimed ||
-        (process.env.STREAMBOT_WEB_BOOTSTRAP_CODE?.length ?? 0) >= 20),
+      authorized: state.matches,
+      ownerConfigured: state.claimed,
       authConfigured: authConfigured(),
-      canClaimOwner: !!actor && emailAllowed && !state.claimed &&
-        (process.env.STREAMBOT_WEB_BOOTSTRAP_CODE?.length ?? 0) >= 20,
+      canClaimOwner: false,
     }));
   } catch { res.status(503).json({ error: "Sign-in status is temporarily unavailable." }); }
 });
@@ -42,28 +39,6 @@ router.use((req, res, next) => {
     }
   }
   next();
-});
-const attempts = new Map<string, { count: number; until: number }>();
-router.post("/claim-owner", async (req, res) => {
-  const actor = sessionActor(req);
-  if (!actor) { res.status(401).json({ error: "Sign in before owner setup." }); return; }
-  if (!allowedEmail(req.user?.email)) { res.status(403).json({ error: "Owner email does not match." }); return; }
-  const key = req.user!.id;
-  let attempt = attempts.get(key);
-  if (!attempt || attempt.until < Date.now()) {
-    attempt = { count: 0, until: Date.now() + 15 * 60 * 1000 }; attempts.set(key, attempt);
-  }
-  if (++attempt.count > 5) { res.status(429).json({ error: "Wait 15 minutes before trying owner setup again." }); return; }
-  const parsed = ClaimAdminOwnerBody.safeParse(req.body);
-  if (!parsed.success || !bootstrapMatches(parsed.data.code)) {
-    res.status(403).json({ error: "The owner setup code is invalid." }); return;
-  }
-  try {
-    const result = await adminRequest(actor, "POST", "/api/_admin/owner/claim", {});
-    if (!result.ok) { res.status(result.status).json({ error: "Owner setup is already completed or unavailable." }); return; }
-    res.json(GetAdminAccessResponse.parse({ authenticated: true, authorized: true,
-      ownerConfigured: true, authConfigured: true, canClaimOwner: false }));
-  } catch { res.status(503).json({ error: "Owner setup is temporarily unavailable." }); }
 });
 router.use(requireOwner);
 

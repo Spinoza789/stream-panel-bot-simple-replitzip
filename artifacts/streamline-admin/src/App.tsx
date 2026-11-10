@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Redirect, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -10,6 +10,7 @@ import DashboardPage from '@/pages/dashboard';
 import { OrdersPage, TrialsPage } from '@/pages/orders';
 import OrderDetailPage from '@/pages/order-detail';
 import SettingsPage from '@/pages/settings';
+import { SetupPage, SignInPage, SignUpRedirect } from '@/pages/auth';
 import { Bar, Logo } from '@/components/admin/bits';
 import { AuthProvider, useAuth } from '@/lib/auth';
 
@@ -39,20 +40,10 @@ function HomeRedirect() {
   return <Welcome />;
 }
 
-/** Legacy /sign-in and /sign-up links: hand off to Replit sign-in, or go to the desk if already signed in. */
-function LoginHandoff() {
-  const { isLoading, isAuthenticated, login } = useAuth();
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) login();
-  }, [isLoading, isAuthenticated, login]);
-  if (!isLoading && isAuthenticated) return <Redirect to="/dashboard" />;
-  return <Loading label="Redirecting to Replit sign-in…" />;
-}
-
 function Protected({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated } = useAuth();
   if (isLoading) return <Loading label="Checking your session…" />;
-  if (!isAuthenticated) return <Redirect to="/" />;
+  if (!isAuthenticated) return <Redirect to="/sign-in" />;
   return <>{children}</>;
 }
 
@@ -66,8 +57,9 @@ function Routes() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={HomeRedirect} />
-        <Route path="/sign-in/*?" component={LoginHandoff} />
-        <Route path="/sign-up/*?" component={LoginHandoff} />
+        <Route path="/sign-in/*?" component={SignInPage} />
+        <Route path="/setup" component={SetupPage} />
+        <Route path="/sign-up/*?" component={SignUpRedirect} />
         <Route path="/dashboard"><Protected><DashboardPage /></Protected></Route>
         <Route path="/orders"><Protected><OrdersPage /></Protected></Route>
         <Route path="/orders/:id"><Protected><OrderDetailPage /></Protected></Route>

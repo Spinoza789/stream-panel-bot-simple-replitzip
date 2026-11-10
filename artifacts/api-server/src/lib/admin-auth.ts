@@ -10,15 +10,15 @@ export function ownerEmails(): string[] {
 export function allowedEmail(email: string | null | undefined, allowed = ownerEmails()): boolean {
   return typeof email === "string" && allowed.includes(email.trim().toLowerCase());
 }
-export function authConfigured(): boolean { return !!process.env.REPL_ID; }
+export function authConfigured(): boolean { return !!process.env.DATABASE_URL; }
 export function sessionActor(req: Request): string | null {
   const sid = getSessionId(req);
   if (!req.isAuthenticated() || !sid || !/^[A-Za-z0-9_-]{1,128}$/.test(req.user.id)) return null;
-  return `replit:${req.user.id}:${createHash("sha256").update(sid).digest("hex")}`;
+  return `local:${req.user.id}:${createHash("sha256").update(sid).digest("hex")}`;
 }
 export function bootstrapMatches(value: unknown): boolean {
   const expected = process.env.STREAMBOT_WEB_BOOTSTRAP_CODE ?? "";
-  if (expected.length < 20 || typeof value !== "string" || value.length < 20 || value.length > 200) return false;
+  if (expected.length < 20 || expected.length > 200 || typeof value !== "string" || value.length < 20 || value.length > 200) return false;
   return timingSafeEqual(createHash("sha256").update(expected).digest(),
     createHash("sha256").update(value).digest());
 }
@@ -34,7 +34,7 @@ export async function requireOwner(req: Request, res: Response, next: NextFuncti
     res.status(401).json({ error: "Sign in to continue." }); return;
   }
   const actor = sessionActor(req);
-  if (!actor || !allowedEmail(req.user?.email)) {
+  if (!actor) {
     res.status(403).json({ error: "This account does not have administrator access." }); return;
   }
   try {

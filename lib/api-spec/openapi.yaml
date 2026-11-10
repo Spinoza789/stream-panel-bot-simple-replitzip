@@ -20,39 +20,79 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AuthUserEnvelope" }
-  /login:
+  /auth/status:
     get:
-      operationId: beginBrowserLogin
-      parameters:
-        - { name: returnTo, in: query, schema: { type: string } }
+      operationId: getPasswordAuthStatus
       responses:
-        "302": { description: Redirect to authentication provider }
-  /callback:
-    get:
-      operationId: handleBrowserLoginCallback
-      responses:
-        "302": { description: Complete authenticated browser session }
-  /logout:
-    get:
-      operationId: logoutBrowserSession
-      parameters:
-        - { name: returnTo, in: query, schema: { type: string } }
-      responses:
-        "302": { description: End browser session }
-  /admin/claim-owner:
+        "200":
+          description: Whether the administrator login has been created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasswordAuthStatus" }
+  /auth/login:
     post:
-      operationId: claimAdminOwner
+      operationId: passwordLogin
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/OwnerClaim" }
+            schema: { $ref: "#/components/schemas/PasswordLoginInput" }
       responses:
         "200":
-          description: Owner identity bound after workspace proof
+          description: Signed in with a rotated secure cookie
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/AdminAccess" }
+              schema: { $ref: "#/components/schemas/AuthUserEnvelope" }
+  /auth/setup:
+    post:
+      operationId: setupPasswordOwner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordSetupInput" }
+      responses:
+        "200":
+          description: One-time owner setup completed and signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthUserEnvelope" }
+  /auth/logout:
+    post:
+      operationId: passwordLogout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordLogoutInput" }
+      responses:
+        "200":
+          description: Session revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthUserEnvelope" }
+  /auth/account:
+    get:
+      operationId: getPasswordAccount
+      responses:
+        "200":
+          description: Current administrator login settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasswordAccount" }
+    patch:
+      operationId: updatePasswordAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordAccountInput" }
+      responses:
+        "200":
+          description: Account saved, other sessions revoked and current cookie rotated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasswordAccount" }
   /admin/access:
     get:
       operationId: getAdminAccess
@@ -167,12 +207,47 @@ components:
           oneOf:
             - { $ref: "#/components/schemas/AuthUser" }
             - { type: "null" }
-    OwnerClaim:
+    PasswordAuthStatus:
       type: object
-      required: [code]
+      required: [configured, setupAvailable]
+      properties:
+        configured: { type: boolean }
+        setupAvailable: { type: boolean }
+    PasswordLogoutInput:
+      type: object
+      additionalProperties: false
+      properties: {}
+    PasswordLoginInput:
+      type: object
+      required: [identifier, password]
       additionalProperties: false
       properties:
-        code: { type: string, minLength: 20, maxLength: 200 }
+        identifier: { type: string, minLength: 3, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 128 }
+    PasswordSetupInput:
+      type: object
+      required: [username, email, password, setupCode]
+      additionalProperties: false
+      properties:
+        username: { type: string, minLength: 3, maxLength: 32, pattern: "^[A-Za-z0-9_][A-Za-z0-9_.-]*$" }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+        setupCode: { type: string, minLength: 20, maxLength: 200 }
+    PasswordAccount:
+      type: object
+      required: [username, email]
+      properties:
+        username: { type: string }
+        email: { type: string, format: email }
+    PasswordAccountInput:
+      type: object
+      required: [username, email, currentPassword]
+      additionalProperties: false
+      properties:
+        username: { type: string, minLength: 3, maxLength: 32, pattern: "^[A-Za-z0-9_][A-Za-z0-9_.-]*$" }
+        email: { type: string, format: email, maxLength: 254 }
+        currentPassword: { type: string, minLength: 1, maxLength: 128 }
+        newPassword: { type: string, minLength: 12, maxLength: 128 }
     AdminAccess:
       type: object
       required: [authenticated, authorized, ownerConfigured, authConfigured, canClaimOwner]

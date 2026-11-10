@@ -1,31 +1,16 @@
 import crypto from 'crypto';
 import type { AuthUser } from '@workspace/api-zod';
 import { db, sessionsTable } from '@workspace/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { type Request, type Response } from 'express';
-import * as client from 'openid-client';
 
-export const ISSUER_URL = process.env.ISSUER_URL ?? 'https://replit.com/oidc';
 export const SESSION_COOKIE = 'sid';
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
 export interface SessionData {
+  kind: 'password-v1';
+  credentialVersion: number;
   user: AuthUser;
-  access_token: string;
-  refresh_token?: string;
-  expires_at?: number;
-}
-
-let oidcConfig: client.Configuration | null = null;
-
-export async function getOidcConfig(): Promise<client.Configuration> {
-  if (!oidcConfig) {
-    oidcConfig = await client.discovery(
-      new URL(ISSUER_URL),
-      process.env.REPL_ID!,
-    );
-  }
-  return oidcConfig;
 }
 
 export async function createSession(data: SessionData): Promise<string> {
@@ -67,6 +52,9 @@ export async function updateSession(
 
 export async function deleteSession(sid: string): Promise<void> {
   await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
+}
+export async function deleteUserSessions(id: string): Promise<void> {
+  await db.delete(sessionsTable).where(sql`${sessionsTable.sess}->'user'->>'id' = ${id}`);
 }
 
 export async function clearSession(res: Response, sid?: string): Promise<void> {

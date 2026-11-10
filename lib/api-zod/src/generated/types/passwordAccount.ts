@@ -6,10 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface OwnerClaim {
-  /**
-     * @minLength 20
-     * @maxLength 200
-     */
-  code: string;
+export interface PasswordAccount {
+  username: string;
+  email: string;
 }

@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { index, jsonb, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Opaque website sessions. Existing rows are retained, but old OIDC sessions are
+// rejected by the password-auth middleware.
 export const sessionsTable = pgTable(
   'sessions',
   {
@@ -12,7 +13,8 @@ export const sessionsTable = pgTable(
   (table) => [index('IDX_session_expire').on(table.expire)],
 );
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Historical OIDC profiles are retained; password ownership lives in the bot's
+// encrypted metadata. Do not drop existing user data during the auth change.
 export const usersTable = pgTable('users', {
   id: varchar('id')
     .primaryKey()

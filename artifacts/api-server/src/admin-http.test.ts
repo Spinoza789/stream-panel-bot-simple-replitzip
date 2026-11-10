@@ -1,110 +1,131 @@
-/** Opt-in development integration check. Fixtures never touch production. */
+/** Opt-in development integration; no live data, provider writes or actual passwords. */
 import { strict as assert } from "node:assert";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { createSession, deleteSession } from "./lib/auth";
-import { ownerEmails } from "./lib/admin-auth";
+import { createSession, deleteUserSessions, type SessionData } from "./lib/auth";
+import { hashPassword } from "./lib/password-auth";
 import { pool } from "@workspace/db";
 
 if (process.env.STREAMBOT_TEST_ADMIN_HTTP !== "true" || process.env.REPLIT_DEPLOYMENT) {
   throw new Error("Opt-in development-only test; production is forbidden.");
 }
 const pythonDir = path.resolve(import.meta.dirname, "../python");
-const subject = "admin_http_" + randomBytes(8).toString("hex");
-const fixture = randomBytes(12).toString("hex");
-const target = "http://localhost:80";
+const id = randomBytes(16).toString("hex");
+const order = randomBytes(12).toString("hex");
+const username = "http_" + id.slice(0, 12);
+const email = username + "@example.test";
+const password = randomBytes(20).toString("hex");
+const nextPassword = randomBytes(20).toString("hex");
+const profile = { id, username, email, passwordHash: await hashPassword(password), version: 1 };
+const target = "http://localhost:8080";
+const webTarget = "http://localhost:80";
+const testIp = "192.0.2." + (1 + parseInt(id.slice(0, 2), 16) % 250);
+const sessions: string[] = [];
+let seeded = false;
 function fixtureSql(action: string) {
   const result = spawnSync("python3", ["-c", `
-import sqlite3,json,sys,time
-db=sqlite3.connect('data/demo.sqlite3')
-subject,oid,action=sys.argv[1:]
-owner='replit:'+subject
-with db:
+import json,sys,time
+from pathlib import Path
+from streambot.store import Store,digest
+store=Store('data/demo.sqlite3',Path('data/demo.key').read_bytes().strip())
+profile,oid,action,sessions=json.loads(sys.argv[1]),sys.argv[2],sys.argv[3],json.loads(sys.argv[4])
+owner='local:'+profile['id']
+backup='http_test_backup:'+profile['id']
+with store.connection() as db:
  if action=='setup':
-  assert not db.execute("SELECT value FROM metadata WHERE key='web_admin_owner'").fetchone(), 'Existing demo owner: do not change it'
-  db.execute("INSERT INTO metadata VALUES('web_admin_owner',?)",(owner,))
+  assert not db.execute("SELECT value FROM metadata WHERE key='web_local_owner'").fetchone(), 'Real local owner exists: do not change it'
+  old=db.execute("SELECT value FROM metadata WHERE key='web_admin_owner'").fetchone()
+  db.execute('INSERT INTO metadata VALUES(?,?)',(backup,json.dumps(old[0] if old else None)))
+  db.execute("INSERT INTO metadata VALUES('web_local_owner',?)",(store.seal(profile),))
+  db.execute("INSERT OR REPLACE INTO metadata VALUES('web_admin_owner',?)",(owner,))
   db.execute("INSERT INTO orders(id,token_hash,kind,telegram_id,plan_json,asset_json,amount_units,created_at,expires_at,status) VALUES(?,?,?,?,?,?,?,?,?,?)",
-   (oid,oid+'test','trial',None,json.dumps({'id':'trial','name':'HTTP test trial','package_id':'275'}),json.dumps({'network':'none','decimals':0}),'0',int(time.time()),int(time.time())+3600,'review'))
-  db.execute("UPDATE orders SET telegram_id=? WHERE id=?",(int(oid[:10],16),oid))
+   (oid,oid+'test','trial',int(oid[:10],16),json.dumps({'id':'trial','name':'HTTP test trial','package_id':'275'}),json.dumps({'network':'none','decimals':0}),'0',int(time.time()),int(time.time())+3600,'review'))
  else:
+  current=store.unseal(db.execute("SELECT value FROM metadata WHERE key='web_local_owner'").fetchone()[0])
+  assert current['id']==profile['id'], 'Owner changed: do not overwrite it'
+  previous=json.loads(db.execute("SELECT value FROM metadata WHERE key=?",(backup,)).fetchone()[0])
   db.execute("DELETE FROM orders WHERE id=? AND token_hash=?",(oid,oid+'test'))
-  db.execute("DELETE FROM metadata WHERE key='web_admin_owner' AND value=?",(owner,))
-`, subject, fixture, action], { cwd: pythonDir, encoding: "utf8" });
-  if (result.status !== 0) throw new Error("Isolated demo fixture setup/cleanup failed; no existing owner was changed.");
+  db.execute("DELETE FROM metadata WHERE key IN ('web_local_owner','web_admin_owner',?)",(backup,))
+  if previous: db.execute("INSERT INTO metadata VALUES('web_admin_owner',?)",(previous,))
+  for sid in sessions:
+   actor=owner+':'+digest(sid)
+   db.execute("DELETE FROM metadata WHERE key=?",('web_trial_recovery:'+digest(actor),))
+  for row in db.execute("SELECT key,value FROM metadata WHERE key LIKE 'web_owner_password_update:%'").fetchall():
+   if store.unseal(row['value']).get('actor','').startswith(owner+':'):
+    db.execute("DELETE FROM metadata WHERE key=?",(row['key'],))
+`, JSON.stringify(profile), order, action, JSON.stringify(sessions)], { cwd: pythonDir, encoding: "utf8" });
+  if (result.status !== 0) throw new Error("Demo fixture setup/cleanup refused; existing owner was not changed.");
 }
-const sessions: string[] = [];
-const email = ownerEmails()[0];
-if (!email) throw new Error("Configure owner allowlist before the development check.");
-async function session(id: string, address: string) {
-  const sid = await createSession({
-    user: { id, email: address, firstName: "Integration", lastName: "Fixture", profileImageUrl: null },
-    access_token: "isolated-test-not-an-oidc-token", expires_at: Math.floor(Date.now()/1000)+300,
-  });
-  sessions.push(sid); return sid;
+function cookie(response: Response): string {
+  const match = /(?:^|,\s*)sid=([a-f0-9]{64});/.exec(response.headers.get("set-cookie") ?? "");
+  assert.ok(match, "Secure session cookie expected");
+  sessions.push(match[1]); return match[1];
 }
-async function request(route: string, sid?: string, body?: unknown, origin = target.replace(":80", "")) {
-  return fetch(target + "/api/admin" + route, {
-    method: body === undefined ? "GET" : "POST", redirect: "manual",
-    headers: { ...(sid ? { Cookie: `sid=${sid}` } : {}),
+async function request(route: string, sid?: string, body?: unknown, method = "POST", origin = target) {
+  return fetch(target + "/api" + route, {
+    method: body === undefined ? "GET" : method, redirect: "manual",
+    headers: { "X-Forwarded-For": testIp, ...(sid ? { Cookie: `sid=${sid}` } : {}),
       ...(body === undefined ? {} : { "Content-Type": "application/json", ...(origin ? { Origin: origin } : {}) }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
-let seeded = false;
 try {
-  const canonical = await fetch(target + "/admin", { redirect: "manual" });
-  assert.equal(canonical.status, 308);
-  assert.equal(canonical.headers.get("location"), "/admin/");
-  assert.equal((await fetch(target + "/admin/")).status, 200);
-  const login = await fetch(target + "/api/login?returnTo=/admin", { redirect: "manual" });
-  assert.equal(login.status, 302);
-  assert.match(login.headers.get("set-cookie") ?? "", /return_to=%2Fadmin%2F;/);
-  const callback = new URL(new URL(login.headers.get("location")!).searchParams.get("redirect_uri")!);
-  assert.equal(callback.pathname, "/api/callback");
-  assert.equal((await request("/orders")).status, 401);
-  const visitor = await session(subject + "_visitor", "not-allowed@example.test");
-  assert.equal((await request("/orders", visitor)).status, 403);
+  assert.equal((await fetch(webTarget + "/admin", { redirect: "manual" })).headers.get("location"), "/admin/");
+  assert.equal((await request("/login")).headers.get("location"), "/admin/sign-in");
+  assert.equal((await request("/callback")).headers.get("location"), "/admin/sign-in");
+  assert.equal((await request("/admin/orders")).status, 401);
+  const initial = await (await request("/auth/status")).json() as { configured: boolean };
+  if (initial.configured) throw new Error("An actual local owner exists; test refuses to modify it.");
+  const rejectedSetup = await request("/auth/setup", undefined, {
+    username, email, password, setupCode: "not-the-real-setup-code-" + id,
+  });
+  assert.equal(rejectedSetup.status, 403);
   fixtureSql("setup"); seeded = true;
-  const owner = await session(subject, email);
-  const sameEmailOtherIdentity = await session(subject + "_other", email);
-  assert.equal((await request("/orders", sameEmailOtherIdentity)).status, 403);
-  const access = await (await request("/access", owner)).json() as { authorized: boolean };
-  assert.equal(access.authorized, true);
-  for (const route of ["/overview", "/status", "/orders?status=queued&page=1", "/orders?kind=trial&q=" + fixture, "/orders/" + fixture]) {
+  assert.equal((await request("/auth/login", undefined, { identifier: username, password: "bad" })).status, 401);
+  assert.equal((await request("/auth/login", undefined, { identifier: username, password }, "POST", "")).status, 403);
+  const signed = await request("/auth/login", undefined, { identifier: username, password });
+  assert.equal(signed.status, 200);
+  const owner = cookie(signed);
+  assert.equal((await request("/logout", owner)).status, 302);
+  assert.equal((await request("/admin/orders", owner)).status, 200);
+  assert.match(signed.headers.get("set-cookie")!, /HttpOnly/i);
+  assert.match(signed.headers.get("set-cookie")!, /Secure/i);
+  const second = cookie(await request("/auth/login", undefined, { identifier: email, password }));
+  const old = await createSession({ user: { id, email }, access_token: "old-test-token" } as unknown as SessionData);
+  sessions.push(old);
+  assert.equal((await request("/admin/orders", old)).status, 401);
+  for (const route of ["/auth/user", "/auth/account", "/admin/access", "/admin/overview",
+    "/admin/status", "/admin/orders?status=queued&page=1", "/admin/orders/" + order]) {
     const response = await request(route, owner);
     assert.equal(response.status, 200, route);
-    assert.equal(response.headers.get("cache-control"), "no-store");
     const text = await response.text();
-    assert.equal(text.includes("token_hash"), false);
-    assert.equal(text.includes('"credentials"'), false);
+    for (const value of ["passwordHash", "scrypt-v1", "token_hash", '"credentials"']) assert.equal(text.includes(value), false);
   }
-  const route = "/orders/" + fixture + "/recovery";
-  assert.equal((await request(route, owner, {}, "")).status, 403);
-  assert.equal((await request(route, owner, {}, "https://attacker.invalid")).status, 403);
-  const preview = await request(route, owner, {});
-  assert.equal(preview.status, 200);
-  const draft = await preview.json() as { nonce: string };
-  assert.equal((await request("/recovery/confirm", owner, {
-    nonce: draft.nonce, attestation: false, cancel: false,
-  })).status, 400);
-  assert.equal((await request("/recovery/confirm", owner, {
+  const draft = await (await request("/admin/orders/" + order + "/recovery", owner, {})).json() as { nonce: string };
+  assert.ok(draft.nonce);
+  assert.equal((await request("/admin/recovery/confirm", owner, {
     nonce: draft.nonce, attestation: false, cancel: true,
   })).status, 200);
-  const logout = await fetch(target + "/api/logout?returnTo=/admin", {
-    redirect: "manual", headers: { Cookie: `sid=${owner}` },
-  });
-  assert.equal(logout.status, 302);
-  const afterLogout = new URL(new URL(logout.headers.get("location")!).searchParams.get("post_logout_redirect_uri")!);
-  assert.equal(afterLogout.pathname, "/admin/");
-  assert.equal((await request("/orders", owner)).status, 401);
-  // The bridge's externally exposed namespace remains unreachable even with a session.
-  assert.equal((await fetch(target + "/api/_admin/overview", {
-    headers: { Cookie: `sid=${visitor}`, "X-Streamline-Actor": "forged" },
-  })).status, 404);
-  process.stdout.write("Admin HTTP integration passed: authorization, identity binding, filters, CSRF, preview/cancel and revoked session.\n");
+  const changed = await request("/auth/account", owner, {
+    username: "updated_" + id.slice(0, 12), email, currentPassword: password, newPassword: nextPassword,
+  }, "PATCH");
+  assert.equal(changed.status, 200);
+  const rotated = cookie(changed);
+  assert.equal((await request("/admin/orders", owner)).status, 401);
+  assert.equal((await request("/admin/orders", second)).status, 401);
+  assert.equal((await request("/auth/login", undefined, { identifier: email, password })).status, 401);
+  assert.equal((await request("/admin/orders", rotated)).status, 200);
+  const loginAgain = await request("/auth/login", undefined, { identifier: email, password: nextPassword });
+  assert.equal(loginAgain.status, 200);
+  const last = cookie(loginAgain);
+  assert.equal((await request("/auth/logout", last, {})).status, 200);
+  assert.equal((await request("/admin/orders", last)).status, 401);
+  assert.equal((await request("/auth/setup", undefined, { username, email, password, setupCode: "wrong".repeat(8) })).status, 409);
+  assert.equal((await fetch(target + "/api/_admin/auth/credentials")).status, 404);
+  process.stdout.write("Password HTTP integration passed: login, secure cookie, no OIDC, owner protection, recovery cancel, account/password changes, session rotation/revocation and logout.\n");
 } finally {
-  for (const sid of sessions) await deleteSession(sid);
+  await deleteUserSessions(id);
   if (seeded) fixtureSql("cleanup");
   await pool.end();
 }

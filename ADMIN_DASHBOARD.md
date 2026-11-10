@@ -1,73 +1,93 @@
 # Streamline website administration
 
-The `/admin/` portal uses Replit sign-in, explicitly selected by the user. It is
-separate from the original checkout. Signing in or being the first signup never
-grants administration. No Telegram administrator ID is required for website access.
+The `/admin/` portal uses the owner's own username/email and password. The user
+explicitly requested removal of Replit sign-in. No Replit or Telegram account is
+needed for website administration. There is no public registration.
 
 ## First-owner setup
 
-1. Store `STREAMBOT_WEB_ADMIN_EMAILS` as a Replit Secret with the intended owner's
-   email (comma-separated for operational configuration). Do not use shared
-   non-secret configuration: that writes the address into `.replit`.
-2. Store a unique 20–200 character setup code as the workspace secret
-   `STREAMBOT_WEB_BOOTSTRAP_CODE`. Keep a private copy to enter once on the website.
-3. Open `/admin/`, choose Sign in, and use the intended Replit account. Its OIDC
-   email must match the allowlist. If the provider explicitly marks the email
-   unverified it cannot be used for owner setup.
-4. Enter the setup code in the website's first-owner form. Both the authenticated
-   account and the workspace-held proof are required. The server atomically binds
-   ownership to the immutable Replit account ID. Another account cannot replace
-   it, even with the same email or setup code.
-5. Normal subsequent sign-ins need no setup code. An existing owner cannot be
-   replaced through this form. Removing the email from the allowlist denies access
-   on subsequent API requests after configuration is applied.
+1. Store `STREAMBOT_WEB_ADMIN_EMAILS` as a Replit Secret with the approved setup
+   email. Do not put personal email addresses into shared `.replit` configuration.
+2. Store a unique 20–200 character `STREAMBOT_WEB_BOOTSTRAP_CODE` secret and keep a
+   private copy to enter once in the website.
+3. Visit `/admin/sign-in`. If no local owner exists, follow **Setup required** to
+   `/admin/setup`. Choose a username and password, and enter the approved email
+   and setup code. Passwords must have 12–128 characters; usernames have 3–32.
+4. Setup atomically creates a single local owner. Both approved email and workspace
+   proof are mandatory; being the first visitor never grants access. If an old
+   Replit owner exists, this explicitly authorized auth migration preserves its
+   identity in an encrypted audit before binding the new local account.
+5. Thereafter use username or email plus password. The setup form cannot overwrite
+   a local owner. Legacy login/callback links remain local; they never start OIDC.
 
-The code is not stored in browser storage. Requests and provider responses
-containing credentials, tokens or setup codes must never be logged.
+The secret is consumed only by server-side code; no passwords or setup codes are
+logged or placed in URLs/browser storage. Do not ask for the password in chat.
+
+## Account settings and sessions
+
+Settings → Owner login edits username and email, and optionally the password.
+Every save requires the current password. A blank new password means leave it
+unchanged. Account changes increment a credential version atomically; old sessions
+fail authentication immediately, and the current session is rotated after saving.
+Logout revokes its server-side session. Cookies are HttpOnly, Secure and SameSite=Lax.
+Sign-in/setup/account mutations require same-origin JSON.
+Empty mutations such as logout also declare an empty JSON request body in OpenAPI,
+so generated hooks send the required JSON media type rather than a bodyless POST.
+Legacy GET logout links only redirect; they do not mutate a session.
+
+Passwords use unique salted scrypt hashes (N=32768, r=8, p=3), encrypted at rest in
+the bot's existing metadata store. Private rate limits are persistent across API
+processes. Password hashing has a bounded concurrency limit to protect workers.
+No plaintext password, password hash, setup code or credential version is sent to
+the browser. Email here is an account login identifier; editing it does not enable
+email notifications or imply verified delivery.
+
+Old OIDC sessions are deliberately rejected. Historical profile rows and business
+audits are retained rather than deleted. A server-only bootstrap code cannot reset
+an already configured local password; no password-reset mechanism is currently exposed.
 
 ## Publishing
 
-Production needs the same owner email configuration and setup-code secret. Publish
-the development schema normally: Replit Auth adds `public.users` and
-`public.sessions`. The dashboard does not change existing business schemas or
-create production tables at startup. Do not use “overwrite production data.”
+Production needs the same privately configured setup email and bootstrap secret.
+Keep the website `public.sessions` table. If the previous dashboard release has
+not yet been published, Publish must apply that existing development schema first.
+This provider change adds no further tables or columns and runs no production DDL:
+local ownership/credentials/audits use existing business metadata. Retaining that
+store avoids another production-schema migration for the provider change.
 
-Development and published application sessions/data are separate. Complete the
-first-owner form on the published site too. Never copy development session rows
-to production. The owner binding and recovery drafts/audits use the bot's existing
-encrypted metadata store (owner identity itself is a nonsecret subject identifier).
+Development and published application data are separate. Create the owner's
+password on the published website too if it has no local owner yet. Do not overwrite
+production data with demo state or copy development sessions into production.
 
 ## Operational scope and safeguards
 
-- Overview is actual stored order counts, not revenue or active-subscription estimates.
-- Orders are paginated and searchable by ID or exact Telegram ID. Details exclude
+- Overview is stored order counts, not revenue or active-subscription estimates.
+- Orders are paginated/searchable by ID or exact Telegram ID. Details exclude
   credentials, checkout tokens and raw provider errors.
-- Readiness reports configuration and optional-schema availability. It is not an
-  upstream panel, blockchain node or Telegram health probe.
-- Trial recovery shares the original validator, fingerprint and atomic confirmation
-  transaction with Telegram recovery. Drafts bind to the website account and session.
-- Preview never queues an account. Explicit operator attestation that creation never
-  started is mandatory; missing credentials alone are not proof.
-- Confirmation queues the original trial, not a replacement entitlement. Possibly
-  submitted creations remain blocked. See `TRIAL_RECOVERY.md`.
-- Audits record actor, session digest, timestamp, prior fingerprint and attestation.
-  No plaintext session token or account credentials are shown in dashboard responses.
+- Readiness shows configuration and optional-schema availability, not an upstream
+  panel, blockchain or Telegram health probe.
+- Recovery shares the original validator/fingerprint/atomic confirmation with
+  Telegram recovery; drafts bind to the local website account and session.
+- Preview never queues an account. Operator attestation that creation never started
+  is mandatory. Missing credentials alone are not evidence of that.
+- Confirmation queues the original trial without resetting its lifetime entitlement.
+  Possibly submitted creations remain blocked. See `TRIAL_RECOVERY.md`.
+- Recovery audits record actor/session digest/time/fingerprint/attestation. Auth
+  migration/update audits never contain plaintext passwords or setup codes.
 
-## Gateway and lifecycle
+## Gateway and verification
 
-The API service supervises one unchanged Python business backend on a loopback-only
-allocated port. Node performs OIDC signature/issuer/audience/PKCE/state/nonce
-verification and checks the explicit owner binding on every administrative request.
-Opaque session cookies are HttpOnly, Secure and SameSite=Lax; logout deletes the
-server-side session. Administrative mutations also require same-origin JSON.
+Node supervises one loopback-only Python backend. Narrow internal requests use a
+fresh process-only HMAC key, binding method/path/body/actor/timestamp/one-use nonce.
+External requests cannot reach those routes or forge role headers. Only server
+auth code can retrieve encrypted credential material for hash verification.
 
-Narrowly allowlisted internal requests are signed with a fresh process-only HMAC
-key. Python checks method, path, body, actor, timestamp and one-use nonce. Public
-requests cannot reach internal routes or provide privileged actor headers.
-Existing checkout requests are streamed before body parsing. Python continues to
-own the database, strict financial verification, panel provisioning, worker lease
-and Telegram polling. Preview remains demo-only with Telegram/provider writes off.
+Python retains database ownership, financial verification, panel provisioning,
+worker leases and Telegram polling. Preview remains demo-only with live writes off.
 
-Tests use isolated temporary state or development data, with mocked providers.
-No live trial recovery, payment approval, panel creation or broadcast is required
-to verify the dashboard.
+Python tests isolate stores and use mocked providers. Node tests cover hashes and
+bootstrap checks. The opt-in development-only `src/admin-http.test.ts` exercises
+local login, secure cookies, legacy-session rejection, account changes, session
+revocation/logout and recovery preview/cancel using temporary demo fixtures; it
+refuses to overwrite an actual local owner and restores the old binding. Never
+use production data or actual passwords for these tests.

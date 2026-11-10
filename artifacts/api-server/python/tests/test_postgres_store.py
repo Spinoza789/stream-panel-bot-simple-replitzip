@@ -13,9 +13,18 @@ from streambot.bot import TelegramBot
 from streambot.postgres_store import PostgresStore, InstanceLockBusy, _Connection, _state_error
 from streambot.rates import Rates
 from streambot.service import CheckoutError, CheckoutService
+from streambot.admin_web import NONCE_PRUNE_SQL
 
 
 class PostgresStartupTests(unittest.TestCase):
+    def test_admin_nonce_cleanup_passes_wildcard_as_parameter(self):
+        db = Mock()
+        connection = _Connection(db, 123)
+        connection.execute(NONCE_PRUNE_SQL, ('admin_bridge_nonce:%', '100'))
+        db.execute.assert_called_once_with(
+            'DELETE FROM metadata WHERE key LIKE %s AND value<%s',
+            ('admin_bridge_nonce:%', '100'))
+
     def test_connection_failure_reports_stage_without_secret_driver_message(self):
         private_text = 'postgresql://fake-user:fake-password@private-host/database'
         with patch.object(PostgresStore, '_connect', side_effect=psycopg.OperationalError(private_text)):

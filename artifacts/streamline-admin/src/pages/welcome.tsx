@@ -1,23 +1,23 @@
 import { ArrowRight, Hourglass, ListChecks, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/admin/bits";
 import { usePageMeta } from "@/lib/meta";
-import { useAuth } from "@/lib/auth";
+import { useLocation } from "wouter";
 
 const points = [
   { icon: ListChecks, t: "Order status in plain words", d: "Every order explains what it's waiting on, so you don't have to query the bot to find out." },
   { icon: Hourglass, t: "Stuck trials, recoverable", d: "Spot trials that never started account creation and re-queue the same order after a deliberate check." },
-  { icon: ShieldCheck, t: "Owner only", d: "The desk opens only for the owner's Replit account, bound on the server. No credentials are ever shown." },
+  { icon: ShieldCheck, t: "Owner only", d: "One local owner account, created once with a server setup code. There is no public sign-up." },
 ];
 
 export default function Welcome() {
-  const { login } = useAuth();
+  const [, setLocation] = useLocation();
   usePageMeta("Welcome", "Owner operations desk for the Streamline Telegram membership business. Sign in to view orders and trials.");
   return (
     <div className="grain relative min-h-[100dvh] overflow-hidden bg-background">
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <Logo />
         <div className="flex items-center gap-2">
-          <button onClick={login} className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90" data-testid="button-login-header">Sign in</button>
+          <button onClick={() => setLocation("/sign-in")} className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90" data-testid="button-login-header">Sign in</button>
         </div>
       </header>
       <main className="relative z-10 mx-auto grid max-w-6xl gap-12 px-5 pb-16 pt-10 lg:grid-cols-[1.1fr_1fr] lg:pt-20">
@@ -32,11 +32,11 @@ export default function Welcome() {
             One place to see what every Telegram order is doing, which trials are stuck, and whether the server is set up to deliver.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <button onClick={login} className="group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5" data-testid="button-login-hero">
+            <button onClick={() => setLocation("/sign-in")} className="group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5" data-testid="button-login-hero">
               Sign in <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">Signing in does not grant access by itself. The desk opens only for the owner's Replit account, set up once on the server.</p>
+          <p className="mt-4 text-xs text-muted-foreground">Sign in with the owner username or email and password. First time here? Use the setup page with the server setup code.</p>
         </div>
         <div className="rise rise-2 space-y-3">
           {points.map((p, i) => (

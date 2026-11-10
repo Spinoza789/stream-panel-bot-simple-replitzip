@@ -20,36 +20,135 @@ export const GetCurrentAuthUserResponse = zod.object({
   ]),
 });
 
-export const BeginBrowserLoginQueryParams = zod.object({
-  returnTo: zod.coerce.string().optional(),
+export const GetPasswordAuthStatusResponse = zod.object({
+  configured: zod.boolean(),
+  setupAvailable: zod.boolean(),
 });
 
-export const BeginBrowserLoginResponse = zod.void();
+export const passwordLoginBodyIdentifierMin = 3;
+export const passwordLoginBodyIdentifierMax = 254;
 
-export const HandleBrowserLoginCallbackResponse = zod.void();
+export const passwordLoginBodyPasswordMax = 128;
 
-export const LogoutBrowserSessionQueryParams = zod.object({
-  returnTo: zod.coerce.string().optional(),
-});
-
-export const LogoutBrowserSessionResponse = zod.void();
-
-export const claimAdminOwnerBodyCodeMin = 20;
-export const claimAdminOwnerBodyCodeMax = 200;
-
-export const ClaimAdminOwnerBody = zod.object({
-  code: zod
+export const PasswordLoginBody = zod.object({
+  identifier: zod
     .string()
-    .min(claimAdminOwnerBodyCodeMin)
-    .max(claimAdminOwnerBodyCodeMax),
+    .min(passwordLoginBodyIdentifierMin)
+    .max(passwordLoginBodyIdentifierMax),
+  password: zod.string().min(1).max(passwordLoginBodyPasswordMax),
 });
 
-export const ClaimAdminOwnerResponse = zod.object({
-  authenticated: zod.boolean(),
-  authorized: zod.boolean(),
-  ownerConfigured: zod.boolean(),
-  authConfigured: zod.boolean(),
-  canClaimOwner: zod.boolean(),
+export const PasswordLoginResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().nullable(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+    }),
+    zod.null(),
+  ]),
+});
+
+export const setupPasswordOwnerBodyUsernameMin = 3;
+export const setupPasswordOwnerBodyUsernameMax = 32;
+
+export const setupPasswordOwnerBodyUsernameRegExp = new RegExp(
+  "^[A-Za-z0-9_][A-Za-z0-9_.-]*$",
+);
+export const setupPasswordOwnerBodyEmailMax = 254;
+
+export const setupPasswordOwnerBodyPasswordMin = 12;
+export const setupPasswordOwnerBodyPasswordMax = 128;
+
+export const setupPasswordOwnerBodySetupCodeMin = 20;
+export const setupPasswordOwnerBodySetupCodeMax = 200;
+
+export const SetupPasswordOwnerBody = zod.object({
+  username: zod
+    .string()
+    .min(setupPasswordOwnerBodyUsernameMin)
+    .max(setupPasswordOwnerBodyUsernameMax)
+    .regex(setupPasswordOwnerBodyUsernameRegExp),
+  email: zod.string().email().max(setupPasswordOwnerBodyEmailMax),
+  password: zod
+    .string()
+    .min(setupPasswordOwnerBodyPasswordMin)
+    .max(setupPasswordOwnerBodyPasswordMax),
+  setupCode: zod
+    .string()
+    .min(setupPasswordOwnerBodySetupCodeMin)
+    .max(setupPasswordOwnerBodySetupCodeMax),
+});
+
+export const SetupPasswordOwnerResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().nullable(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+    }),
+    zod.null(),
+  ]),
+});
+
+export const PasswordLogoutBody = zod.object({});
+
+export const PasswordLogoutResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().nullable(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+    }),
+    zod.null(),
+  ]),
+});
+
+export const GetPasswordAccountResponse = zod.object({
+  username: zod.string(),
+  email: zod.string().email(),
+});
+
+export const updatePasswordAccountBodyUsernameMin = 3;
+export const updatePasswordAccountBodyUsernameMax = 32;
+
+export const updatePasswordAccountBodyUsernameRegExp = new RegExp(
+  "^[A-Za-z0-9_][A-Za-z0-9_.-]*$",
+);
+export const updatePasswordAccountBodyEmailMax = 254;
+
+export const updatePasswordAccountBodyCurrentPasswordMax = 128;
+
+export const updatePasswordAccountBodyNewPasswordMin = 12;
+export const updatePasswordAccountBodyNewPasswordMax = 128;
+
+export const UpdatePasswordAccountBody = zod.object({
+  username: zod
+    .string()
+    .min(updatePasswordAccountBodyUsernameMin)
+    .max(updatePasswordAccountBodyUsernameMax)
+    .regex(updatePasswordAccountBodyUsernameRegExp),
+  email: zod.string().email().max(updatePasswordAccountBodyEmailMax),
+  currentPassword: zod
+    .string()
+    .min(1)
+    .max(updatePasswordAccountBodyCurrentPasswordMax),
+  newPassword: zod
+    .string()
+    .min(updatePasswordAccountBodyNewPasswordMin)
+    .max(updatePasswordAccountBodyNewPasswordMax)
+    .optional(),
+});
+
+export const UpdatePasswordAccountResponse = zod.object({
+  username: zod.string(),
+  email: zod.string().email(),
 });
 
 export const GetAdminAccessResponse = zod.object({

@@ -160,3 +160,56 @@ class AdminWebTests(unittest.TestCase):
         self.assertTrue(self.call('/owner/status', actor='replit:test_owner:' + '2' * 64).json['matches'])
         self.assertFalse(self.call('/owner/status', actor='replit:other_user:' + '1' * 64).json['matches'])
         self.assertEqual(self.call('/owner/claim', {}, actor='replit:other_user:' + '1' * 64).status_code, 409)
+
+    def password_profile(self, **changes):
+        return dict(id='a' * 32, username='test_owner', email='owner@example.test',
+                    passwordHash='scrypt-v1$' + 'a' * 32 + '$' + 'b' * 128,
+                    version=1, **changes)
+
+    def test_password_setup_is_atomic_encrypted_and_never_overwrites_an_owner(self):
+        profile = self.password_profile()
+        actor = 'local:' + profile['id'] + ':' + '1' * 64
+        self.assertFalse(self.call('/auth/status').json['configured'])
+        self.assertEqual(self.call('/auth/setup', profile).status_code, 403)
+        self.store.metadata('web_admin_owner', 'replit:previous_owner')
+        result = self.call('/auth/setup', profile, actor=actor)
+        self.assertEqual(result.status_code, 200)
+        self.assertTrue(self.call('/auth/status').json['configured'])
+        self.assertEqual(self.store.metadata('web_admin_owner'), 'local:' + profile['id'])
+        self.assertNotIn('test_owner', self.store.metadata('web_local_owner'))
+        self.assertNotIn('scrypt', self.store.metadata('web_local_owner'))
+        self.assertEqual(self.call('/auth/credentials').json['profile'], profile)
+        self.assertEqual(self.call('/auth/setup', profile, actor=actor).status_code, 409)
+        self.assertEqual(self.call('/owner/claim', {}).status_code, 409)
+        with self.store.connection() as db:
+            audits = db.execute("SELECT value FROM metadata WHERE key LIKE 'web_owner_password_setup:%'").fetchall()
+        self.assertEqual(len(audits), 1)
+        self.assertEqual(self.store.unseal(audits[0][0])['previous_owner'], 'replit:previous_owner')
+
+    def test_password_settings_require_owner_and_exact_credential_version(self):
+        profile = self.password_profile()
+        actor = 'local:' + profile['id'] + ':' + '1' * 64
+        self.call('/auth/setup', profile, actor=actor)
+        updated = dict(profile, username='updated_owner', version=2)
+        body = dict(profile=updated, expectedVersion=1)
+        self.assertEqual(self.call('/auth/update', body).status_code, 403)
+        self.assertEqual(self.call('/auth/update', body, actor=actor).status_code, 200)
+        self.assertEqual(self.call('/auth/update', body, actor=actor).status_code, 409)
+        self.assertEqual(self.call('/auth/credentials').json['profile'], updated)
+
+    def test_local_password_sessions_can_preview_and_cancel_recovery(self):
+        actor = 'local:' + 'a' * 32 + ':' + '1' * 64
+        result = self.call('/orders/' + self.order['id'] + '/recovery', {}, actor=actor)
+        self.assertEqual(result.status_code, 200)
+        response = self.call('/recovery/confirm', dict(nonce=result.json['nonce'],
+                                                     attestation=False, cancel=True), actor=actor)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.store.get(self.order['id'])['status'], 'review')
+
+    def test_password_brute_force_limits_are_persistent_and_namespaced(self):
+        buckets = ['a' * 64, 'b' * 64]
+        for _ in range(5):
+            self.assertTrue(self.call('/auth/attempt', dict(kind='setup', buckets=buckets)).json['allowed'])
+        self.assertFalse(self.call('/auth/attempt', dict(kind='setup', buckets=buckets)).json['allowed'])
+        self.assertTrue(self.call('/auth/attempt', dict(kind='login', buckets=buckets)).json['allowed'])
+        self.assertEqual(self.call('/auth/attempt', dict(kind='setup', buckets=['bad'])).status_code, 400)
