@@ -164,7 +164,7 @@ class ResellerWebTests(unittest.TestCase):
     def test_portal_page_and_assets_are_served(self):
         page = self.client.get('/')
         self.assertEqual(page.status_code, 200)
-        self.assertIn(b'Sign in with Telegram', page.data)
+        self.assertIn(b'Log in with Telegram', page.data)
         self.assertEqual(self.client.get('/reseller/').status_code, 302)
         for name in ('reseller.js', 'reseller.css'):
             response = self.client.get('/reseller/static/' + name)

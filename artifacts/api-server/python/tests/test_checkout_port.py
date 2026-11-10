@@ -40,7 +40,7 @@ class CheckoutPortTests(unittest.TestCase):
     def test_original_frontend_and_security_headers(self):
         home = self.client.get('/')
         self.assertEqual(home.status_code, 200)
-        self.assertIn(b'Sign in with Telegram', home.data)  # the home page is the reseller sign-in only
+        self.assertIn(b'Log in with Telegram', home.data)  # the home page is the reseller sign-in only
         self.assertNotIn(b'Membership plans', home.data)
         response = self.client.get('/order/')
         self.assertEqual(response.status_code, 200)
@@ -105,7 +105,7 @@ class CheckoutPortTests(unittest.TestCase):
         self.assertEqual(client.get('/').status_code, 404)
         html = client.get('/stream/').data
         self.assertIn(b'content="/stream"', html)
-        self.assertIn(b'href="/stream/static/style.css"', html)
+        self.assertIn(b'href="/stream/reseller/static/reseller.css"', html)
         self.assertIn(b'src="/stream/reseller/static/reseller.js"', html)
         legacy = client.get('/stream/order/').data
         self.assertIn(b'src="/stream/static/app.js"', legacy)

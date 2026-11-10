@@ -20,16 +20,13 @@ import { usePageMeta } from "@/lib/meta";
 
 function Frame({ title, sub, children }: { title: string; sub: ReactNode; children: ReactNode }) {
   return (
-    <div className="grain relative min-h-[100dvh] overflow-hidden bg-background">
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
+    <div className="min-h-[100dvh] bg-background">
+      <main className="rise mx-auto max-w-md px-5 pb-16 pt-14">
         <Link href="/" data-testid="link-home"><Logo /></Link>
-      </header>
-      <main className="rise relative z-10 mx-auto max-w-md px-5 pb-16 pt-6 md:pt-14">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{sub}</p>
-        <div className="mt-7 rounded-xl border border-card-border bg-card p-5 shadow-[0_1px_3px_hsl(176_20%_20%/0.06)]">{children}</div>
+        <h1 className="mt-7 text-[22px] font-semibold tracking-tight">{title}</h1>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{sub}</p>
+        <div className="card-shadow mt-6 rounded-xl bg-card p-5">{children}</div>
       </main>
-      <div className="pointer-events-none absolute -right-40 top-40 h-[520px] w-[520px] rounded-full bg-[hsl(42_74%_66%/0.18)] blur-3xl" />
     </div>
   );
 }
@@ -59,7 +56,7 @@ function StatusSkeleton() {
 function Unavailable() {
   return (
     <div data-testid="text-setup-unavailable">
-      <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-[hsl(42_85%_84%)] text-[hsl(32_70%_22%)]"><ServerCog className="h-5 w-5" /></div>
+      <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-[#ffd79d] text-[#5e4200]"><ServerCog className="h-5 w-5" /></div>
       <p className="font-semibold">Server configuration needed</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
         No owner account exists yet, and owner setup is not enabled on the server. Configure the approved owner email and the workspace setup code on the server, restart it, then reload this page. There is no way around this from the browser.
@@ -104,7 +101,7 @@ export function SignInPage() {
       ) : s && !s.configured ? (
         s.setupAvailable ? (
           <div data-testid="text-setup-required">
-            <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-[hsl(176_40%_90%)] text-primary"><KeyRound className="h-5 w-5" /></div>
+            <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-[#cdfee1] text-[#0c5132]"><KeyRound className="h-5 w-5" /></div>
             <p className="font-semibold">Setup required</p>
             <p className="mt-1 text-sm text-muted-foreground">No owner account exists yet. Create it once with the server setup code.</p>
             <Link href="/setup" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" data-testid="link-setup">

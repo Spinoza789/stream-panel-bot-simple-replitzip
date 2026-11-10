@@ -75,75 +75,75 @@
   --opaque-button-border-intensity: -8; /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0, 0, 0, 0.03);
-  --elevate-2: rgba(0, 0, 0, 0.08);
+  --elevate-1: rgba(0, 0, 0, 0.04);
+  --elevate-2: rgba(0, 0, 0, 0.1);
 
-  --background: 60 14% 95%;
+  --background: 0 0% 94.5%;
 
-  --foreground: 176 30% 11%;
+  --foreground: 0 0% 19%;
 
-  --border: 90 8% 85%;
+  --border: 0 0% 89%;
 
-  --card: 60 20% 99%;
+  --card: 0 0% 100%;
 
-  --card-foreground: 176 30% 11%;
+  --card-foreground: 0 0% 19%;
 
-  --card-border: 90 8% 86%;
+  --card-border: 0 0% 89%;
 
-  --sidebar: 80 12% 92%;
+  --sidebar: 0 0% 92%;
 
-  --sidebar-foreground: 176 25% 16%;
+  --sidebar-foreground: 0 0% 19%;
 
-  --sidebar-border: 90 8% 84%;
+  --sidebar-border: 0 0% 87%;
 
-  --sidebar-primary: 176 62% 18%;
+  --sidebar-primary: 0 0% 19%;
 
-  --sidebar-primary-foreground: 60 30% 97%;
+  --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 60 18% 99%;
+  --sidebar-accent: 0 0% 100%;
 
-  --sidebar-accent-foreground: 176 30% 11%;
+  --sidebar-accent-foreground: 0 0% 19%;
 
-  --sidebar-ring: 176 55% 30%;
+  --sidebar-ring: 211 100% 41%;
 
-  --popover: 60 20% 99%;
+  --popover: 0 0% 100%;
 
-  --popover-foreground: 176 30% 11%;
+  --popover-foreground: 0 0% 19%;
 
-  --popover-border: 90 8% 84%;
+  --popover-border: 0 0% 89%;
 
-  --primary: 176 62% 18%;
+  --primary: 0 0% 19%;
 
-  --primary-foreground: 60 30% 97%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 80 12% 91%;
+  --secondary: 0 0% 100%;
 
-  --secondary-foreground: 176 30% 14%;
+  --secondary-foreground: 0 0% 19%;
 
-  --muted: 80 12% 92%;
+  --muted: 0 0% 95%;
 
-  --muted-foreground: 170 8% 38%;
+  --muted-foreground: 0 0% 38%;
 
-  --accent: 42 74% 66%;
+  --accent: 153 52% 34%;
 
-  --accent-foreground: 30 50% 14%;
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 4 66% 44%;
+  --destructive: 5 84% 30%;
 
-  --destructive-foreground: 60 30% 97%;
+  --destructive-foreground: 0 0% 100%;
 
-  --input: 90 8% 78%;
-  --ring: 176 55% 30%;
-  --chart-1: 176 62% 24%;
-  --chart-2: 42 74% 56%;
-  --chart-3: 4 66% 50%;
-  --chart-4: 210 30% 40%;
-  --chart-5: 130 30% 40%;
+  --input: 0 0% 76%;
+  --ring: 211 100% 41%;
+  --chart-1: 153 52% 34%;
+  --chart-2: 211 100% 41%;
+  --chart-3: 36 100% 40%;
+  --chart-4: 5 84% 40%;
+  --chart-5: 0 0% 40%;
 
-  --app-font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --app-font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius: 0.625rem; /* 8px */
+  --radius: 0.5rem; /* 8px buttons, 12px cards */
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0); /*replace with H S L */
   --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0); /*replace with H S L */
   --shadow-sm:
@@ -433,6 +433,7 @@
 }
 
 .num { font-variant-numeric: tabular-nums; }
+.card-shadow { box-shadow: 0 1px 0 rgba(26,26,26,.07), 0 0 0 1px rgba(0,0,0,.04); }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .rise { animation: rise .38s cubic-bezier(.2,.7,.2,1) both; }
 .rise-1 { animation-delay: .04s } .rise-2 { animation-delay: .08s } .rise-3 { animation-delay: .12s } .rise-4 { animation-delay: .16s }

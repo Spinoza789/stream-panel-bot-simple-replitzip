@@ -23,7 +23,7 @@ function el(tag,cls,text){const node=document.createElement(tag);if(cls)node.cla
 function signedOut(){me=null;$('shell').hidden=true;$('view-signin').hidden=false;$('signout').hidden=true;$('who').hidden=true;$('loading').hidden=true;}
 function applyMe(data){
   me=data;document.querySelectorAll('[data-brand]').forEach(n=>n.textContent=me.brand);$('demo-banner').hidden=!me.demo;
-  $('who').textContent=(me.username?'@'+me.username:'ID '+me.telegram_id);$('who').hidden=false;$('signout').hidden=false;
+  $('who').textContent=(me.username?'@'+me.username:'ID '+me.telegram_id);$('who').hidden=false;$('signout').hidden=false;$('avatar').textContent=(me.username||'R')[0].toUpperCase();
   $('view-signin').hidden=true;$('shell').hidden=false;$('loading').hidden=true;
   $('t-available').textContent=me.credits.available;$('t-reserved').textContent=me.credits.reserved?me.credits.reserved+' reserved for pending requests':'';
   $('t-active').textContent=me.counts.active;$('t-expiring').textContent=me.counts.expiring;$('t-trials').textContent=me.counts.trials;
@@ -49,7 +49,7 @@ function route(){
   if(view==='history')loadHistory().catch(fail);
   if(view==='credits'){loadPackages().catch(fail);resumeInvoice();}
   if(view==='create')renderCreate();
-  if(view==='dashboard')refreshMe().catch(fail);
+  if(view==='dashboard'){refreshMe().catch(fail);loadHome().catch(fail);}
 }
 function fail(e){if(e instanceof SignedOut)return signedOut();error(e.message);}
 
@@ -58,18 +58,23 @@ function pill(r){const now=Date.now()/1000;if(r.expires_at<=now)return ['EXPIRED
 async function loadSubs(){
   document.querySelectorAll('#filters .chip').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.filter===sub.filter)));
   const data=await api('/subscriptions?filter='+encodeURIComponent(sub.filter)+'&page='+sub.page+'&search='+encodeURIComponent(sub.search));
-  const list=$('sub-list');list.replaceChildren();
-  if(!data.items.length)list.append(el('div','empty','No records here yet.'));
-  for(const r of data.items){
-    const row=el('button','row');row.type='button';
-    const name=el('div');name.append(el('strong',null,r.customer_ref||r.username));name.append(el('small',null,r.username+' · '+r.provider_id));
-    const kind=el('div',null,(r.kind==='trial'?'Test':'Paid')+' · '+r.connections+' device'+(r.connections>1?'s':'')+(r.adult?' · adult':''));
-    const start=el('div','hide-sm');start.append(el('small',null,'Started'));start.append(document.createTextNode(' '+when(r.starts_at)));
-    const exp=el('div');exp.append(el('small',null,'Expires'));exp.append(document.createTextNode(' '+when(r.expires_at)));
-    const [label,cls]=pill(r);const p=el('span','pill '+cls.replace(':',''),label);
-    row.append(name,kind,start,exp,p);row.onclick=()=>openDetail(r.id).catch(fail);list.append(row);
-  }
+  renderRows($('sub-list'),data.items,'No records here yet.');
   $('sub-prev').disabled=!sub.page;$('sub-next').disabled=!data.more;$('sub-page').textContent='Page '+(sub.page+1);
+}
+function subRow(r){
+  const row=el('button','row');row.type='button';
+  const name=el('div');name.append(el('strong',null,r.customer_ref||r.username));name.append(el('small',null,r.username+' · '+r.provider_id));
+  const kind=el('div',null,(r.kind==='trial'?'Test':'Paid')+' · '+r.connections+' device'+(r.connections>1?'s':'')+(r.adult?' · adult':''));
+  const start=el('div','hide-sm');start.append(el('small',null,'Started'));start.append(document.createTextNode(' '+when(r.starts_at)));
+  const exp=el('div');exp.append(el('small',null,'Expires'));exp.append(document.createTextNode(' '+when(r.expires_at)));
+  const [label,cls]=pill(r);const p=el('span','pill '+cls.replace(':',''),label);
+  row.append(name,kind,start,exp,p);row.onclick=()=>{if(!location.hash.startsWith('#/subscriptions'))location.hash='#/subscriptions';setTimeout(()=>openDetail(r.id).catch(fail),30);};return row;
+}
+function renderRows(list,items,empty){list.replaceChildren();if(!items.length)list.append(el('div','empty',empty));for(const r of items)list.append(subRow(r));}
+async function loadHome(){
+  const [expiring,recent]=await Promise.all([api('/subscriptions?filter=expiring&page=0'),api('/subscriptions?filter=all&page=0')]);
+  renderRows($('home-expiring'),expiring.items.slice(0,5),'Nothing expires in the next 7 days.');
+  renderRows($('home-recent'),recent.items.slice(0,5),'No customer accounts yet. Create a test or subscription to get started.');
 }
 async function openDetail(id){
   const data=await api('/subscriptions/'+encodeURIComponent(id));const r=data.record,box=$('sub-detail');box.replaceChildren();box.hidden=false;
@@ -89,12 +94,12 @@ async function openDetail(id){
     const ext=el('div','extend');ext.append(el('h3','sub',r.kind==='trial'?'Convert this test into a paid subscription':'Extend this subscription'));
     const opts=el('div','connection-options');let months=1;
     const render=()=>{opts.replaceChildren();for(const m of [1,3,6,9,12]){const b=el('button','choice',m+' month'+(m>1?'s':''));b.type='button';b.setAttribute('aria-pressed',String(months===m));b.onclick=()=>{months=m;render();};opts.append(b);}};render();
-    const go=el('button','primary');go.textContent='Preview extension ↗';go.type='button';const status=el('div','notice');status.hidden=true;
+    const go=el('button','primary');go.textContent='Preview extension';go.type='button';const status=el('div','notice');status.hidden=true;
     go.onclick=()=>busy(go,async()=>{
       const p=await api('/operations/preview',{method:'POST',data:{kind:'extend',months,connections:r.connections,adult:!!r.adult,target:r.id}});
       status.hidden=false;status.textContent='Cost '+p.preview.cost+' credits · available '+p.preview.available+' · remaining '+p.preview.remaining+'. ';
       if(p.preview.remaining<0){status.append(document.createTextNode('Not enough credits. '));return;}
-      const ok=el('button','text-button','Confirm extension ↗');ok.type='button';ok.onclick=()=>busy(ok,async()=>{const c=await api('/operations/confirm',{method:'POST',data:{nonce:p.nonce}});await watch(c.operation.id,status,()=>openDetail(id));});status.append(ok);
+      const ok=el('button','text-button','Confirm extension');ok.type='button';ok.onclick=()=>busy(ok,async()=>{const c=await api('/operations/confirm',{method:'POST',data:{nonce:p.nonce}});await watch(c.operation.id,status,()=>openDetail(id));});status.append(ok);
     });
     ext.append(opts,go,status);box.append(ext);
   }
@@ -149,7 +154,7 @@ $('create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('create-for
   $('confirm-create').hidden=p.preview.remaining<0;$('cs-note').textContent=p.preview.remaining<0?'Not enough credits. Buy credits first.':'Confirming reserves '+p.preview.cost+' credits; they are deducted once the provider confirms the account.';
 });};
 $('confirm-create').onclick=()=>busy($('confirm-create'),async()=>{if(!nonce)return;const c=await api('/operations/confirm',{method:'POST',data:{nonce}});nonce=null;$('confirm-create').hidden=true;
-  await watch(c.operation.id,$('op-status'),async op=>{if(op.result_id){const link=el('a','text-button','Open the new account ↗');link.href='#/subscriptions';link.onclick=()=>setTimeout(()=>openDetail(op.result_id).catch(fail),50);$('op-status').append(document.createTextNode(' '));$('op-status').append(link);}});});
+  await watch(c.operation.id,$('op-status'),async op=>{if(op.result_id){const link=el('a','text-button','Open the new account');link.href='#/subscriptions';link.onclick=()=>setTimeout(()=>openDetail(op.result_id).catch(fail),50);$('op-status').append(document.createTextNode(' '));$('op-status').append(link);}});});
 $('buy').onclick=()=>busy($('buy'),async()=>{const pick=$('packs').dataset.pick;if(!pick)throw new Error('Choose a credit pack first.');const q=await api('/purchase',{method:'POST',data:{package_id:pick,asset_id:$('pay-asset').value}});openInvoice(q.token,q.order);});
 
 // ---------- credit payment inside the panel (existing order engine, token-authenticated) ----------
@@ -196,10 +201,11 @@ async function showInvoice(order){
 $('inv-verify-form').onsubmit=e=>{e.preventDefault();busy($('inv-verify'),async()=>showInvoice(await orderApi('/api/order/verify',{method:'POST',data:{txid:$('inv-txid').value.trim()}})));};
 $('inv-demo').onclick=()=>busy($('inv-demo'),async()=>showInvoice(await orderApi('/api/order/demo-pay',{method:'POST'})));
 $('inv-dismiss').onclick=closeInvoice;
-$('inv-copy-amount').onclick=async()=>{try{await navigator.clipboard.writeText(String(inv.order.amount));$('inv-copy-amount').textContent='Copied ✓';setTimeout(()=>$('inv-copy-amount').textContent='Copy amount ↗',1600);}catch{error('Clipboard unavailable. Select and copy the text.');}};
-$('inv-copy-wallet').onclick=async()=>{try{await navigator.clipboard.writeText(inv.order.asset.wallet);$('inv-copy-wallet').textContent='Copied ✓';setTimeout(()=>$('inv-copy-wallet').textContent='Copy address ↗',1600);}catch{error('Clipboard unavailable. Select and copy the text.');}};
+$('inv-copy-amount').onclick=async()=>{try{await navigator.clipboard.writeText(String(inv.order.amount));$('inv-copy-amount').textContent='Copied ✓';setTimeout(()=>$('inv-copy-amount').textContent='Copy amount',1600);}catch{error('Clipboard unavailable. Select and copy the text.');}};
+$('inv-copy-wallet').onclick=async()=>{try{await navigator.clipboard.writeText(inv.order.asset.wallet);$('inv-copy-wallet').textContent='Copied ✓';setTimeout(()=>$('inv-copy-wallet').textContent='Copy address',1600);}catch{error('Clipboard unavailable. Select and copy the text.');}};
 document.querySelectorAll('#filters .chip').forEach(b=>b.onclick=()=>{sub.filter=b.dataset.filter;sub.page=0;loadSubs().catch(fail);});
 $('search-form').onsubmit=e=>{e.preventDefault();sub.search=$('search').value.trim();sub.page=0;loadSubs().catch(fail);};
+$('global-search').onsubmit=e=>{e.preventDefault();sub.search=$('global-search-input').value.trim();$('search').value=sub.search;sub.page=0;sub.filter='all';if(location.hash.startsWith('#/subscriptions'))loadSubs().catch(fail);else location.hash='#/subscriptions';};
 $('sub-prev').onclick=()=>{sub.page--;loadSubs().catch(fail);};$('sub-next').onclick=()=>{sub.page++;loadSubs().catch(fail);};
 $('hist-prev').onclick=()=>{hist.page--;loadHistory().catch(fail);};$('hist-next').onclick=()=>{hist.page++;loadHistory().catch(fail);};
 $('password-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('password-form').querySelector('.primary'),async()=>{applyMe(await api('/session/password',{method:'POST',data:{email:$('login-email').value,password:$('login-password').value}}));$('login-password').value='';location.hash='#/dashboard';route();});};

@@ -52,8 +52,8 @@ function GateSkeleton() {
 function GateFrame({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   return (
-    <div className="grain min-h-[100dvh] bg-background">
-      <header className="flex items-center justify-between border-b border-border bg-card px-5 py-3">
+    <div className="min-h-[100dvh] bg-background">
+      <header className="flex items-center justify-between bg-[#1a1a1a] px-5 py-3 text-[#e3e3e3]">
         <Logo />
         <div className="flex items-center gap-3">
           {user?.email && <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>}
@@ -68,7 +68,7 @@ function GateFrame({ children }: { children: ReactNode }) {
 }
 
 function Icon({ tone, children }: { tone: "gold" | "red" | "teal"; children: ReactNode }) {
-  const c = tone === "gold" ? "bg-[hsl(42_85%_84%)] text-[hsl(32_70%_22%)]" : tone === "red" ? "bg-[hsl(4_75%_91%)] text-[hsl(4_65%_32%)]" : "bg-[hsl(176_40%_90%)] text-primary";
+  const c = tone === "gold" ? "bg-[#ffd79d] text-[#5e4200]" : tone === "red" ? "bg-[#fed1cf] text-[#8e1f0b]" : "bg-[#cdfee1] text-[#0c5132]";
   return <div className={`mb-5 grid h-11 w-11 place-items-center rounded-xl ${c}`}>{children}</div>;
 }
 

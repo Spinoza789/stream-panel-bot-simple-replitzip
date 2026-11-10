@@ -22,13 +22,20 @@ function OrdersList({ trialsOnly }: { trialsOnly?: boolean }) {
   );
   const ready = useAdminReady();
   const search = useSearch();
-  const initialStatus = new URLSearchParams(search).get("status") ?? "";
+  const initialParams = new URLSearchParams(search);
+  const initialStatus = initialParams.get("status") ?? "";
+  const initialQuery = (initialParams.get("q") ?? "").slice(0, 80);
   const [status, setStatus] = useState(STATUSES.includes(initialStatus) ? initialStatus : "");
   const [kind, setKind] = useState("");
-  const [text, setText] = useState("");
-  const [q, setQ] = useState("");
+  const [text, setText] = useState(initialQuery);
+  const [q, setQ] = useState(initialQuery);
   const [page, setPage] = useState(1);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (initialQuery && text !== initialQuery) setText(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery]);
 
   useEffect(() => {
     clearTimeout(timer.current);
@@ -75,8 +82,8 @@ function OrdersList({ trialsOnly }: { trialsOnly?: boolean }) {
                 data-testid={`tab-status-${s || "all"}`}
                 onClick={() => { setStatus(s); setPage(1); }}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-sm font-medium transition-colors",
-                  status === s ? "bg-muted text-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  "rounded-lg px-2.5 py-1 text-[13px] font-medium transition-colors",
+                  status === s ? "bg-[#f1f1f1] text-foreground" : "text-muted-foreground hover:bg-[#f7f7f7] hover:text-foreground",
                 )}
               >
                 {STATUS_LABEL[s]}
@@ -89,7 +96,7 @@ function OrdersList({ trialsOnly }: { trialsOnly?: boolean }) {
                 value={kind}
                 onChange={(e) => { setKind(e.target.value); setPage(1); }}
                 data-testid="select-kind"
-                className="h-9 rounded-lg border border-input bg-card px-2 text-sm"
+                className="h-8 rounded-lg border border-input bg-card px-2 text-[13px]"
               >
                 <option value="">All kinds</option>
                 <option value="trial">Trial</option>
@@ -103,7 +110,7 @@ function OrdersList({ trialsOnly }: { trialsOnly?: boolean }) {
                 maxLength={80}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Order ID or Telegram ID"
-                className="h-9 pl-8 pr-8"
+                className="h-8 pl-8 pr-8 text-[13px]"
                 data-testid="input-search"
               />
               {text && (

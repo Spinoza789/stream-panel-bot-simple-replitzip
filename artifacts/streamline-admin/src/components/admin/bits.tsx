@@ -10,7 +10,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 export function Logo({ className, withWord = true }: { className?: string; withWord?: boolean }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <img src={`${basePath}/logo.svg`} alt="" className="h-7 w-7 rounded-[7px]" />
+      <img src={`${basePath}/logo.svg`} alt="" className="h-7 w-7 rounded-md" />
       {withWord && (
         <span className="text-[15px] font-semibold tracking-tight">
           Streamline <span className="font-normal opacity-60">Admin</span>
@@ -21,11 +21,11 @@ export function Logo({ className, withWord = true }: { className?: string; withW
 }
 
 const toneClass: Record<Tone, string> = {
-  success: "bg-[hsl(140_40%_88%)] text-[hsl(140_55%_20%)] before:bg-[hsl(140_50%_36%)]",
-  attention: "bg-[hsl(42_85%_84%)] text-[hsl(32_70%_22%)] before:bg-[hsl(36_85%_44%)]",
-  critical: "bg-[hsl(4_75%_91%)] text-[hsl(4_65%_32%)] before:bg-[hsl(4_66%_46%)]",
-  info: "bg-[hsl(190_45%_88%)] text-[hsl(196_60%_22%)] before:bg-[hsl(194_60%_38%)]",
-  neutral: "bg-[hsl(80_10%_88%)] text-[hsl(176_15%_25%)] before:bg-[hsl(176_8%_50%)]",
+  success: "bg-[#cdfee1] text-[#0c5132]",
+  attention: "bg-[#ffd79d] text-[#5e4200]",
+  critical: "bg-[#fed1cf] text-[#8e1f0b]",
+  info: "bg-[#e0f0ff] text-[#00527c]",
+  neutral: "bg-[#e3e3e3] text-[#303030]",
 };
 
 export function StatusBadge({ status, tone }: { status: string; tone?: Tone }) {
@@ -34,7 +34,7 @@ export function StatusBadge({ status, tone }: { status: string; tone?: Tone }) {
     <span
       data-testid={`status-${status}`}
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium before:h-1.5 before:w-1.5 before:rounded-full before:content-['']",
+        "inline-flex items-center whitespace-nowrap rounded-lg px-2 py-0.5 text-xs font-medium",
         toneClass[t],
       )}
     >
@@ -45,7 +45,7 @@ export function StatusBadge({ status, tone }: { status: string; tone?: Tone }) {
 
 export function KindTag({ kind }: { kind: string }) {
   return (
-    <span className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+    <span className="rounded-md bg-[#f1f1f1] px-1.5 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">
       {kind || "—"}
     </span>
   );
@@ -85,10 +85,10 @@ export function CopyId({ value, label = "ID", short = false }: { value: string; 
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
   return (
-    <div className="rise mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="rise mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow && <div className="mb-1.5 text-sm text-muted-foreground">{eyebrow}</div>}
-        <h1 className="text-[22px] font-semibold tracking-tight" data-testid="text-page-title">{title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight" data-testid="text-page-title">{title}</h1>
         {description && <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
@@ -98,10 +98,10 @@ export function PageHeader({ title, description, actions, eyebrow }: { title: st
 
 export function Panel({ children, className, title, aside, flush }: { children: ReactNode; className?: string; title?: ReactNode; aside?: ReactNode; flush?: boolean }) {
   return (
-    <section className={cn("rise overflow-hidden rounded-xl border border-card-border bg-card shadow-[0_1px_0_hsl(176_20%_20%/0.06),0_1px_3px_hsl(176_20%_20%/0.05)]", className)}>
+    <section className={cn("rise card-shadow overflow-hidden rounded-xl bg-card", className)}>
       {title && (
-        <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">{title}</h2>
+        <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
+          <h2 className="text-[13px] font-semibold">{title}</h2>
           {aside}
         </header>
       )}
@@ -112,7 +112,7 @@ export function Panel({ children, className, title, aside, flush }: { children: 
 
 export function ErrorState({ title = "Couldn't load this", message, onRetry }: { title?: string; message: string; onRetry?: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-xl border border-[hsl(4_60%_82%)] bg-[hsl(4_70%_97%)] p-4" data-testid="state-error">
+    <div className="flex flex-col items-start gap-3 rounded-xl border border-[#f3b0ab] bg-[#fff4f4] p-4" data-testid="state-error">
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
         <div>

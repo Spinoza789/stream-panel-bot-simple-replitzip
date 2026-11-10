@@ -65,12 +65,12 @@ function Detail() {
       />
 
       {result && (
-        <div className="rise mb-5 flex gap-3 rounded-xl border border-[hsl(194_45%_75%)] bg-[hsl(190_50%_95%)] p-4 text-sm" data-testid="status-recovery-result">
-          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(196_60%_28%)]" />
+        <div className="rise mb-5 flex gap-3 rounded-xl border border-[#b3d2f5] bg-[#eaf4ff] p-4 text-sm" data-testid="status-recovery-result">
+          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#00527c]" />
           <div>
-            <p className="font-semibold text-[hsl(196_60%_20%)]">{result.queued ? "Order re-queued for processing" : "Recovery not queued"}</p>
-            <p className="mt-0.5 text-[hsl(196_35%_25%)]">{result.message}</p>
-            {result.queued && <p className="mt-1 text-xs text-[hsl(196_30%_32%)]">This does not mean the trial was delivered. Watch this order's status; it updates every 30 seconds.</p>}
+            <p className="font-semibold text-[#00527c]">{result.queued ? "Order re-queued for processing" : "Recovery not queued"}</p>
+            <p className="mt-0.5 text-[#303030]">{result.message}</p>
+            {result.queued && <p className="mt-1 text-xs text-muted-foreground">This does not mean the trial was delivered. Watch this order's status; it updates every 30 seconds.</p>}
           </div>
         </div>
       )}
@@ -220,10 +220,10 @@ function RecoveryDialog({ open, onOpenChange, orderId, onDone }: { open: boolean
 
         {draft && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-[hsl(36_80%_60%)] bg-[hsl(42_90%_95%)] p-3 text-sm text-[hsl(32_60%_20%)]" data-testid="text-recovery-warning">
+            <div className="rounded-lg border border-[#e8b86b] bg-[#fff5e4] p-3 text-sm text-[#5e4200]" data-testid="text-recovery-warning">
               <div className="mb-1 flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" /> Check before you continue</div>
               <p>Verify in the server logs that account creation <b>never started</b> for this order. Empty (NULL) credentials on the order are <b>not proof on their own</b>: a creation that started and failed midway can leave them empty too, and re-queuing would create a duplicate account.</p>
-              {draft.warning && <p className="mt-2 border-t border-[hsl(36_60%_75%)] pt-2">{draft.warning}</p>}
+              {draft.warning && <p className="mt-2 border-t border-[#e8b86b] pt-2">{draft.warning}</p>}
             </div>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm transition-colors hover:bg-muted/40">
               <Checkbox checked={attest} onCheckedChange={(v) => setAttest(v === true)} disabled={expired} className="mt-0.5" data-testid="checkbox-attestation" />

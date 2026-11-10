@@ -10,7 +10,7 @@ export function OrdersTable({ orders, loading, rows = 8 }: { orders?: AdminOrder
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium text-muted-foreground">
+          <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
             <th className="px-4 py-2 font-medium">Order</th>
             <th className="px-3 py-2 font-medium">Created</th>
             <th className="px-3 py-2 font-medium">Customer</th>
@@ -36,7 +36,7 @@ export function OrdersTable({ orders, loading, rows = 8 }: { orders?: AdminOrder
                 key={o.id}
                 data-testid={`row-order-${o.id}`}
                 onClick={() => setLocation(`/orders/${encodeURIComponent(o.id)}`)}
-                className="group cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                className="group cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-[#f7f7f7]"
               >
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2">

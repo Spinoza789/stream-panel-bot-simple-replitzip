@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth, displayName } from "@/lib/auth";
 import { useGetAdminOverview, getGetAdminOverviewQueryKey } from "@workspace/api-client-react";
-import { Home, Hourglass, LogOut, Menu, Package, Settings2, X } from "lucide-react";
+import { Home, Hourglass, LogOut, Menu, Package, Search, Settings2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./bits";
 import { AccessGate, LIVE, useAdminReady } from "./access";
@@ -17,26 +17,45 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 function Frame({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [, setLocation] = useLocation();
+  const [query, setQuery] = useState("");
   const { user, logout } = useAuth();
-  const email = user?.email ?? "";
-  const initials = (displayName(user)[0] ?? "O").toUpperCase();
+  const name = displayName(user);
+  const initials = (name[0] ?? "O").toUpperCase();
+  const search = (e: FormEvent) => {
+    e.preventDefault();
+    const q = query.trim().slice(0, 80);
+    setLocation(q ? `/orders?q=${encodeURIComponent(q)}` : "/orders");
+  };
   return (
     <div className="min-h-[100dvh] bg-background">
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-[hsl(176_45%_11%)] px-3 text-[hsl(60_25%_92%)] md:px-4">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-[#1a1a1a] px-3 text-[#e3e3e3] md:px-4">
         <button className="rounded-md p-1.5 hover:bg-white/10 md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu" data-testid="button-menu">
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
-        <Link href="/dashboard" data-testid="link-logo"><Logo /></Link>
-        <div className="ml-auto flex items-center gap-3">
-          <span className="hidden text-sm text-white/60 sm:inline" data-testid="text-user-email">{email}</span>
+        <Link href="/dashboard" data-testid="link-logo" className="md:w-56"><Logo /></Link>
+        <form onSubmit={search} role="search" className="relative mx-auto hidden w-full max-w-xl sm:block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b5b5b5]" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            maxLength={80}
+            placeholder="Search orders by ID or Telegram ID"
+            aria-label="Search orders"
+            data-testid="input-global-search"
+            className="h-8 w-full rounded-lg border border-[#4a4a4a] bg-[#303030] pl-9 pr-3 text-sm text-white placeholder:text-[#b5b5b5] focus:border-white focus:outline-none"
+          />
+        </form>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <span className="hidden text-sm text-[#e3e3e3] sm:inline" data-testid="text-user-email">{name}</span>
           {user?.profileImageUrl ? (
-            <img src={user.profileImageUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+            <img src={user.profileImageUrl} alt="" className="h-7 w-7 rounded-md object-cover" />
           ) : (
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[hsl(42_74%_66%)] text-sm font-semibold text-[hsl(30_50%_14%)]">{initials}</span>
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-[#ffd79d] text-xs font-semibold text-[#5e4200]">{initials}</span>
           )}
           <button
             onClick={logout}
-            className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1.5 text-[#b5b5b5] transition-colors hover:bg-white/10 hover:text-white"
             title="Sign out"
             data-testid="button-signout"
           >
@@ -47,15 +66,15 @@ function Frame({ children }: { children: ReactNode }) {
       <div className="flex">
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 top-14 z-20 w-60 border-r border-sidebar-border bg-sidebar p-3 transition-transform duration-200 md:sticky md:h-[calc(100dvh-3.5rem)] md:translate-x-0",
+            "fixed inset-y-0 left-0 top-14 z-20 w-60 border-r border-sidebar-border bg-sidebar p-2 transition-transform duration-200 md:sticky md:h-[calc(100dvh-3.5rem)] md:translate-x-0",
             open ? "translate-x-0" : "-translate-x-full",
           )}
         >
           <Nav onNavigate={() => setOpen(false)} />
         </aside>
         {open && <div className="fixed inset-0 top-14 z-10 bg-black/20 md:hidden" onClick={() => setOpen(false)} />}
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
-          <div className="mx-auto max-w-6xl">{children}</div>
+        <main className="min-w-0 flex-1 px-4 py-5 md:px-6 md:py-6">
+          <div className="mx-auto max-w-5xl">{children}</div>
         </main>
       </div>
     </div>
@@ -67,10 +86,10 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
   const ready = useAdminReady();
   const ov = useGetAdminOverview({ query: { enabled: ready, queryKey: getGetAdminOverviewQueryKey(), ...LIVE } });
   const items = [
-    { href: "/dashboard", label: "Home", icon: Home, count: undefined as number | undefined },
-    { href: "/orders", label: "Orders", icon: Package, count: ov.data?.review },
-    { href: "/trials", label: "Trials", icon: Hourglass, count: ov.data?.trials },
-    { href: "/settings", label: "Settings", icon: Settings2, count: undefined },
+    { href: "/dashboard", label: "Home", icon: Home, count: undefined as number | undefined, hot: false },
+    { href: "/orders", label: "Orders", icon: Package, count: ov.data?.review, hot: true },
+    { href: "/trials", label: "Trials", icon: Hourglass, count: ov.data?.trials, hot: false },
+    { href: "/settings", label: "Settings", icon: Settings2, count: undefined, hot: false },
   ];
   return (
     <nav className="flex h-full flex-col gap-0.5">
@@ -83,14 +102,14 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
             onClick={onNavigate}
             data-testid={`link-nav-${it.label.toLowerCase()}`}
             className={cn(
-              "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
-              active ? "bg-sidebar-accent text-foreground shadow-[0_1px_2px_hsl(176_20%_20%/0.1)]" : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-foreground",
+              "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+              active ? "bg-white text-foreground shadow-[0_1px_0_rgba(0,0,0,0.05)]" : "text-sidebar-foreground hover:bg-black/5",
             )}
           >
-            <it.icon className={cn("h-4 w-4", active ? "text-primary" : "")} />
+            <it.icon className={cn("h-[18px] w-[18px]", active ? "text-[#29845a]" : "text-[#4a4a4a]")} />
             {it.label}
             {!!it.count && (
-              <span className="ml-auto rounded-full bg-[hsl(42_85%_84%)] px-1.5 font-mono text-[11px] text-[hsl(32_70%_22%)]" title={it.label === "Orders" ? "In review" : "Trials"}>
+              <span className={cn("ml-auto rounded-md px-1.5 py-px text-[11px] font-semibold", it.hot ? "bg-[#ffd79d] text-[#5e4200]" : "bg-[#e3e3e3] text-foreground")} title={it.label === "Orders" ? "In review" : "Trials"}>
                 {it.count}
               </span>
             )}

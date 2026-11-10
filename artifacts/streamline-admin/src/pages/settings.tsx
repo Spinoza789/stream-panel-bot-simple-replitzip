@@ -11,13 +11,13 @@ import { usePageMeta } from "@/lib/meta";
 function Row({ label, on, help, testid }: { label: string; on: boolean; help: string; testid: string }) {
   return (
     <div className="flex items-start gap-3 px-4 py-3" data-testid={testid}>
-      <span className={cn("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full", on ? "bg-[hsl(140_40%_86%)] text-[hsl(140_55%_24%)]" : "bg-muted text-muted-foreground")}>
+      <span className={cn("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full", on ? "bg-[#cdfee1] text-[#0c5132]" : "bg-muted text-muted-foreground")}>
         {on ? <Check className="h-3 w-3" strokeWidth={3} /> : <Minus className="h-3 w-3" strokeWidth={3} />}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium">{label}</p>
-          <span className={cn("text-xs font-medium", on ? "text-[hsl(140_55%_26%)]" : "text-muted-foreground")}>{on ? "Configured" : "Off"}</span>
+          <span className={cn("text-xs font-medium", on ? "text-[#0c5132]" : "text-muted-foreground")}>{on ? "Configured" : "Off"}</span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">{help}</p>
       </div>
@@ -61,7 +61,7 @@ function Settings() {
             {acc.data ? (
               <dl className="space-y-2 text-sm">
                 {([["Signed in", acc.data.authenticated], ["Sign-in verification", acc.data.authConfigured], ["Owner configured", acc.data.ownerConfigured], ["Authorized", acc.data.authorized]] as const).map(([k, v]) => (
-                  <div key={k} className="flex justify-between"><dt className="text-muted-foreground">{k}</dt><dd className={v ? "font-medium text-[hsl(140_55%_26%)]" : "text-muted-foreground"}>{v ? "Yes" : "No"}</dd></div>
+                  <div key={k} className="flex justify-between"><dt className="text-muted-foreground">{k}</dt><dd className={v ? "font-medium text-[#0c5132]" : "text-muted-foreground"}>{v ? "Yes" : "No"}</dd></div>
                 ))}
               </dl>
             ) : <Bar className="h-20" />}
