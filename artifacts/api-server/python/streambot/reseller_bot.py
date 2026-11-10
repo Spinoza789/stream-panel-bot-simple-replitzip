@@ -53,7 +53,8 @@ class ResellerBot:
             table.append(f'{months:>2} mo  '+' '.join(str(by_month[months].get(n,'–')).rjust(6) for n in devices))
         lines=['<b>💡 WHAT CREDITS BUY</b>',
                '1 credit = 1 month of TV on 1 device.',
-               'More devices or months → cheaper per month.','',
+               'More devices or months → cheaper per month.',
+               '🏠 Extra devices must be in the same household.','',
                '<pre>'+'\n'.join(table)+'</pre>',
                '🎁 24-hour customer trials are free (limits apply).']
         if packages:
@@ -244,7 +245,7 @@ class ResellerBot:
                 if name=='duration':
                     state['months']=int(parts[2]);self.state(uid,state)
                     if state['kind']=='extend':self._confirmation(uid,state)
-                    else:self.send(uid,'Choose connections:',[[button(str(n),'connections:'+str(n)) for n in (1,2,3)]])
+                    else:self.send(uid,'How many devices will watch at the same time?\n🏠 All devices must be in the same household.',[[button(str(n)+' device'+('s' if n>1 else ''),'connections:'+str(n)) for n in (1,2,3)]])
                 elif name=='connections':
                     state['connections']=int(parts[2]);self.state(uid,state);self._content(uid)
                 elif name=='adult':

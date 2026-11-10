@@ -165,7 +165,8 @@ class TelegramBot:
         if not row: raise CheckoutError('That membership length is unavailable.')
         rows=[row,[{'text':'⬅️ Back','callback_data':'menu:plans'}]]
         text=(f'📅 {months} month'+('s' if months!=1 else '')+'\n\n'
-              'How many devices will watch at the same time?\n\n'
+              'How many devices will watch at the same time?\n'
+              '🏠 All devices must be in the same household.\n\n'
               'Prices in GBP. Nothing is ordered until you choose a coin on the next screen.')
         return text,{'inline_keyboard':rows}
 
