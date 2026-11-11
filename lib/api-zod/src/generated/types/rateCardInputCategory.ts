@@ -6,11 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type RateCardInputCategory = typeof RateCardInputCategory[keyof typeof RateCardInputCategory];
-
+export type RateCardInputCategory =
+  (typeof RateCardInputCategory)[keyof typeof RateCardInputCategory];
 
 export const RateCardInputCategory = {
-  package: 'package',
-  cost: 'cost',
-  trials: 'trials',
+  package: "package",
+  cost: "cost",
+  trials: "trials",
 } as const;

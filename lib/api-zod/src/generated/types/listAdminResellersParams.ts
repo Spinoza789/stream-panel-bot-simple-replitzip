@@ -7,12 +7,12 @@
  */
 
 export type ListAdminResellersParams = {
-/**
- * @maxLength 80
- */
-q?: string;
-/**
- * @minimum 1
- */
-page?: number;
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
 };

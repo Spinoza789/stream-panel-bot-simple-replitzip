@@ -283,6 +283,62 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminReports" }
+  /admin/tickets:
+    get:
+      operationId: listAdminTickets
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [open, answered, closed, all], default: open } }
+        - { name: q, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Support tickets with the latest message preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminTicketPage" }
+  /admin/tickets/{id}:
+    get:
+      operationId: getAdminTicket
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: One ticket with its full conversation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminTicketDetail" }
+  /admin/tickets/{id}/reply:
+    post:
+      operationId: replyAdminTicket
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TicketReplyInput" }
+      responses:
+        "200":
+          description: Ticket after the answer was stored and sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminTicketDetail" }
+  /admin/tickets/{id}/status:
+    post:
+      operationId: setAdminTicketStatus
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TicketStatusInput" }
+      responses:
+        "200":
+          description: Ticket after the status change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminTicketDetail" }
   /admin/ratecard:
     get:
       operationId: getAdminRateCard
@@ -410,6 +466,67 @@ components:
         activeCustomers: { type: integer }
         creditsBought: { type: integer }
         lastActivity: { type: integer }
+    AdminTicket:
+      type: object
+      required: [id, telegramId, username, topic, topicLabel, status, channel, reseller, createdAt, updatedAt, messages, lastSender, preview]
+      properties:
+        id: { type: string }
+        telegramId: { type: integer }
+        username: { type: string }
+        topic: { type: string }
+        topicLabel: { type: string }
+        status: { type: string, enum: [open, answered, closed] }
+        channel: { type: string }
+        reseller: { type: boolean }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+        messages: { type: integer }
+        lastSender: { type: string }
+        preview: { type: string }
+    TicketCounts:
+      type: object
+      required: [open, answered, closed]
+      properties:
+        open: { type: integer }
+        answered: { type: integer }
+        closed: { type: integer }
+    AdminTicketPage:
+      type: object
+      required: [items, page, pageSize, more, counts]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AdminTicket" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        more: { type: boolean }
+        counts: { $ref: "#/components/schemas/TicketCounts" }
+    TicketMessage:
+      type: object
+      required: [id, sender, body, actor, createdAt]
+      properties:
+        id: { type: string }
+        sender: { type: string, enum: [customer, support] }
+        body: { type: string }
+        actor: { type: string }
+        createdAt: { type: integer }
+    AdminTicketDetail:
+      type: object
+      required: [ticket, messages]
+      properties:
+        ticket: { $ref: "#/components/schemas/AdminTicket" }
+        messages: { type: array, items: { $ref: "#/components/schemas/TicketMessage" } }
+        delivered: { type: boolean }
+    TicketReplyInput:
+      type: object
+      required: [body]
+      additionalProperties: false
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000 }
+    TicketStatusInput:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [open, closed] }
     AdminResellerPage:
       type: object
       required: [items, page, pageSize, more]
@@ -556,8 +673,9 @@ components:
         total: { type: integer }
     AdminOverview:
       type: object
-      required: [mode, total, fulfilled, review, trials, queued, pending, recent, creditsSoldMonth, activeResellers, testsConverted, revenueMonthGbp]
+      required: [mode, total, fulfilled, review, trials, queued, pending, recent, creditsSoldMonth, activeResellers, testsConverted, revenueMonthGbp, openTickets]
       properties:
+        openTickets: { type: integer }
         creditsSoldMonth: { type: integer }
         activeResellers: { type: integer }
         testsConverted: { type: integer }

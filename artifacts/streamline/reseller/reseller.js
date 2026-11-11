@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const BASE=document.querySelector('meta[name="streambot-base-path"]').content;
 const API=BASE+'/api/reseller';
 let me=null,packages=null,apps=null,sub={filter:'active',page:0,search:'',items:[],sort:{key:'expires_at',dir:'asc'},selected:new Set()},hist={page:0},
-    create={kind:'create',months:1,connections:1},nonce=null,pollTimer=null,credits={pack:null,asset:null};
+    create={kind:'create',months:1,connections:1},tk={filter:'active',page:0,topics:null},nonce=null,pollTimer=null,credits={pack:null,asset:null};
 const names={ethereum:'Ethereum',solana:'Solana',bitcoin:'Bitcoin'};
 const when=ts=>new Date(ts*1000).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'});
 const whenDay=ts=>new Date(ts*1000).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Europe/London'});
@@ -70,13 +70,14 @@ async function refreshMe(){applyMe(await api('/me'));}
 function route(){
   if(!me)return;
   const hash=location.hash.replace(/^#\/?/,'')||'dashboard';const [tab,query]=hash.split('?');const params=new URLSearchParams(query||'');
-  const known=['dashboard','subscriptions','create','credits','apps','history','account'];const view=known.includes(tab)?tab:'dashboard';
+  const known=['dashboard','subscriptions','create','credits','apps','history','support','account'];const view=known.includes(tab)?tab:'dashboard';
   known.forEach(v=>$('view-'+v).hidden=v!==view);
   document.querySelectorAll('#tabs a, .tabbar a').forEach(a=>a.getAttribute('data-tab')===view?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));
   error('');$('more-sheet').hidden=true;
   if(view==='subscriptions'){if(params.get('filter'))sub.filter=params.get('filter');loadSubs().catch(fail);if(params.get('open'))openDetail(params.get('open')).catch(fail);else closeDrawer(false);}
-  else closeDrawer(false);
+  else if(!(view==='support'&&params.get('open')))closeDrawer(false);
   if(view==='history')loadHistory().catch(fail);
+  if(view==='support'){loadTickets().catch(fail);if(params.get('open'))openTicket(params.get('open')).catch(fail);if(params.get('new'))showTicketForm(true);}
   if(view==='credits'){loadPackages().then(()=>{if(!inv.token)showStep(credits.pack?2:1);}).catch(fail);resumeInvoice();}
   if(view==='create')renderCreate();
   if(view==='apps')loadApps().catch(fail);
@@ -413,8 +414,51 @@ $('account-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('account-f
   me.login=r.login;$('acc-new-password').value='';$('acc-current').value='';toast('Saved. You can now log in with this email and password.');applyMe(me);});};
 $('signout').onclick=()=>busy($('signout'),async()=>{await api('/signout',{method:'POST'});signedOut();});
 $('signout-all').onclick=()=>busy($('signout-all'),async()=>{await api('/signout-everywhere',{method:'POST'});signedOut();});
-const support=()=>{if(me&&me.support_url)window.open(me.support_url,'_blank','noopener');else toast(me?me.support:'Sign in to see support details.');};
-$('support-button').onclick=support;$('sheet-support').onclick=support;
+// ---------- support tickets ----------
+function ticketPill(t){return t.status==='answered'?['Answered','ok']:t.status==='closed'?['Closed','']:['Open','warn'];}
+function showTicketForm(on){$('ticket-form').hidden=!on;$('ticket-help').hidden=on;if(on){$('ticket-body').focus();}}
+async function loadTickets(){
+  document.querySelectorAll('#ticket-filters .chip').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tfilter===tk.filter)));
+  const list=$('ticket-list');list.replaceChildren();for(let i=0;i<3;i++)list.append(el('div','skeleton-row'));
+  const data=await api('/tickets?page='+tk.page);list.replaceChildren();
+  if(!tk.topics){tk.topics=data.topics;const sel=$('ticket-topic');sel.replaceChildren();for(const [k,v] of Object.entries(data.topics)){const o=el('option',null,v);o.value=k;sel.append(o);}}
+  if(me&&me.support_url)$('support-direct').textContent='Prefer Telegram? '+(me.support||'Message support directly.')+' '+me.support_url;
+  const items=data.items.filter(t=>tk.filter==='all'||(tk.filter==='closed'?t.status==='closed':t.status!=='closed'));
+  if(!items.length){list.append(el('div','ticket-empty',tk.filter==='closed'?'No closed tickets.':'No open tickets. Need help? Open a new ticket and we will answer in the panel and in Telegram.'));}
+  for(const t of items){
+    const row=el('button','ticket-row');row.type='button';
+    row.append(el('span','dot '+t.status));
+    const mid=el('div');const title=el('div','title');title.append(document.createTextNode(t.topic_label));title.append(el('small',null,t.id));const pill=ticketPill(t);title.append(el('span','pill '+pill[1],pill[0]));mid.append(title);
+    mid.append(el('div','preview',(t.last_sender==='support'?'Support: ':'You: ')+(t.preview||'')));row.append(mid);
+    const meta=el('div','meta');meta.append(el('div',null,when(t.updated_at)));meta.append(el('div',null,plural(t.messages,'message')));row.append(meta);
+    row.onclick=()=>{location.hash='#/support?open='+encodeURIComponent(t.id);};list.append(row);
+  }
+  $('tk-prev').disabled=!tk.page;$('tk-next').disabled=!data.more;$('tk-page').textContent='Page '+(tk.page+1);
+}
+function renderThread(box,data){
+  box.replaceChildren();const t=data.ticket;const pill=ticketPill(t);
+  const head=el('div','ticket-head');head.append(el('span','pill '+pill[1],pill[0]));head.append(el('span',null,t.topic_label+' · opened '+when(t.created_at)));box.append(head);
+  const thread=el('div','thread');
+  for(const m of data.messages){const b=el('div','bubble '+(m.sender==='customer'?'me':'support'));b.append(el('small',null,(m.sender==='customer'?'You':'Support')+' · '+when(m.created_at)));b.append(document.createTextNode(m.body));thread.append(b);}
+  box.append(thread);
+  const form=el('form','reply-form');const ta=el('textarea');ta.maxLength=2000;ta.placeholder=t.status==='closed'?'Write a reply to reopen this ticket':'Write a reply';ta.rows=3;
+  const actions=el('div','actions');const send=el('button','primary',t.status==='closed'?'Reopen with reply':'Send reply');send.type='submit';actions.append(send);
+  if(t.status!=='closed'){const close=el('button','secondary','Close ticket');close.type='button';close.onclick=()=>busy(close,async()=>{const d=await api('/tickets/'+encodeURIComponent(t.id)+'/close',{method:'POST',data:{}});toast('Ticket closed');renderThread(box,d);loadTickets().catch(()=>{});});actions.append(close);}
+  form.append(ta,actions);form.append(el('p','fineprint','Replies also arrive in Telegram.'));
+  form.onsubmit=e=>{e.preventDefault();busy(send,async()=>{const d=await api('/tickets/'+encodeURIComponent(t.id)+'/reply',{method:'POST',data:{body:ta.value}});toast('Sent');renderThread(box,d);loadTickets().catch(()=>{});});};
+  box.append(form);
+}
+async function openTicket(id){
+  const box=$('sub-detail');box.replaceChildren();for(let i=0;i<3;i++)box.append(el('div','skeleton-row'));$('drawer-title').textContent='Ticket '+id;openDrawer();
+  const data=await api('/tickets/'+encodeURIComponent(id));renderThread(box,data);
+}
+$('new-ticket').onclick=()=>showTicketForm(true);$('ticket-cancel').onclick=()=>showTicketForm(false);
+document.querySelectorAll('#ticket-filters .chip').forEach(b=>b.onclick=()=>{tk.filter=b.dataset.tfilter;tk.page=0;loadTickets().catch(fail);});
+$('tk-prev').onclick=()=>{tk.page=Math.max(0,tk.page-1);loadTickets().catch(fail);};$('tk-next').onclick=()=>{tk.page++;loadTickets().catch(fail);};
+$('ticket-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('ticket-form').querySelector('.primary'),async()=>{
+  const d=await api('/tickets',{method:'POST',data:{topic:$('ticket-topic').value,body:$('ticket-body').value}});
+  $('ticket-body').value='';showTicketForm(false);toast('Ticket '+d.ticket.id+' opened');location.hash='#/support?open='+encodeURIComponent(d.ticket.id);
+});};
 $('more-tab').onclick=()=>{$('more-sheet').hidden=false;};$('sheet-close').onclick=()=>{$('more-sheet').hidden=true;};$('more-sheet').onclick=e=>{if(e.target===$('more-sheet'))$('more-sheet').hidden=true;};
 window.addEventListener('hashchange',route);
 

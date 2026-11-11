@@ -129,7 +129,7 @@ def register_admin(app, service):
             trials = db.execute("SELECT COUNT(*) FROM orders WHERE kind='trial'").fetchone()[0]
             recent = db.execute('SELECT * FROM orders ORDER BY created_at DESC,id DESC LIMIT 8').fetchall()
         totals = {row['status']: row['n'] for row in counts}
-        extra = dict(creditsSoldMonth=0, activeResellers=0, testsConverted=0, revenueMonthGbp=0.0)
+        extra = dict(creditsSoldMonth=0, activeResellers=0, testsConverted=0, revenueMonthGbp=0.0, openTickets=service.tickets.admin_counts()['open'])
         if service.resellers.ready:
             month = service.resellers.finance.month_start()
             with store.connection() as db:
@@ -292,6 +292,40 @@ def register_admin(app, service):
             finance().configure(request.admin_actor, 'trials', (int(values[0]), int(values[1])), reason)
         else: raise CheckoutError('Unknown configuration option.')
         return jsonify(rate_card())
+
+    def ticket_public(t):
+        return dict(id=t['id'], telegramId=int(t['telegram_id']), username=t['username'], topic=t['topic'], topicLabel=t['topic_label'],
+                    status=t['status'], channel=t['channel'], reseller=bool(t['reseller']), createdAt=int(t['created_at']), updatedAt=int(t['updated_at']),
+                    messages=int(t.get('messages', 0)), lastSender=t.get('last_sender', ''), preview=t.get('preview', ''))
+
+    def ticket_detail(tid):
+        t, messages = service.tickets.admin_get(request.admin_actor, tid)
+        return dict(ticket=ticket_public(dict(t, messages=len(messages), last_sender=messages[-1]['sender'] if messages else '', preview=messages[-1]['body'][:120] if messages else '')),
+                    messages=[dict(id=m['id'], sender=m['sender'], body=m['body'], actor=m['actor'], createdAt=int(m['created_at'])) for m in messages])
+
+    @routes.get('/tickets')
+    def tickets():
+        try: page = int(request.args.get('page', '1'))
+        except ValueError: raise CheckoutError('Invalid page.') from None
+        if not 1 <= page <= 10000: raise CheckoutError('Invalid page.')
+        rows = service.tickets.admin_list(request.admin_actor, request.args.get('status', 'open'), request.args.get('q', '')[:80], page - 1)
+        return jsonify(items=[ticket_public(t) for t in rows[:25]], page=page, pageSize=25, more=len(rows) > 25, counts=service.tickets.admin_counts())
+
+    @routes.get('/tickets/<tid>')
+    def ticket(tid):
+        return jsonify(ticket_detail(tid))
+
+    @routes.post('/tickets/<tid>/reply')
+    def ticket_reply(tid):
+        data = request.get_json(silent=True) or {}
+        _, delivered = service.tickets.admin_reply(request.admin_actor, tid, str(data.get('body', '')))
+        return jsonify(delivered=delivered, **ticket_detail(tid))
+
+    @routes.post('/tickets/<tid>/status')
+    def ticket_status(tid):
+        data = request.get_json(silent=True) or {}
+        service.tickets.admin_status(request.admin_actor, tid, str(data.get('status', '')))
+        return jsonify(delivered=True, **ticket_detail(tid))
 
     @routes.post('/auth/qr')
     def auth_qr():

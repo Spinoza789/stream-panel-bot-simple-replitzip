@@ -7,9 +7,9 @@
  */
 
 export type GetAdminReportsParams = {
-/**
- * @minimum 1
- * @maximum 36
- */
-months?: number;
+  /**
+   * @minimum 1
+   * @maximum 36
+   */
+  months?: number;
 };

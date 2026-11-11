@@ -19,6 +19,8 @@ class CheckoutService:
         self.rates = rates or Rates(demo=config['mode']=='demo')
         from .resellers import Resellers
         self.resellers=Resellers(self)
+        from .tickets import Tickets
+        self.tickets=Tickets(self)
 
     def public(self, order, credentials=True):
         allowed = ('id','kind','plan','asset','amount_units','created_at','expires_at','status','txid','message')

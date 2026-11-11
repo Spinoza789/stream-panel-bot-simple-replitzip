@@ -5,8 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { RateCardCost } from './rateCardCost';
-import type { RateCardPackage } from './rateCardPackage';
+import type { RateCardCost } from "./rateCardCost";
+import type { RateCardPackage } from "./rateCardPackage";
 
 export interface AdminRateCard {
   packages: RateCardPackage[];

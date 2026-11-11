@@ -8,21 +8,21 @@
 
 export interface PasswordAccountInput {
   /**
-     * @minLength 3
-     * @maxLength 32
-     * @pattern ^[A-Za-z0-9_][A-Za-z0-9_.-]*$
-     */
+   * @minLength 3
+   * @maxLength 32
+   * @pattern ^[A-Za-z0-9_][A-Za-z0-9_.-]*$
+   */
   username: string;
   /** @maxLength 254 */
   email: string;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   currentPassword: string;
   /**
-     * @minLength 12
-     * @maxLength 128
-     */
+   * @minLength 12
+   * @maxLength 128
+   */
   newPassword?: string;
 }

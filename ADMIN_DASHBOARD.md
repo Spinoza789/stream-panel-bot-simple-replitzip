@@ -111,3 +111,19 @@ use production data or actual passwords for these tests.
   Turning it off needs the password and a current code. Both changes sign out other
   sessions.
 - The admin has a light/dark toggle in the top bar, remembered per browser.
+
+## Support tickets
+
+Tickets replace the old support chat relay. A customer or reseller taps Contact support
+in the bot (or opens Support in the reseller panel), picks a topic and writes one
+message; the owner receives a Telegram notification and the ticket appears under
+Tickets in the dashboard with a "Needs reply" badge in the sidebar.
+
+- Answer from the dashboard (Tickets → open a row → Send reply) or by replying to the
+  Telegram notification. Both store the answer on the ticket and send it to the
+  customer in Telegram with Reply / Close buttons. `/close TICKET` closes one from Telegram.
+- Statuses: open (needs reply), answered, closed. A customer reply reopens a ticket.
+- Bodies are sealed at rest; the bridge only ever exposes them to the verified owner.
+- Tables `tk_tickets` and `tk_messages` are in `sql/schema.sql`; create them on
+  PostgreSQL before publishing (see RESELLER_SETUP.md).
+

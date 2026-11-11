@@ -8,14 +8,14 @@
 
 export interface TotpDisableInput {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   currentPassword: string;
   /**
-     * @minLength 6
-     * @maxLength 8
-     * @pattern ^[0-9]{6,8}$
-     */
+   * @minLength 6
+   * @maxLength 8
+   * @pattern ^[0-9]{6,8}$
+   */
   code: string;
 }

@@ -5,7 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AdminReseller } from './adminReseller';
+import type { AdminReseller } from "./adminReseller";
 
 export interface AdminResellerPage {
   items: AdminReseller[];

@@ -5,13 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ResellerStatusInputStatus } from './resellerStatusInputStatus';
+import type { ResellerStatusInputStatus } from "./resellerStatusInputStatus";
 
 export interface ResellerStatusInput {
   status: ResellerStatusInputStatus;
   /**
-     * @minLength 3
-     * @maxLength 500
-     */
+   * @minLength 3
+   * @maxLength 500
+   */
   reason: string;
 }

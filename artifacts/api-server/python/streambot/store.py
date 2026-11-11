@@ -50,6 +50,8 @@ class Store:
                     if 'duplicate column' not in str(exc): raise
             from .notification_schema import SCHEMA as NOTIFICATION_SCHEMA
             db.executescript(NOTIFICATION_SCHEMA)
+            from .ticket_schema import SCHEMA as TICKET_SCHEMA
+            db.executescript(TICKET_SCHEMA)
         os.chmod(self.path, 0o600)
 
     @contextlib.contextmanager

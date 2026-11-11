@@ -6,4 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PasswordLogoutInput { [key: string]: unknown }
+export interface PasswordLogoutInput {
+  [key: string]: unknown;
+}

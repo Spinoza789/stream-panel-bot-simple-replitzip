@@ -5,7 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ResellerStatsWindow } from './resellerStatsWindow';
+import type { ResellerStatsWindow } from "./resellerStatsWindow";
 
 export interface ResellerStats {
   this_month: ResellerStatsWindow;

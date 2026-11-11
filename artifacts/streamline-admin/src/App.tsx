@@ -12,6 +12,7 @@ import OrderDetailPage from '@/pages/order-detail';
 import SettingsPage from '@/pages/settings';
 import ResellersPage from '@/pages/resellers';
 import ReportsPage from '@/pages/reports';
+import TicketsPage from '@/pages/tickets';
 import { SetupPage, SignInPage, SignUpRedirect } from '@/pages/auth';
 import { Bar, Logo } from '@/components/admin/bits';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -68,6 +69,7 @@ function Routes() {
         <Route path="/trials"><Protected><TrialsPage /></Protected></Route>
         <Route path="/resellers"><Protected><ResellersPage /></Protected></Route>
         <Route path="/reports"><Protected><ReportsPage /></Protected></Route>
+        <Route path="/tickets"><Protected><TicketsPage /></Protected></Route>
         <Route path="/settings"><Protected><SettingsPage /></Protected></Route>
         <Route component={NotFound} />
       </Switch>

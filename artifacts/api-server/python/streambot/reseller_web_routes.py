@@ -14,6 +14,7 @@ from pathlib import Path
 from flask import Blueprint, Response, jsonify, request, send_from_directory
 
 from .service import CheckoutError
+from .tickets import TOPICS
 from .trial_message import APP_GUIDE
 
 COOKIE = 'rs_session'
@@ -177,6 +178,48 @@ def register_reseller_web(app, service):
     @routes.post('/subscriptions/delete-expired')
     def delete_expired():
         return jsonify(deleted=resellers.ops.delete_expired(current_uid()))
+
+    def ticket_public(t):
+        return {k: t[k] for k in ('id', 'topic', 'topic_label', 'status', 'status_label', 'channel', 'created_at', 'updated_at', 'closed_at') if k in t} | \
+               {k: t[k] for k in ('messages', 'last_sender', 'preview') if k in t}
+
+    def message_public(m):
+        return dict(id=m['id'], sender=m['sender'], body=m['body'], created_at=m['created_at'])
+
+    @routes.get('/tickets')
+    def tickets():
+        uid = current_uid()
+        try: page = int(request.args.get('page', '0'))
+        except ValueError: raise CheckoutError('Invalid page.') from None
+        rows = service.tickets.list(uid, page)
+        return jsonify(items=[ticket_public(t) for t in rows[:10]], more=len(rows) > 10, page=page, topics=TOPICS,
+                       counts=service.tickets.counts(uid))
+
+    @routes.post('/tickets')
+    def open_ticket():
+        uid = current_uid(); data = body()
+        login = web.login(uid) or {}
+        ticket = service.tickets.open(uid, str(data.get('topic', '')), str(data.get('body', '')), 'web', str(login.get('username') or ''))
+        return jsonify(ticket=ticket_public(ticket))
+
+    @routes.get('/tickets/<tid>')
+    def ticket(tid):
+        t, messages = service.tickets.get(current_uid(), tid)
+        return jsonify(ticket=ticket_public(t), messages=[message_public(m) for m in messages])
+
+    @routes.post('/tickets/<tid>/reply')
+    def reply_ticket(tid):
+        uid = current_uid(); data = body()
+        t = service.tickets.reply(uid, tid, str(data.get('body', '')), 'web')
+        t, messages = service.tickets.get(uid, tid)
+        return jsonify(ticket=ticket_public(t), messages=[message_public(m) for m in messages])
+
+    @routes.post('/tickets/<tid>/close')
+    def close_ticket(tid):
+        uid = current_uid()
+        service.tickets.close(uid, tid)
+        t, messages = service.tickets.get(uid, tid)
+        return jsonify(ticket=ticket_public(t), messages=[message_public(m) for m in messages])
 
     def csv_response(name, header, rows):
         out = io.StringIO(); writer = csv.writer(out); writer.writerow(header); writer.writerows(rows)

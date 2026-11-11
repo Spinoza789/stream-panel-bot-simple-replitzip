@@ -6,6 +6,7 @@ import {
   ListAdminResellersQueryParams, ListAdminResellersResponse, GetAdminResellerResponse,
   SetAdminResellerStatusBody, AdjustAdminResellerCreditsBody, GetAdminReportsQueryParams, GetAdminReportsResponse,
   GetAdminRateCardResponse, UpdateAdminRateCardBody,
+  ListAdminTicketsQueryParams, ListAdminTicketsResponse, GetAdminTicketResponse, ReplyAdminTicketBody, SetAdminTicketStatusBody,
 } from "@workspace/api-zod";
 import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
 import { adminRequest } from "../lib/python-bridge";
@@ -90,6 +91,22 @@ router.use(async (req, res) => {
       const parsed = GetAdminReportsQueryParams.safeParse(req.query);
       if (!parsed.success) { res.status(400).json({ error: "Invalid report range." }); return; }
       target = "/reports?months=" + String(parsed.data.months ?? 12); schema = GetAdminReportsResponse;
+    } else if (req.method === "GET" && req.path === "/tickets") {
+      const parsed = ListAdminTicketsQueryParams.safeParse(req.query);
+      if (!parsed.success) { res.status(400).json({ error: "Invalid ticket filters." }); return; }
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(parsed.data)) if (value !== undefined) params.set(key, String(value));
+      target = "/tickets?" + params.toString(); schema = ListAdminTicketsResponse;
+    } else if (req.method === "GET" && /^\/tickets\/T[A-HJ-NP-Z2-9]{6}$/.test(req.path)) {
+      target = req.path; schema = GetAdminTicketResponse;
+    } else if (req.method === "POST" && /^\/tickets\/T[A-HJ-NP-Z2-9]{6}\/reply$/.test(req.path)) {
+      const parsed = ReplyAdminTicketBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Write a reply of up to 2000 characters." }); return; }
+      target = req.path; schema = GetAdminTicketResponse; body = parsed.data;
+    } else if (req.method === "POST" && /^\/tickets\/T[A-HJ-NP-Z2-9]{6}\/status$/.test(req.path)) {
+      const parsed = SetAdminTicketStatusBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Status must be open or closed." }); return; }
+      target = req.path; schema = GetAdminTicketResponse; body = parsed.data;
     } else if (req.method === "GET" && req.path === "/ratecard") {
       target = "/ratecard"; schema = GetAdminRateCardResponse;
     } else if (req.method === "POST" && req.path === "/ratecard") {

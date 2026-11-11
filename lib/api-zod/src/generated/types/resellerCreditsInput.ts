@@ -8,19 +8,19 @@
 
 export interface ResellerCreditsInput {
   /**
-     * @minimum -100000
-     * @maximum 100000
-     */
+   * @minimum -100000
+   * @maximum 100000
+   */
   movement: number;
   /**
-     * @minLength 3
-     * @maxLength 500
-     */
+   * @minLength 3
+   * @maxLength 500
+   */
   reason: string;
   /**
-     * @minLength 8
-     * @maxLength 64
-     * @pattern ^[A-Za-z0-9_-]+$
-     */
+   * @minLength 8
+   * @maxLength 64
+   * @pattern ^[A-Za-z0-9_-]+$
+   */
   requestKey: string;
 }

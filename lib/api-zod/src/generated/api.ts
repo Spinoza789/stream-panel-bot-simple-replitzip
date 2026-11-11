@@ -173,6 +173,7 @@ export const GetAdminAccessResponse = zod.object({
 });
 
 export const GetAdminOverviewResponse = zod.object({
+  openTickets: zod.number().int(),
   creditsSoldMonth: zod.number().int(),
   activeResellers: zod.number().int(),
   testsConverted: zod.number().int(),
@@ -596,6 +597,157 @@ export const GetAdminReportsResponse = zod.object({
       lastActivity: zod.number().int(),
     }),
   ),
+});
+
+export const listAdminTicketsQueryStatusDefault = `open`;
+export const listAdminTicketsQueryQMax = 80;
+
+export const listAdminTicketsQueryPageDefault = 1;
+
+export const ListAdminTicketsQueryParams = zod.object({
+  status: zod
+    .enum(["open", "answered", "closed", "all"])
+    .default(listAdminTicketsQueryStatusDefault),
+  q: zod.coerce.string().max(listAdminTicketsQueryQMax).optional(),
+  page: zod.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(listAdminTicketsQueryPageDefault),
+});
+
+export const ListAdminTicketsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      telegramId: zod.number().int(),
+      username: zod.string(),
+      topic: zod.string(),
+      topicLabel: zod.string(),
+      status: zod.enum(["open", "answered", "closed"]),
+      channel: zod.string(),
+      reseller: zod.boolean(),
+      createdAt: zod.number().int(),
+      updatedAt: zod.number().int(),
+      messages: zod.number().int(),
+      lastSender: zod.string(),
+      preview: zod.string(),
+    }),
+  ),
+  page: zod.number().int(),
+  pageSize: zod.number().int(),
+  more: zod.boolean(),
+  counts: zod.object({
+    open: zod.number().int(),
+    answered: zod.number().int(),
+    closed: zod.number().int(),
+  }),
+});
+
+export const GetAdminTicketParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetAdminTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.string(),
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    topic: zod.string(),
+    topicLabel: zod.string(),
+    status: zod.enum(["open", "answered", "closed"]),
+    channel: zod.string(),
+    reseller: zod.boolean(),
+    createdAt: zod.number().int(),
+    updatedAt: zod.number().int(),
+    messages: zod.number().int(),
+    lastSender: zod.string(),
+    preview: zod.string(),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.string(),
+      sender: zod.enum(["customer", "support"]),
+      body: zod.string(),
+      actor: zod.string(),
+      createdAt: zod.number().int(),
+    }),
+  ),
+  delivered: zod.boolean().optional(),
+});
+
+export const ReplyAdminTicketParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const replyAdminTicketBodyBodyMax = 2000;
+
+export const ReplyAdminTicketBody = zod.object({
+  body: zod.string().min(1).max(replyAdminTicketBodyBodyMax),
+});
+
+export const ReplyAdminTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.string(),
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    topic: zod.string(),
+    topicLabel: zod.string(),
+    status: zod.enum(["open", "answered", "closed"]),
+    channel: zod.string(),
+    reseller: zod.boolean(),
+    createdAt: zod.number().int(),
+    updatedAt: zod.number().int(),
+    messages: zod.number().int(),
+    lastSender: zod.string(),
+    preview: zod.string(),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.string(),
+      sender: zod.enum(["customer", "support"]),
+      body: zod.string(),
+      actor: zod.string(),
+      createdAt: zod.number().int(),
+    }),
+  ),
+  delivered: zod.boolean().optional(),
+});
+
+export const SetAdminTicketStatusParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const SetAdminTicketStatusBody = zod.object({
+  status: zod.enum(["open", "closed"]),
+});
+
+export const SetAdminTicketStatusResponse = zod.object({
+  ticket: zod.object({
+    id: zod.string(),
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    topic: zod.string(),
+    topicLabel: zod.string(),
+    status: zod.enum(["open", "answered", "closed"]),
+    channel: zod.string(),
+    reseller: zod.boolean(),
+    createdAt: zod.number().int(),
+    updatedAt: zod.number().int(),
+    messages: zod.number().int(),
+    lastSender: zod.string(),
+    preview: zod.string(),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.string(),
+      sender: zod.enum(["customer", "support"]),
+      body: zod.string(),
+      actor: zod.string(),
+      createdAt: zod.number().int(),
+    }),
+  ),
+  delivered: zod.boolean().optional(),
 });
 
 export const GetAdminRateCardResponse = zod.object({

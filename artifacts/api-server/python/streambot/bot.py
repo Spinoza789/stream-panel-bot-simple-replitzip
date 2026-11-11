@@ -24,6 +24,8 @@ class TelegramBot:
     def __init__(self,service,api=None):
         self.service=service;self.store=service.store
         self.http=requests.Session();self.api=api or self.call
+        from .ticket_bot import TicketBot
+        self.tickets=TicketBot(self)
         from .support import SupportRelay
         self.support=SupportRelay(self)
         from .telegram_payments import TelegramCheckout
@@ -233,7 +235,7 @@ class TelegramBot:
         action=query.get('data','')
         allowed={'menu','menu:plans','menu:trial','menu:retrytrial','menu:status','menu:account','menu:link','menu:more',
                  'menu:contact','menu:about','menu:privacy'}
-        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:','rs:','nt:','tr:','pa:'))):
+        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:','rs:','nt:','tr:','pa:','tk:'))):
             self.answer_callback({'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
             return
@@ -253,6 +255,9 @@ class TelegramBot:
             if self.trial_recovery.callback(uid,action):return
             if self.notifications.callback(uid,action):return
             if self.reseller.callback(uid,action,sender):return
+            if self.tickets.callback(uid,action):return
+            if action=='menu:contact':
+                self.tickets.menu(uid);return
             member=self.service.resellers.member(uid)
             if member and member['status']=='suspended' and action.startswith(('pay:','plan:','menu:trial','menu:retrytrial')):
                 raise CheckoutError('Your reseller account is suspended. Contact support for help.')
@@ -284,15 +289,6 @@ class TelegramBot:
                 text=('🔗 LINK AN ACCOUNT\n\nOpen your account page on the website, tap “Link Telegram” to get a one-time code, '
                       'then send it here as:\n/link CODE\n\nCodes expire after 10 minutes.')
                 markup={'inline_keyboard':[[{'text':'⬅️ Back','callback_data':'menu:account'}]]}
-            elif action=='menu:contact':
-                if uid==self.support.admin:
-                    text='You are the support administrator. Reply to a customer support message received by this bot.'
-                elif not self.support.admin:
-                    text='Bot support is not connected yet. Contact us directly:\n'+self.support.contact_text()
-                else:
-                    self.store.metadata(self.support.session_key(uid),int(time.time())+86400)
-                    text=('Support chat is open. Send a message here and it will be shared with support. '
-                          'Use /cancel to close the chat.\n\n'+self.support.contact_text())
             elif action=='menu:about':
                 text=(self.service.config['brand']+' provides subscription access and account support.\n'
                       'Choose Membership plans to review available options, or contact support for help.')

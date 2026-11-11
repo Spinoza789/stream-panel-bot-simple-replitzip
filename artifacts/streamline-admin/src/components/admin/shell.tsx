@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth, displayName } from "@/lib/auth";
 import { useGetAdminOverview, getGetAdminOverviewQueryKey } from "@workspace/api-client-react";
-import { BarChart3, Home, Hourglass, LogOut, Menu, Moon, Package, Search, Settings2, Sun, Users, X } from "lucide-react";
+import { BarChart3, Home, Hourglass, LifeBuoy, LogOut, Menu, Moon, Package, Search, Settings2, Sun, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./bits";
 import { AccessGate, LIVE, useAdminReady } from "./access";
@@ -103,6 +103,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
     { href: "/orders", label: "Orders", icon: Package, count: ov.data?.review, hot: true },
     { href: "/trials", label: "Trials", icon: Hourglass, count: ov.data?.trials, hot: false },
     { href: "/resellers", label: "Resellers", icon: Users, count: ov.data?.activeResellers, hot: false },
+    { href: "/tickets", label: "Tickets", icon: LifeBuoy, count: ov.data?.openTickets, hot: true },
     { href: "/reports", label: "Reports", icon: BarChart3, count: undefined, hot: false },
     { href: "/settings", label: "Settings", icon: Settings2, count: undefined, hot: false },
   ];
@@ -124,7 +125,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
             <it.icon className={cn("h-[18px] w-[18px]", active ? "text-[#29845a]" : "text-[#4a4a4a] dark:text-[#a3a3a3]")} />
             {it.label}
             {!!it.count && (
-              <span className={cn("ml-auto rounded-md px-1.5 py-px text-[11px] font-semibold", it.hot ? "bg-[#ffd79d] text-[#5e4200]" : "bg-[#e3e3e3] text-foreground dark:bg-white/10")} title={it.label === "Orders" ? "In review" : it.label === "Resellers" ? "Active resellers" : "Trials"}>
+              <span className={cn("ml-auto rounded-md px-1.5 py-px text-[11px] font-semibold", it.hot ? "bg-[#ffd79d] text-[#5e4200]" : "bg-[#e3e3e3] text-foreground dark:bg-white/10")} title={it.label === "Orders" ? "In review" : it.label === "Resellers" ? "Active resellers" : it.label === "Tickets" ? "Waiting for a reply" : "Trials"}>
                 {it.count}
               </span>
             )}

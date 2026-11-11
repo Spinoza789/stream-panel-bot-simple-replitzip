@@ -5,9 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AdminOrder } from './adminOrder';
+import type { AdminOrder } from "./adminOrder";
 
 export interface AdminOverview {
+  openTickets: number;
   creditsSoldMonth: number;
   activeResellers: number;
   testsConverted: number;

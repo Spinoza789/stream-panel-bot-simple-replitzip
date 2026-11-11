@@ -151,6 +151,32 @@ There is no automatic conversion of existing retail customers into approved
 resellers, no transfer of existing customer accounts, and no automatic credit
 grant. New accounts start pending with zero balance.
 
+## Support tickets
+
+`tk_tickets` and `tk_messages` (see `streambot/ticket_schema.py`, also in `sql/schema.sql`)
+hold support conversations. Customers and resellers open tickets from the bot
+(Contact support) or from the panel's Support page; the owner answers by replying to
+the Telegram notification, with `/close TICKET`, or from the admin dashboard's Tickets
+page. Every answer is stored on the ticket and pushed to the customer in Telegram.
+Bodies are sealed at rest. On PostgreSQL create the two tables before publishing:
+
+```sql
+CREATE TABLE IF NOT EXISTS tk_tickets (
+ id TEXT PRIMARY KEY, telegram_id BIGINT NOT NULL CHECK(telegram_id>0), username TEXT NOT NULL DEFAULT '',
+ topic TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('open','answered','closed')),
+ channel TEXT NOT NULL, reseller BIGINT NOT NULL DEFAULT 0 CHECK(reseller IN (0,1)),
+ created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, closed_at BIGINT
+);
+CREATE TABLE IF NOT EXISTS tk_messages (
+ id TEXT PRIMARY KEY, ticket_id TEXT NOT NULL REFERENCES tk_tickets(id),
+ sender TEXT NOT NULL CHECK(sender IN ('customer','support')), body TEXT NOT NULL,
+ actor TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tk_tickets_owner ON tk_tickets(telegram_id,updated_at);
+CREATE INDEX IF NOT EXISTS tk_tickets_status ON tk_tickets(status,updated_at);
+CREATE INDEX IF NOT EXISTS tk_messages_ticket ON tk_messages(ticket_id,created_at);
+```
+
 ## Columns added later (apply by hand on PostgreSQL)
 
 SQLite databases upgrade themselves. On PostgreSQL the application never runs DDL, so

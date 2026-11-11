@@ -5,9 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AdminReseller } from './adminReseller';
-import type { LedgerEntry } from './ledgerEntry';
-import type { ResellerStats } from './resellerStats';
+import type { AdminReseller } from "./adminReseller";
+import type { LedgerEntry } from "./ledgerEntry";
+import type { ResellerStats } from "./resellerStats";
 
 export interface AdminResellerDetail {
   reseller: AdminReseller;

@@ -8,9 +8,9 @@
 
 export interface TotpCodeInput {
   /**
-     * @minLength 6
-     * @maxLength 8
-     * @pattern ^[0-9]{6,8}$
-     */
+   * @minLength 6
+   * @maxLength 8
+   * @pattern ^[0-9]{6,8}$
+   */
   code: string;
 }

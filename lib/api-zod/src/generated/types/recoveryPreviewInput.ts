@@ -6,4 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RecoveryPreviewInput { [key: string]: unknown }
+export interface RecoveryPreviewInput {
+  [key: string]: unknown;
+}

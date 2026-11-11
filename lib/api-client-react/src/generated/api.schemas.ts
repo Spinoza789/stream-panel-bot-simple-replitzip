@@ -123,6 +123,87 @@ export interface AdminReseller {
   lastActivity: number;
 }
 
+export type AdminTicketStatus =
+  (typeof AdminTicketStatus)[keyof typeof AdminTicketStatus];
+
+export const AdminTicketStatus = {
+  open: "open",
+  answered: "answered",
+  closed: "closed",
+} as const;
+
+export interface AdminTicket {
+  id: string;
+  telegramId: number;
+  username: string;
+  topic: string;
+  topicLabel: string;
+  status: AdminTicketStatus;
+  channel: string;
+  reseller: boolean;
+  createdAt: number;
+  updatedAt: number;
+  messages: number;
+  lastSender: string;
+  preview: string;
+}
+
+export interface TicketCounts {
+  open: number;
+  answered: number;
+  closed: number;
+}
+
+export interface AdminTicketPage {
+  items: AdminTicket[];
+  page: number;
+  pageSize: number;
+  more: boolean;
+  counts: TicketCounts;
+}
+
+export type TicketMessageSender =
+  (typeof TicketMessageSender)[keyof typeof TicketMessageSender];
+
+export const TicketMessageSender = {
+  customer: "customer",
+  support: "support",
+} as const;
+
+export interface TicketMessage {
+  id: string;
+  sender: TicketMessageSender;
+  body: string;
+  actor: string;
+  createdAt: number;
+}
+
+export interface AdminTicketDetail {
+  ticket: AdminTicket;
+  messages: TicketMessage[];
+  delivered?: boolean;
+}
+
+export interface TicketReplyInput {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  body: string;
+}
+
+export type TicketStatusInputStatus =
+  (typeof TicketStatusInputStatus)[keyof typeof TicketStatusInputStatus];
+
+export const TicketStatusInputStatus = {
+  open: "open",
+  closed: "closed",
+} as const;
+
+export interface TicketStatusInput {
+  status: TicketStatusInputStatus;
+}
+
 export interface AdminResellerPage {
   items: AdminReseller[];
   page: number;
@@ -300,6 +381,7 @@ export interface AdminOrderPage {
 }
 
 export interface AdminOverview {
+  openTickets: number;
   creditsSoldMonth: number;
   activeResellers: number;
   testsConverted: number;
@@ -391,3 +473,25 @@ export type GetAdminReportsParams = {
    */
   months?: number;
 };
+
+export type ListAdminTicketsParams = {
+  status?: ListAdminTicketsStatus;
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type ListAdminTicketsStatus =
+  (typeof ListAdminTicketsStatus)[keyof typeof ListAdminTicketsStatus];
+
+export const ListAdminTicketsStatus = {
+  open: "open",
+  answered: "answered",
+  closed: "closed",
+  all: "all",
+} as const;

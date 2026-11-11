@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ResellerStatusInputStatus = typeof ResellerStatusInputStatus[keyof typeof ResellerStatusInputStatus];
-
+export type ResellerStatusInputStatus =
+  (typeof ResellerStatusInputStatus)[keyof typeof ResellerStatusInputStatus];
 
 export const ResellerStatusInputStatus = {
-  active: 'active',
-  suspended: 'suspended',
+  active: "active",
+  suspended: "suspended",
 } as const;

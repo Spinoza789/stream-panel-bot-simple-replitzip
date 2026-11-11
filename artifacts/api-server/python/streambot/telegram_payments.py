@@ -218,7 +218,7 @@ class TelegramCheckout:
                 if parts[1] == 'details':
                     self.show_details(uid, order)
                 elif parts[1] == 'tx' and order['status'] == 'pending':
-                    self.store.metadata(self.bot.support.session_key(uid), '0')
+                    self.bot.tickets.state(uid, clear=True)  # the next text is a TXID, not a ticket message
                     prompt = self.bot.send(uid, '<b>🔗 ENTER TRANSACTION ID</b>\n\nPaste the transaction hash (TXID) of your payment, not a link.'
                                            '\n<b>Do not send another payment.</b>\n\nSend /cancel to stop.',
                                            {'force_reply': True, 'selective': True,

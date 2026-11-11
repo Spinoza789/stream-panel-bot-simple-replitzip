@@ -8,19 +8,19 @@
 
 export interface PasswordLoginInput {
   /**
-     * @minLength 3
-     * @maxLength 254
-     */
+   * @minLength 3
+   * @maxLength 254
+   */
   identifier: string;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   password: string;
   /**
-     * @minLength 6
-     * @maxLength 8
-     * @pattern ^[0-9]{6,8}$
-     */
+   * @minLength 6
+   * @maxLength 8
+   * @pattern ^[0-9]{6,8}$
+   */
   code?: string;
 }

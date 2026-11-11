@@ -7,14 +7,14 @@
  */
 
 export type ListAdminOrdersParams = {
-/**
- * @maxLength 80
- */
-q?: string;
-status?: string;
-kind?: string;
-/**
- * @minimum 1
- */
-page?: number;
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  status?: string;
+  kind?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
 };

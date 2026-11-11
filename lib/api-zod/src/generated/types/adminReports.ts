@@ -5,8 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AdminReseller } from './adminReseller';
-import type { ReportMonth } from './reportMonth';
+import type { AdminReseller } from "./adminReseller";
+import type { ReportMonth } from "./reportMonth";
 
 export interface AdminReports {
   months: ReportMonth[];
