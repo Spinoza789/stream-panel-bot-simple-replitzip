@@ -30,12 +30,23 @@ export const passwordLoginBodyIdentifierMax = 254;
 
 export const passwordLoginBodyPasswordMax = 128;
 
+export const passwordLoginBodyCodeMin = 6;
+export const passwordLoginBodyCodeMax = 8;
+
+export const passwordLoginBodyCodeRegExp = new RegExp("^[0-9]{6,8}$");
+
 export const PasswordLoginBody = zod.object({
   identifier: zod
     .string()
     .min(passwordLoginBodyIdentifierMin)
     .max(passwordLoginBodyIdentifierMax),
   password: zod.string().min(1).max(passwordLoginBodyPasswordMax),
+  code: zod
+    .string()
+    .min(passwordLoginBodyCodeMin)
+    .max(passwordLoginBodyCodeMax)
+    .regex(passwordLoginBodyCodeRegExp)
+    .optional(),
 });
 
 export const PasswordLoginResponse = zod.object({
@@ -113,6 +124,7 @@ export const PasswordLogoutResponse = zod.object({
 export const GetPasswordAccountResponse = zod.object({
   username: zod.string(),
   email: zod.string().email(),
+  totpEnabled: zod.boolean(),
 });
 
 export const updatePasswordAccountBodyUsernameMin = 3;
@@ -149,6 +161,7 @@ export const UpdatePasswordAccountBody = zod.object({
 export const UpdatePasswordAccountResponse = zod.object({
   username: zod.string(),
   email: zod.string().email(),
+  totpEnabled: zod.boolean(),
 });
 
 export const GetAdminAccessResponse = zod.object({
@@ -160,6 +173,10 @@ export const GetAdminAccessResponse = zod.object({
 });
 
 export const GetAdminOverviewResponse = zod.object({
+  creditsSoldMonth: zod.number().int(),
+  activeResellers: zod.number().int(),
+  testsConverted: zod.number().int(),
+  revenueMonthGbp: zod.number(),
   mode: zod.string(),
   total: zod.number().int(),
   fulfilled: zod.number().int(),
@@ -273,6 +290,376 @@ export const ConfirmTrialRecoveryResponse = zod.object({
   orderId: zod.string(),
   queued: zod.boolean(),
   message: zod.string(),
+});
+
+export const SetupTotpBody = zod.object({});
+
+export const SetupTotpResponse = zod.object({
+  secret: zod.string(),
+  uri: zod.string(),
+  qr: zod.string(),
+});
+
+export const enableTotpBodyCodeMin = 6;
+export const enableTotpBodyCodeMax = 8;
+
+export const enableTotpBodyCodeRegExp = new RegExp("^[0-9]{6,8}$");
+
+export const EnableTotpBody = zod.object({
+  code: zod
+    .string()
+    .min(enableTotpBodyCodeMin)
+    .max(enableTotpBodyCodeMax)
+    .regex(enableTotpBodyCodeRegExp),
+});
+
+export const EnableTotpResponse = zod.object({
+  username: zod.string(),
+  email: zod.string().email(),
+  totpEnabled: zod.boolean(),
+});
+
+export const disableTotpBodyCurrentPasswordMax = 128;
+
+export const disableTotpBodyCodeMin = 6;
+export const disableTotpBodyCodeMax = 8;
+
+export const disableTotpBodyCodeRegExp = new RegExp("^[0-9]{6,8}$");
+
+export const DisableTotpBody = zod.object({
+  currentPassword: zod.string().min(1).max(disableTotpBodyCurrentPasswordMax),
+  code: zod
+    .string()
+    .min(disableTotpBodyCodeMin)
+    .max(disableTotpBodyCodeMax)
+    .regex(disableTotpBodyCodeRegExp),
+});
+
+export const DisableTotpResponse = zod.object({
+  username: zod.string(),
+  email: zod.string().email(),
+  totpEnabled: zod.boolean(),
+});
+
+export const listAdminResellersQueryQMax = 80;
+
+export const listAdminResellersQueryPageDefault = 1;
+
+export const ListAdminResellersQueryParams = zod.object({
+  q: zod.coerce.string().max(listAdminResellersQueryQMax).optional(),
+  page: zod.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(listAdminResellersQueryPageDefault),
+});
+
+export const ListAdminResellersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      telegramId: zod.number().int(),
+      username: zod.string(),
+      status: zod.string(),
+      createdAt: zod.number().int(),
+      balance: zod.number().int(),
+      reserved: zod.number().int(),
+      available: zod.number().int(),
+      customers: zod.number().int(),
+      activeCustomers: zod.number().int(),
+      creditsBought: zod.number().int(),
+      lastActivity: zod.number().int(),
+    }),
+  ),
+  page: zod.number().int(),
+  pageSize: zod.number().int(),
+  more: zod.boolean(),
+});
+
+export const GetAdminResellerParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetAdminResellerResponse = zod.object({
+  reseller: zod.object({
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    status: zod.string(),
+    createdAt: zod.number().int(),
+    balance: zod.number().int(),
+    reserved: zod.number().int(),
+    available: zod.number().int(),
+    customers: zod.number().int(),
+    activeCustomers: zod.number().int(),
+    creditsBought: zod.number().int(),
+    lastActivity: zod.number().int(),
+  }),
+  stats: zod.object({
+    this_month: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+    all_time: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+  }),
+  history: zod.array(
+    zod.object({
+      createdAt: zod.number().int(),
+      movement: zod.number().int(),
+      reason: zod.string(),
+      reference: zod.string(),
+    }),
+  ),
+});
+
+export const SetAdminResellerStatusParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const setAdminResellerStatusBodyReasonMin = 3;
+export const setAdminResellerStatusBodyReasonMax = 500;
+
+export const SetAdminResellerStatusBody = zod.object({
+  status: zod.enum(["active", "suspended"]),
+  reason: zod
+    .string()
+    .min(setAdminResellerStatusBodyReasonMin)
+    .max(setAdminResellerStatusBodyReasonMax),
+});
+
+export const SetAdminResellerStatusResponse = zod.object({
+  reseller: zod.object({
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    status: zod.string(),
+    createdAt: zod.number().int(),
+    balance: zod.number().int(),
+    reserved: zod.number().int(),
+    available: zod.number().int(),
+    customers: zod.number().int(),
+    activeCustomers: zod.number().int(),
+    creditsBought: zod.number().int(),
+    lastActivity: zod.number().int(),
+  }),
+  stats: zod.object({
+    this_month: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+    all_time: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+  }),
+  history: zod.array(
+    zod.object({
+      createdAt: zod.number().int(),
+      movement: zod.number().int(),
+      reason: zod.string(),
+      reference: zod.string(),
+    }),
+  ),
+});
+
+export const AdjustAdminResellerCreditsParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const adjustAdminResellerCreditsBodyMovementMin = -100000;
+export const adjustAdminResellerCreditsBodyMovementMax = 100000;
+
+export const adjustAdminResellerCreditsBodyReasonMin = 3;
+export const adjustAdminResellerCreditsBodyReasonMax = 500;
+
+export const adjustAdminResellerCreditsBodyRequestKeyMin = 8;
+export const adjustAdminResellerCreditsBodyRequestKeyMax = 64;
+
+export const adjustAdminResellerCreditsBodyRequestKeyRegExp = new RegExp(
+  "^[A-Za-z0-9_-]+$",
+);
+
+export const AdjustAdminResellerCreditsBody = zod.object({
+  movement: zod
+    .number()
+    .int()
+    .min(adjustAdminResellerCreditsBodyMovementMin)
+    .max(adjustAdminResellerCreditsBodyMovementMax),
+  reason: zod
+    .string()
+    .min(adjustAdminResellerCreditsBodyReasonMin)
+    .max(adjustAdminResellerCreditsBodyReasonMax),
+  requestKey: zod
+    .string()
+    .min(adjustAdminResellerCreditsBodyRequestKeyMin)
+    .max(adjustAdminResellerCreditsBodyRequestKeyMax)
+    .regex(adjustAdminResellerCreditsBodyRequestKeyRegExp),
+});
+
+export const AdjustAdminResellerCreditsResponse = zod.object({
+  reseller: zod.object({
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    status: zod.string(),
+    createdAt: zod.number().int(),
+    balance: zod.number().int(),
+    reserved: zod.number().int(),
+    available: zod.number().int(),
+    customers: zod.number().int(),
+    activeCustomers: zod.number().int(),
+    creditsBought: zod.number().int(),
+    lastActivity: zod.number().int(),
+  }),
+  stats: zod.object({
+    this_month: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+    all_time: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+  }),
+  history: zod.array(
+    zod.object({
+      createdAt: zod.number().int(),
+      movement: zod.number().int(),
+      reason: zod.string(),
+      reference: zod.string(),
+    }),
+  ),
+});
+
+export const getAdminReportsQueryMonthsDefault = 12;
+export const getAdminReportsQueryMonthsMax = 36;
+
+export const GetAdminReportsQueryParams = zod.object({
+  months: zod.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(getAdminReportsQueryMonthsMax)
+    .default(getAdminReportsQueryMonthsDefault),
+});
+
+export const GetAdminReportsResponse = zod.object({
+  months: zod.array(
+    zod.object({
+      month: zod.string(),
+      retailOrders: zod.number().int(),
+      retailGbp: zod.number(),
+      creditPacks: zod.number().int(),
+      creditGbp: zod.number(),
+      totalGbp: zod.number(),
+      creditsSold: zod.number().int(),
+      creditsUsed: zod.number().int(),
+      tests: zod.number().int(),
+      testsConverted: zod.number().int(),
+    }),
+  ),
+  resellers: zod.array(
+    zod.object({
+      telegramId: zod.number().int(),
+      username: zod.string(),
+      status: zod.string(),
+      createdAt: zod.number().int(),
+      balance: zod.number().int(),
+      reserved: zod.number().int(),
+      available: zod.number().int(),
+      customers: zod.number().int(),
+      activeCustomers: zod.number().int(),
+      creditsBought: zod.number().int(),
+      lastActivity: zod.number().int(),
+    }),
+  ),
+});
+
+export const GetAdminRateCardResponse = zod.object({
+  packages: zod.array(
+    zod.object({
+      id: zod.string(),
+      pricePence: zod.number().int(),
+      credits: zod.number().int(),
+      active: zod.boolean(),
+    }),
+  ),
+  costs: zod.array(
+    zod.object({
+      months: zod.number().int(),
+      connections: zod.number().int(),
+      credits: zod.number().int(),
+    }),
+  ),
+  trialDaily: zod.number().int(),
+  trialActive: zod.number().int(),
+});
+
+export const updateAdminRateCardBodyValuesItemOneMax = 40;
+
+export const updateAdminRateCardBodyValuesMax = 4;
+
+export const updateAdminRateCardBodyReasonMin = 3;
+export const updateAdminRateCardBodyReasonMax = 500;
+
+export const UpdateAdminRateCardBody = zod.object({
+  category: zod.enum(["package", "cost", "trials"]),
+  values: zod
+    .array(
+      zod.union([
+        zod.string().max(updateAdminRateCardBodyValuesItemOneMax),
+        zod.number().int(),
+        zod.boolean(),
+      ]),
+    )
+    .max(updateAdminRateCardBodyValuesMax),
+  reason: zod
+    .string()
+    .min(updateAdminRateCardBodyReasonMin)
+    .max(updateAdminRateCardBodyReasonMax),
+});
+
+export const UpdateAdminRateCardResponse = zod.object({
+  packages: zod.array(
+    zod.object({
+      id: zod.string(),
+      pricePence: zod.number().int(),
+      credits: zod.number().int(),
+      active: zod.boolean(),
+    }),
+  ),
+  costs: zod.array(
+    zod.object({
+      months: zod.number().int(),
+      connections: zod.number().int(),
+      credits: zod.number().int(),
+    }),
+  ),
+  trialDaily: zod.number().int(),
+  trialActive: zod.number().int(),
 });
 
 /**

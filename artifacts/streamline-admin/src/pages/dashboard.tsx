@@ -5,7 +5,7 @@ import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
 import { Bar, EmptyState, ErrorState, PageHeader, Panel } from "@/components/admin/bits";
 import { OrdersTable } from "@/components/admin/orders-table";
-import { errorMessage, humanize } from "@/lib/format";
+import { errorMessage, gbp, humanize } from "@/lib/format";
 import { usePageMeta } from "@/lib/meta";
 
 function Overview() {
@@ -45,7 +45,7 @@ function Overview() {
                 key={t.k}
                 href={t.href}
                 data-testid={`card-count-${t.k.toLowerCase().replace(/\s/g, "-")}`}
-                className={`rise rise-${Math.min(i, 4)} group border-b border-border p-4 transition-colors hover:bg-[#f7f7f7] md:border-r lg:border-b-0 lg:last:border-r-0`}
+                className={`rise rise-${Math.min(i, 4)} group border-b border-border p-4 transition-colors hover:bg-[#f7f7f7] md:border-r lg:border-b-0 lg:last:border-r-0 dark:hover:bg-white/5`}
               >
                 <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground underline decoration-dotted decoration-[#c9c9c9] underline-offset-4 group-hover:text-foreground">
                   {t.k}
@@ -59,6 +59,23 @@ function Overview() {
               </Link>
             ))}
           </div>
+
+          {d && (
+            <div className="card-shadow mt-4 grid grid-cols-2 overflow-hidden rounded-xl bg-card md:grid-cols-4" data-testid="card-business-metrics">
+              {[
+                { k: "Revenue this month", v: gbp(d.revenueMonthGbp), hint: "Verified payments, retail and packs", href: "/reports" },
+                { k: "Credits sold this month", v: d.creditsSoldMonth.toLocaleString(), hint: "Granted from verified packs", href: "/reports" },
+                { k: "Active resellers", v: d.activeResellers.toLocaleString(), hint: "Can buy, create and extend", href: "/resellers" },
+                { k: "Tests converted", v: d.testsConverted.toLocaleString(), hint: "Free tests upgraded to paid", href: "/reports" },
+              ].map((t) => (
+                <Link key={t.k} href={t.href} className="group border-b border-border p-4 transition-colors hover:bg-[#f7f7f7] md:border-b-0 md:border-r md:last:border-r-0 dark:hover:bg-white/5">
+                  <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground underline decoration-dotted decoration-[#c9c9c9] underline-offset-4 group-hover:text-foreground">{t.k}<ArrowRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" /></div>
+                  <div className="num mt-2 text-2xl font-semibold leading-none tracking-tight">{t.v}</div>
+                  <div className="mt-1.5 text-[11px] text-muted-foreground">{t.hint}</div>
+                </Link>
+              ))}
+            </div>
+          )}
 
           <Panel
             className="mt-4"

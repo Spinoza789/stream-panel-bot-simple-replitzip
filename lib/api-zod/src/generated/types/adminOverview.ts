@@ -8,6 +8,10 @@
 import type { AdminOrder } from './adminOrder';
 
 export interface AdminOverview {
+  creditsSoldMonth: number;
+  activeResellers: number;
+  testsConverted: number;
+  revenueMonthGbp: number;
   mode: string;
   total: number;
   fulfilled: number;

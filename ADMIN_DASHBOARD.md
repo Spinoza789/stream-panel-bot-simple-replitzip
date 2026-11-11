@@ -91,3 +91,23 @@ local login, secure cookies, legacy-session rejection, account changes, session
 revocation/logout and recovery preview/cancel using temporary demo fixtures; it
 refuses to overwrite an actual local owner and restores the old binding. Never
 use production data or actual passwords for these tests.
+
+## Resellers, reports, rate card and two-factor sign-in
+
+- **Resellers**: every reseller with status, available and reserved credits, active/all
+  customers, credits bought and last activity. Opening one shows this-month and all-time
+  statistics, recent credit history, and lets the owner suspend/reactivate or adjust
+  credits. Each action needs a reason and is written to `rs_audit` with the website
+  actor (administrator column 0, actor string in the details).
+- **Reports**: revenue per month from verified payments only (retail memberships at GBP
+  price, credit packs at pack price), credits sold and used, tests and conversions, plus
+  per-reseller totals. Both tables export as CSV from the browser.
+- **Settings › Rate card**: credit pack prices and credits, subscription costs in
+  credits per duration and device count, and trial limits. Changes apply to new orders
+  and are audited with the reason given.
+- **Settings › Two-factor sign-in**: TOTP (Google Authenticator, Authy, 1Password).
+  Enrolment keeps the secret in the session until a live code confirms it; it is then
+  stored in the sealed owner profile. Sign-in asks for the code after the password.
+  Turning it off needs the password and a current code. Both changes sign out other
+  sessions.
+- The admin has a light/dark toggle in the top bar, remembered per browser.

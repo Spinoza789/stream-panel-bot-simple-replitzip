@@ -422,7 +422,7 @@ class Scenarios:
         self.fund(1)
         self.click(42,'rs:trial')
         prompt=self.calls[-1][1]
-        self.assertIn('customer name or reference',prompt['text'])
+        self.assertIn("customer's name or a note",prompt['text'])
         self.assertNotIn('adult',str(prompt).lower())
         self.click(42,'rs:skip')
         confirmation=self.calls[-1][1]['text']

@@ -55,3 +55,11 @@ export function statusTone(status: string): Tone {
   if (/(queue|process|provision)/.test(s)) return "info";
   return "neutral";
 }
+
+export function gbp(value: number): string {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 2 }).format(value);
+}
+export function formatDate(unix: number): string {
+  if (!unix) return "—";
+  return toDate(unix).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}

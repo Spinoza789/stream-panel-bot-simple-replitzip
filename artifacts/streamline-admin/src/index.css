@@ -218,96 +218,52 @@
 }
 
 .dark {
-  --button-outline: rgba(255, 255, 255, 0.1);
-  --badge-outline: rgba(255, 255, 255, 0.05);
-
-  --opaque-button-border-intensity: 9; /* In terms of percentages */
-
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(255, 255, 255, 0.04);
-  --elevate-2: rgba(255, 255, 255, 0.09);
-
-  --background: 176 25% 7%;
-
-  --foreground: 60 20% 92%;
-
-  --border: 176 15% 18%;
-
-  --card: 176 22% 10%;
-
-  --card-foreground: 60 20% 92%;
-
-  --card-border: 176 15% 18%;
-
-  --sidebar: 176 22% 9%;
-
-  --sidebar-foreground: 60 20% 90%;
-
-  --sidebar-border: 176 15% 18%;
-
-  --sidebar-primary: 176 62% 18%;
-
-  --sidebar-primary-foreground: 60 30% 97%;
-
-  --sidebar-accent: 176 18% 14%;
-
-  --sidebar-accent-foreground: 60 20% 92%;
-
-  --sidebar-ring: 176 55% 30%;
-
-  --popover: 176 22% 10%;
-
-  --popover-foreground: 60 20% 92%;
-
-  --popover-border: 176 15% 18%;
-
-  --primary: 170 50% 45%;
-
-  --primary-foreground: 60 30% 97%;
-
-  --secondary: 176 15% 16%;
-
-  --secondary-foreground: 60 20% 92%;
-
-  --muted: 176 15% 15%;
-
-  --muted-foreground: 170 8% 62%;
-
-  --accent: 42 74% 66%;
-
-  --accent-foreground: 30 50% 14%;
-
-  --destructive: 4 66% 44%;
-
-  --destructive-foreground: 60 30% 97%;
-
-  /* Used as the border around inputs. Dark mode: Should be a border that is light enough to have high contrast when rendered on a --card background. More contrast than standard --border */
-  --input: 176 15% 24%;
-  --ring: 176 55% 30%;
-  --chart-1: 176 62% 24%;
-  --chart-2: 42 74% 56%;
-  --chart-3: 4 66% 50%;
-  --chart-4: 210 30% 40%;
-  --chart-5: 130 30% 40%;
-
-  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
-  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
-  --shadow-sm:
-    0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0),
-    0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0);
-  --shadow:
-    0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0),
-    0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0);
-  --shadow-md:
-    0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0),
-    0px 2px 4px -1px hsl(202.8169 89.1213% 53.1373% / 0);
-  --shadow-lg:
-    0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0),
-    0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0);
-  --shadow-xl:
-    0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0),
-    0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0);
-  --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
+  --button-outline: rgba(255, 255, 255, 0.12);
+  --badge-outline: rgba(255, 255, 255, 0.06);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255, 255, 255, 0.05);
+  --elevate-2: rgba(255, 255, 255, 0.1);
+  --background: 0 0% 10%;
+  --foreground: 0 0% 89%;
+  --border: 0 0% 23%;
+  --card: 0 0% 15%;
+  --card-foreground: 0 0% 89%;
+  --card-border: 0 0% 23%;
+  --sidebar: 0 0% 12.5%;
+  --sidebar-foreground: 0 0% 85%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-primary: 0 0% 89%;
+  --sidebar-primary-foreground: 0 0% 10%;
+  --sidebar-accent: 0 0% 18%;
+  --sidebar-accent-foreground: 0 0% 95%;
+  --sidebar-ring: 211 100% 60%;
+  --popover: 0 0% 15%;
+  --popover-foreground: 0 0% 89%;
+  --popover-border: 0 0% 25%;
+  --primary: 0 0% 89%;
+  --primary-foreground: 0 0% 10%;
+  --secondary: 0 0% 18%;
+  --secondary-foreground: 0 0% 89%;
+  --muted: 0 0% 18%;
+  --muted-foreground: 0 0% 64%;
+  --accent: 153 45% 45%;
+  --accent-foreground: 0 0% 10%;
+  --destructive: 5 70% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 0 0% 31%;
+  --ring: 211 100% 60%;
+  --chart-1: 153 45% 45%;
+  --chart-2: 211 100% 60%;
+  --chart-3: 36 100% 55%;
+  --chart-4: 5 70% 55%;
+  --chart-5: 0 0% 60%;
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --primary-border: hsl(var(--primary));
+  --secondary-border: hsl(var(--secondary));
+  --muted-border: hsl(var(--muted));
+  --accent-border: hsl(var(--accent));
+  --destructive-border: hsl(var(--destructive));
 }
 
 @layer base {
@@ -434,6 +390,8 @@
 
 .num { font-variant-numeric: tabular-nums; }
 .card-shadow { box-shadow: 0 1px 0 rgba(26,26,26,.07), 0 0 0 1px rgba(0,0,0,.04); }
+.dark .card-shadow { box-shadow: 0 1px 0 rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.06); }
+.dark .bg-white { background-color: hsl(var(--card)); }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .rise { animation: rise .38s cubic-bezier(.2,.7,.2,1) both; }
 .rise-1 { animation-delay: .04s } .rise-2 { animation-delay: .08s } .rise-3 { animation-delay: .12s } .rise-4 { animation-delay: .16s }

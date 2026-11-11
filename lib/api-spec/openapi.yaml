@@ -175,6 +175,136 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RecoveryResult" }
+  /auth/totp/setup:
+    post:
+      operationId: setupTotp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TotpSetupInput" }
+      responses:
+        "200":
+          description: Pending authenticator secret for this session only
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TotpSetup" }
+  /auth/totp/enable:
+    post:
+      operationId: enableTotp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TotpCodeInput" }
+      responses:
+        "200":
+          description: Two-factor sign-in enabled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasswordAccount" }
+  /auth/totp/disable:
+    post:
+      operationId: disableTotp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TotpDisableInput" }
+      responses:
+        "200":
+          description: Two-factor sign-in disabled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasswordAccount" }
+  /admin/resellers:
+    get:
+      operationId: listAdminResellers
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Resellers with balances and customer counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminResellerPage" }
+  /admin/resellers/{id}:
+    get:
+      operationId: getAdminReseller
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: One reseller with statistics and recent credit history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminResellerDetail" }
+  /admin/resellers/{id}/status:
+    post:
+      operationId: setAdminResellerStatus
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResellerStatusInput" }
+      responses:
+        "200":
+          description: Updated reseller
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminResellerDetail" }
+  /admin/resellers/{id}/credits:
+    post:
+      operationId: adjustAdminResellerCredits
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResellerCreditsInput" }
+      responses:
+        "200":
+          description: Updated reseller after a manual credit adjustment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminResellerDetail" }
+  /admin/reports:
+    get:
+      operationId: getAdminReports
+      parameters:
+        - { name: months, in: query, schema: { type: integer, minimum: 1, maximum: 36, default: 12 } }
+      responses:
+        "200":
+          description: Monthly revenue and credit movements plus per-reseller totals
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminReports" }
+  /admin/ratecard:
+    get:
+      operationId: getAdminRateCard
+      responses:
+        "200":
+          description: Credit packs, subscription costs and trial limits
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminRateCard" }
+    post:
+      operationId: updateAdminRateCard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RateCardInput" }
+      responses:
+        "200":
+          description: Rate card after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminRateCard" }
   /healthz:
     get:
       operationId: healthCheck
@@ -224,6 +354,7 @@ components:
       properties:
         identifier: { type: string, minLength: 3, maxLength: 254 }
         password: { type: string, minLength: 1, maxLength: 128 }
+        code: { type: string, minLength: 6, maxLength: 8, pattern: "^[0-9]{6,8}$" }
     PasswordSetupInput:
       type: object
       required: [username, email, password, setupCode]
@@ -235,10 +366,155 @@ components:
         setupCode: { type: string, minLength: 20, maxLength: 200 }
     PasswordAccount:
       type: object
-      required: [username, email]
+      required: [username, email, totpEnabled]
       properties:
         username: { type: string }
         email: { type: string, format: email }
+        totpEnabled: { type: boolean }
+    TotpSetupInput:
+      type: object
+      additionalProperties: false
+      properties: {}
+    TotpSetup:
+      type: object
+      required: [secret, uri, qr]
+      properties:
+        secret: { type: string }
+        uri: { type: string }
+        qr: { type: string }
+    TotpCodeInput:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code: { type: string, minLength: 6, maxLength: 8, pattern: "^[0-9]{6,8}$" }
+    TotpDisableInput:
+      type: object
+      required: [currentPassword, code]
+      additionalProperties: false
+      properties:
+        currentPassword: { type: string, minLength: 1, maxLength: 128 }
+        code: { type: string, minLength: 6, maxLength: 8, pattern: "^[0-9]{6,8}$" }
+    AdminReseller:
+      type: object
+      required: [telegramId, username, status, createdAt, balance, reserved, available, customers, activeCustomers, creditsBought, lastActivity]
+      properties:
+        telegramId: { type: integer }
+        username: { type: string }
+        status: { type: string }
+        createdAt: { type: integer }
+        balance: { type: integer }
+        reserved: { type: integer }
+        available: { type: integer }
+        customers: { type: integer }
+        activeCustomers: { type: integer }
+        creditsBought: { type: integer }
+        lastActivity: { type: integer }
+    AdminResellerPage:
+      type: object
+      required: [items, page, pageSize, more]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AdminReseller" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        more: { type: boolean }
+    ResellerStatsWindow:
+      type: object
+      required: [credits_bought, credits_used, tests_created, subscriptions_created, tests_converted, conversion_rate]
+      properties:
+        credits_bought: { type: integer }
+        credits_used: { type: integer }
+        tests_created: { type: integer }
+        subscriptions_created: { type: integer }
+        tests_converted: { type: integer }
+        conversion_rate: { type: integer }
+    ResellerStats:
+      type: object
+      required: [this_month, all_time]
+      properties:
+        this_month: { $ref: "#/components/schemas/ResellerStatsWindow" }
+        all_time: { $ref: "#/components/schemas/ResellerStatsWindow" }
+    LedgerEntry:
+      type: object
+      required: [createdAt, movement, reason, reference]
+      properties:
+        createdAt: { type: integer }
+        movement: { type: integer }
+        reason: { type: string }
+        reference: { type: string }
+    AdminResellerDetail:
+      type: object
+      required: [reseller, stats, history]
+      properties:
+        reseller: { $ref: "#/components/schemas/AdminReseller" }
+        stats: { $ref: "#/components/schemas/ResellerStats" }
+        history: { type: array, items: { $ref: "#/components/schemas/LedgerEntry" } }
+    ResellerStatusInput:
+      type: object
+      required: [status, reason]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [active, suspended] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    ResellerCreditsInput:
+      type: object
+      required: [movement, reason, requestKey]
+      additionalProperties: false
+      properties:
+        movement: { type: integer, minimum: -100000, maximum: 100000 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        requestKey: { type: string, minLength: 8, maxLength: 64, pattern: "^[A-Za-z0-9_-]+$" }
+    ReportMonth:
+      type: object
+      required: [month, retailOrders, retailGbp, creditPacks, creditGbp, totalGbp, creditsSold, creditsUsed, tests, testsConverted]
+      properties:
+        month: { type: string }
+        retailOrders: { type: integer }
+        retailGbp: { type: number }
+        creditPacks: { type: integer }
+        creditGbp: { type: number }
+        totalGbp: { type: number }
+        creditsSold: { type: integer }
+        creditsUsed: { type: integer }
+        tests: { type: integer }
+        testsConverted: { type: integer }
+    AdminReports:
+      type: object
+      required: [months, resellers]
+      properties:
+        months: { type: array, items: { $ref: "#/components/schemas/ReportMonth" } }
+        resellers: { type: array, items: { $ref: "#/components/schemas/AdminReseller" } }
+    RateCardPackage:
+      type: object
+      required: [id, pricePence, credits, active]
+      properties:
+        id: { type: string }
+        pricePence: { type: integer }
+        credits: { type: integer }
+        active: { type: boolean }
+    RateCardCost:
+      type: object
+      required: [months, connections, credits]
+      properties:
+        months: { type: integer }
+        connections: { type: integer }
+        credits: { type: integer }
+    AdminRateCard:
+      type: object
+      required: [packages, costs, trialDaily, trialActive]
+      properties:
+        packages: { type: array, items: { $ref: "#/components/schemas/RateCardPackage" } }
+        costs: { type: array, items: { $ref: "#/components/schemas/RateCardCost" } }
+        trialDaily: { type: integer }
+        trialActive: { type: integer }
+    RateCardInput:
+      type: object
+      required: [category, values, reason]
+      additionalProperties: false
+      properties:
+        category: { type: string, enum: [package, cost, trials] }
+        values: { type: array, maxItems: 4, items: { oneOf: [{ type: string, maxLength: 40 }, { type: integer }, { type: boolean }] } }
+        reason: { type: string, minLength: 3, maxLength: 500 }
     PasswordAccountInput:
       type: object
       required: [username, email, currentPassword]
@@ -280,8 +556,12 @@ components:
         total: { type: integer }
     AdminOverview:
       type: object
-      required: [mode, total, fulfilled, review, trials, queued, pending, recent]
+      required: [mode, total, fulfilled, review, trials, queued, pending, recent, creditsSoldMonth, activeResellers, testsConverted, revenueMonthGbp]
       properties:
+        creditsSoldMonth: { type: integer }
+        activeResellers: { type: integer }
+        testsConverted: { type: integer }
+        revenueMonthGbp: { type: number }
         mode: { type: string }
         total: { type: integer }
         fulfilled: { type: integer }

@@ -3,6 +3,8 @@ import { Check, Minus } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
 import { OwnerLoginPanel } from "@/components/admin/owner-login";
+import { RateCardPanel } from "@/components/admin/rate-card";
+import { TwoFactorPanel } from "@/components/admin/two-factor";
 import { Bar, ErrorState, PageHeader, Panel } from "@/components/admin/bits";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/format";
@@ -33,7 +35,11 @@ function Settings() {
   const s = st.data;
   return (
     <>
-      <PageHeader title="Settings" description="What the server is configured to do. These are configuration flags, not a live health check of Telegram or the panel." />
+      <PageHeader title="Settings" description="Prices, sign-in security and what the server is configured to do. Readiness flags are configuration, not a live health check." />
+      <div className="mb-5 grid gap-5 lg:grid-cols-[1fr_340px]">
+        <RateCardPanel />
+        <TwoFactorPanel />
+      </div>
       {st.isError ? (
         <ErrorState message={errorMessage(st.error)} onRetry={() => st.refetch()} />
       ) : (

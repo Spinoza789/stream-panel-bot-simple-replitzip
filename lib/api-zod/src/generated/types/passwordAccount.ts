@@ -9,4 +9,5 @@
 export interface PasswordAccount {
   username: string;
   email: string;
+  totpEnabled: boolean;
 }

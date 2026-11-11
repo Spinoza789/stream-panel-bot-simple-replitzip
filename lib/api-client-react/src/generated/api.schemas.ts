@@ -41,6 +41,12 @@ export interface PasswordLoginInput {
    * @maxLength 128
    */
   password: string;
+  /**
+   * @minLength 6
+   * @maxLength 8
+   * @pattern ^[0-9]{6,8}$
+   */
+  code?: string;
 }
 
 export interface PasswordSetupInput {
@@ -67,6 +73,182 @@ export interface PasswordSetupInput {
 export interface PasswordAccount {
   username: string;
   email: string;
+  totpEnabled: boolean;
+}
+
+export interface TotpSetupInput {
+  [key: string]: unknown;
+}
+
+export interface TotpSetup {
+  secret: string;
+  uri: string;
+  qr: string;
+}
+
+export interface TotpCodeInput {
+  /**
+   * @minLength 6
+   * @maxLength 8
+   * @pattern ^[0-9]{6,8}$
+   */
+  code: string;
+}
+
+export interface TotpDisableInput {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  currentPassword: string;
+  /**
+   * @minLength 6
+   * @maxLength 8
+   * @pattern ^[0-9]{6,8}$
+   */
+  code: string;
+}
+
+export interface AdminReseller {
+  telegramId: number;
+  username: string;
+  status: string;
+  createdAt: number;
+  balance: number;
+  reserved: number;
+  available: number;
+  customers: number;
+  activeCustomers: number;
+  creditsBought: number;
+  lastActivity: number;
+}
+
+export interface AdminResellerPage {
+  items: AdminReseller[];
+  page: number;
+  pageSize: number;
+  more: boolean;
+}
+
+export interface ResellerStatsWindow {
+  credits_bought: number;
+  credits_used: number;
+  tests_created: number;
+  subscriptions_created: number;
+  tests_converted: number;
+  conversion_rate: number;
+}
+
+export interface ResellerStats {
+  this_month: ResellerStatsWindow;
+  all_time: ResellerStatsWindow;
+}
+
+export interface LedgerEntry {
+  createdAt: number;
+  movement: number;
+  reason: string;
+  reference: string;
+}
+
+export interface AdminResellerDetail {
+  reseller: AdminReseller;
+  stats: ResellerStats;
+  history: LedgerEntry[];
+}
+
+export type ResellerStatusInputStatus =
+  (typeof ResellerStatusInputStatus)[keyof typeof ResellerStatusInputStatus];
+
+export const ResellerStatusInputStatus = {
+  active: "active",
+  suspended: "suspended",
+} as const;
+
+export interface ResellerStatusInput {
+  status: ResellerStatusInputStatus;
+  /**
+   * @minLength 3
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface ResellerCreditsInput {
+  /**
+   * @minimum -100000
+   * @maximum 100000
+   */
+  movement: number;
+  /**
+   * @minLength 3
+   * @maxLength 500
+   */
+  reason: string;
+  /**
+   * @minLength 8
+   * @maxLength 64
+   * @pattern ^[A-Za-z0-9_-]+$
+   */
+  requestKey: string;
+}
+
+export interface ReportMonth {
+  month: string;
+  retailOrders: number;
+  retailGbp: number;
+  creditPacks: number;
+  creditGbp: number;
+  totalGbp: number;
+  creditsSold: number;
+  creditsUsed: number;
+  tests: number;
+  testsConverted: number;
+}
+
+export interface AdminReports {
+  months: ReportMonth[];
+  resellers: AdminReseller[];
+}
+
+export interface RateCardPackage {
+  id: string;
+  pricePence: number;
+  credits: number;
+  active: boolean;
+}
+
+export interface RateCardCost {
+  months: number;
+  connections: number;
+  credits: number;
+}
+
+export interface AdminRateCard {
+  packages: RateCardPackage[];
+  costs: RateCardCost[];
+  trialDaily: number;
+  trialActive: number;
+}
+
+export type RateCardInputCategory =
+  (typeof RateCardInputCategory)[keyof typeof RateCardInputCategory];
+
+export const RateCardInputCategory = {
+  package: "package",
+  cost: "cost",
+  trials: "trials",
+} as const;
+
+export interface RateCardInput {
+  category: RateCardInputCategory;
+  /** @maxItems 4 */
+  values: (string | number | boolean)[];
+  /**
+   * @minLength 3
+   * @maxLength 500
+   */
+  reason: string;
 }
 
 export interface PasswordAccountInput {
@@ -118,6 +300,10 @@ export interface AdminOrderPage {
 }
 
 export interface AdminOverview {
+  creditsSoldMonth: number;
+  activeResellers: number;
+  testsConverted: number;
+  revenueMonthGbp: number;
   mode: string;
   total: number;
   fulfilled: number;
@@ -185,4 +371,23 @@ export type ListAdminOrdersParams = {
    * @minimum 1
    */
   page?: number;
+};
+
+export type ListAdminResellersParams = {
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type GetAdminReportsParams = {
+  /**
+   * @minimum 1
+   * @maximum 36
+   */
+  months?: number;
 };

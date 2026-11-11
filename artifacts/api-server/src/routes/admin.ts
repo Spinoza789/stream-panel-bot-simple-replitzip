@@ -3,6 +3,9 @@ import {
   ConfirmTrialRecoveryBody, GetAdminAccessResponse, GetAdminOverviewResponse,
   ListAdminOrdersQueryParams, ListAdminOrdersResponse, GetAdminOrderResponse,
   GetAdminStatusResponse, PreviewTrialRecoveryResponse, ConfirmTrialRecoveryResponse,
+  ListAdminResellersQueryParams, ListAdminResellersResponse, GetAdminResellerResponse,
+  SetAdminResellerStatusBody, AdjustAdminResellerCreditsBody, GetAdminReportsQueryParams, GetAdminReportsResponse,
+  GetAdminRateCardResponse, UpdateAdminRateCardBody,
 } from "@workspace/api-zod";
 import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
 import { adminRequest } from "../lib/python-bridge";
@@ -67,6 +70,32 @@ router.use(async (req, res) => {
       const parsed = ConfirmTrialRecoveryBody.safeParse(req.body);
       if (!parsed.success) { res.status(400).json({ error: "Invalid recovery confirmation." }); return; }
       target = req.path; schema = ConfirmTrialRecoveryResponse; body = parsed.data;
+    } else if (req.method === "GET" && req.path === "/resellers") {
+      const parsed = ListAdminResellersQueryParams.safeParse(req.query);
+      if (!parsed.success) { res.status(400).json({ error: "Invalid reseller filters." }); return; }
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(parsed.data)) if (value !== undefined) params.set(key, String(value));
+      target = "/resellers?" + params.toString(); schema = ListAdminResellersResponse;
+    } else if (req.method === "GET" && /^\/resellers\/[1-9][0-9]{0,18}$/.test(req.path)) {
+      target = req.path; schema = GetAdminResellerResponse;
+    } else if (req.method === "POST" && /^\/resellers\/[1-9][0-9]{0,18}\/status$/.test(req.path)) {
+      const parsed = SetAdminResellerStatusBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Choose active or suspended and give a reason." }); return; }
+      target = req.path; schema = GetAdminResellerResponse; body = parsed.data;
+    } else if (req.method === "POST" && /^\/resellers\/[1-9][0-9]{0,18}\/credits$/.test(req.path)) {
+      const parsed = AdjustAdminResellerCreditsBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Enter whole credits, a reason and a request key." }); return; }
+      target = req.path; schema = GetAdminResellerResponse; body = parsed.data;
+    } else if (req.method === "GET" && req.path === "/reports") {
+      const parsed = GetAdminReportsQueryParams.safeParse(req.query);
+      if (!parsed.success) { res.status(400).json({ error: "Invalid report range." }); return; }
+      target = "/reports?months=" + String(parsed.data.months ?? 12); schema = GetAdminReportsResponse;
+    } else if (req.method === "GET" && req.path === "/ratecard") {
+      target = "/ratecard"; schema = GetAdminRateCardResponse;
+    } else if (req.method === "POST" && req.path === "/ratecard") {
+      const parsed = UpdateAdminRateCardBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Invalid rate card change." }); return; }
+      target = "/ratecard"; schema = GetAdminRateCardResponse; body = parsed.data;
     } else { res.status(404).json({ error: "Admin operation not found." }); return; }
     const upstream = await adminRequest(res.locals.adminActor, req.method, "/api/_admin" + target, body);
     const data = await upstream.json();

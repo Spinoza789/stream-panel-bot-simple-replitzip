@@ -73,25 +73,36 @@ export function SignInPage() {
   const after = useAfterAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [needCode, setNeedCode] = useState(false);
   const [touched, setTouched] = useState(false);
 
   if (!isLoading && isAuthenticated) return <Redirect to="/dashboard" />;
 
   const idErr = touched && identifier.trim().length < 3 ? "Enter your username or email." : undefined;
   const pwErr = touched && !password ? "Enter your password." : undefined;
+  const codeErr = touched && needCode && !/^[0-9]{6}$/.test(code) ? "Enter the 6-digit code from your authenticator app." : undefined;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (identifier.trim().length < 3 || !password || login.isPending) return;
+    if (identifier.trim().length < 3 || !password || login.isPending || (needCode && !/^[0-9]{6}$/.test(code))) return;
     login.mutate(
-      { data: { identifier: identifier.trim(), password } },
-      { onSuccess: (env) => { setPassword(""); void after(env); }, onError: () => setPassword("") },
+      { data: { identifier: identifier.trim(), password, ...(needCode && code ? { code } : {}) } },
+      {
+        onSuccess: (env) => { setPassword(""); setCode(""); void after(env); },
+        onError: (err) => {
+          const data = (err as { data?: { code?: string } })?.data;
+          if (data?.code === "totp_required") { setNeedCode(true); setTouched(false); return; }  // keep the password; just ask for the code
+          setPassword(""); setCode("");
+        },
+      },
     );
   };
 
   const st = login.isError ? errorStatus(login.error) : undefined;
-  const fail = st === 401 || st === 403 ? "That username, email or password isn't right." : st === 429 ? "Too many attempts. Wait a few minutes and try again." : login.isError ? errorMessage(login.error) : "";
+  const totpPrompt = login.isError && (login.error as { data?: { code?: string } })?.data?.code === "totp_required";
+  const fail = totpPrompt ? "" : st === 401 || st === 403 ? (needCode ? errorMessage(login.error) : "That username, email or password isn't right.") : st === 429 ? "Too many attempts. Wait a few minutes and try again." : login.isError ? errorMessage(login.error) : "";
 
   const s = status.data;
   return (
@@ -113,6 +124,9 @@ export function SignInPage() {
         <form onSubmit={submit} noValidate className="space-y-4" data-testid="form-sign-in">
           <Field label="Username or email" testid="input-identifier" name="username" autoComplete="username" value={identifier} maxLength={254} onChange={(e) => setIdentifier(e.target.value)} error={idErr} autoFocus />
           <Field label="Password" testid="input-password" name="password" secret autoComplete="current-password" value={password} maxLength={128} onChange={(e) => setPassword(e.target.value)} error={pwErr} />
+          {needCode && (
+            <Field label="Authenticator code" testid="input-totp" name="one-time-code" inputMode="numeric" autoComplete="one-time-code" className="font-mono tracking-widest" value={code} maxLength={6} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} error={codeErr} hint="Two-factor sign-in is on for this account. Open your authenticator app." autoFocus />
+          )}
           {fail && <FormAlert testid="text-login-error">{fail}</FormAlert>}
           <Button type="submit" className="h-10 w-full" disabled={login.isPending} data-testid="button-sign-in">
             {login.isPending ? "Signing in..." : "Sign in"}

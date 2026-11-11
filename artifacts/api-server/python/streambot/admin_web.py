@@ -129,10 +129,24 @@ def register_admin(app, service):
             trials = db.execute("SELECT COUNT(*) FROM orders WHERE kind='trial'").fetchone()[0]
             recent = db.execute('SELECT * FROM orders ORDER BY created_at DESC,id DESC LIMIT 8').fetchall()
         totals = {row['status']: row['n'] for row in counts}
+        extra = dict(creditsSoldMonth=0, activeResellers=0, testsConverted=0, revenueMonthGbp=0.0)
+        if service.resellers.ready:
+            month = service.resellers.finance.month_start()
+            with store.connection() as db:
+                extra['creditsSoldMonth'] = int(db.execute("SELECT COALESCE(SUM(credits),0) FROM rs_purchases WHERE status='granted' AND created_at>=?", (month,)).fetchone()[0])
+                extra['activeResellers'] = int(db.execute("SELECT COUNT(*) FROM rs_resellers WHERE status='active'").fetchone()[0])
+                extra['testsConverted'] = int(db.execute("SELECT COUNT(*) FROM rs_subscriptions WHERE converted_at IS NOT NULL").fetchone()[0])
+                packs = db.execute("SELECT COALESCE(SUM(amount_pence),0) FROM rs_purchases WHERE status='granted' AND created_at>=?", (month,)).fetchone()[0]
+                retail = db.execute("SELECT o.plan_json FROM orders o JOIN payments p ON p.order_id=o.id WHERE o.kind='paid' AND o.created_at>=?", (month,)).fetchall()
+            revenue = packs / 100
+            for row in retail:
+                plan = json.loads(row['plan_json'])
+                if not plan.get('reseller_purchase'): revenue += float(plan.get('gbp_price') or 0)
+            extra['revenueMonthGbp'] = round(revenue, 2)
         return jsonify(mode=service.config['mode'], total=sum(totals.values()), trials=trials,
                        fulfilled=totals.get('fulfilled', 0), review=totals.get('review', 0),
                        queued=totals.get('paid', 0) + totals.get('provisioning', 0),
-                       pending=totals.get('pending', 0), recent=[safe(row) for row in recent])
+                       pending=totals.get('pending', 0), recent=[safe(row) for row in recent], **extra)
 
     @routes.get('/orders')
     def orders():
@@ -184,6 +198,109 @@ def register_admin(app, service):
         }
         return jsonify(order=safe(row), message=messages.get(row['status'], 'Check order status.'),
                        recoveryEligible=eligible, recoveryReason=reason)
+
+    # ---- resellers, reports, rate card (website owner acts through the bridge actor) ----
+    def finance():
+        if not service.resellers.ready: raise CheckoutError('Reseller tables are not present in this database.')
+        return service.resellers.finance
+
+    def reseller_public(row):
+        return dict(telegramId=row['telegram_id'], username=row['username'], status=row['status'], createdAt=row['created_at'],
+                    balance=row['balance'], reserved=row['reserved'], available=row['available'], customers=row['customers'],
+                    activeCustomers=row['active_customers'], creditsBought=row['credits_bought'], lastActivity=row['last_activity'])
+
+    def reseller_detail(telegram_id):
+        f = finance()
+        rows = [r for r in f.summary(request.admin_actor, str(telegram_id)) if r['telegram_id'] == telegram_id]
+        if not rows: raise CheckoutError('Reseller not found.')
+        history = f.history(telegram_id, 0)[:10]
+        return dict(reseller=reseller_public(rows[0]), stats=f.stats(telegram_id),
+                    history=[dict(createdAt=h['created_at'], movement=h['movement'], reason=h['reason'], reference=h['reference']) for h in history])
+
+    def reseller_id(value):
+        if not re.fullmatch(r'[1-9][0-9]{0,18}', value): raise CheckoutError('Invalid reseller.')
+        return int(value)
+
+    @routes.get('/resellers')
+    def resellers():
+        try: page = int(request.args.get('page', '1'))
+        except ValueError: raise CheckoutError('Invalid page.') from None
+        if not 1 <= page <= 100000: raise CheckoutError('Invalid page.')
+        q = request.args.get('q', '')[:80]
+        rows = finance().summary(request.admin_actor, q, page - 1)
+        return jsonify(items=[reseller_public(r) for r in rows[:25]], page=page, pageSize=25, more=len(rows) > 25)
+
+    @routes.get('/resellers/<telegram_id>')
+    def reseller(telegram_id):
+        return jsonify(reseller_detail(reseller_id(telegram_id)))
+
+    @routes.post('/resellers/<telegram_id>/status')
+    def reseller_status(telegram_id):
+        uid = reseller_id(telegram_id)
+        data = request.get_json(silent=True) or {}
+        finance().account_status(request.admin_actor, uid, str(data.get('status', '')), str(data.get('reason', '')))
+        return jsonify(reseller_detail(uid))
+
+    @routes.post('/resellers/<telegram_id>/credits')
+    def reseller_credits(telegram_id):
+        uid = reseller_id(telegram_id)
+        data = request.get_json(silent=True) or {}
+        movement = data.get('movement')
+        if type(movement) is not int: raise CheckoutError('Credits must be a whole number.')
+        key = str(data.get('requestKey', ''))
+        if not re.fullmatch(r'[A-Za-z0-9_-]{8,64}', key): raise CheckoutError('A request key is required.')
+        finance().adjust(request.admin_actor, uid, movement, str(data.get('reason', '')), key)
+        return jsonify(reseller_detail(uid))
+
+    @routes.get('/reports')
+    def reports():
+        try: months = int(request.args.get('months', '12'))
+        except ValueError: raise CheckoutError('Invalid range.') from None
+        report = finance().report(request.admin_actor, months)
+        return jsonify(months=[dict(month=m['month'], retailOrders=m['retail_orders'], retailGbp=m['retail_gbp'], creditPacks=m['credit_packs'],
+                                    creditGbp=m['credit_gbp'], totalGbp=m['total_gbp'], creditsSold=m['credits_sold'], creditsUsed=m['credits_used'],
+                                    tests=m['tests'], testsConverted=m['tests_converted']) for m in report['months']],
+                       resellers=[reseller_public(r) for r in report['resellers']])
+
+    def rate_card():
+        f = finance(); f.seed()
+        with store.connection() as db:
+            costs = [dict(months=r['months'], connections=r['connections'], credits=r['credits']) for r in
+                     db.execute('SELECT months,connections,credits FROM rs_costs ORDER BY months,connections').fetchall()]
+            settings = {r['key']: r['value'] for r in db.execute('SELECT key,value FROM rs_settings').fetchall()}
+        return dict(packages=[dict(id=p['id'], pricePence=p['price_pence'], credits=p['credits'], active=bool(p['active'])) for p in f.packages()],
+                    costs=costs, trialDaily=int(settings.get('trial_daily', 0)), trialActive=int(settings.get('trial_active', 0)))
+
+    @routes.get('/ratecard')
+    def get_rate_card():
+        finance().admin(request.admin_actor)
+        return jsonify(rate_card())
+
+    @routes.post('/ratecard')
+    def update_rate_card():
+        data = request.get_json(silent=True) or {}
+        category, values, reason = data.get('category'), data.get('values'), str(data.get('reason', ''))
+        if not isinstance(values, list): raise CheckoutError('Invalid values.')
+        if category == 'package':
+            pid, price, credits, active = (str(values[0]), int(values[1]), int(values[2]), int(bool(values[3]))) if len(values) == 4 else (None,) * 4
+            finance().configure(request.admin_actor, 'package', (pid, price, credits, active), reason)
+        elif category == 'cost':
+            if len(values) != 3: raise CheckoutError('Invalid values.')
+            finance().configure(request.admin_actor, 'cost', (int(values[0]), int(values[1]), int(values[2])), reason)
+        elif category == 'trials':
+            if len(values) != 2: raise CheckoutError('Invalid values.')
+            finance().configure(request.admin_actor, 'trials', (int(values[0]), int(values[1])), reason)
+        else: raise CheckoutError('Unknown configuration option.')
+        return jsonify(rate_card())
+
+    @routes.post('/auth/qr')
+    def auth_qr():
+        # Bridge-only helper: renders the owner's authenticator enrolment URI as a PNG data URL.
+        import base64, io, qrcode
+        uri = str((request.get_json(silent=True) or {}).get('uri', ''))
+        if not uri.startswith('otpauth://totp/') or len(uri) > 400: raise CheckoutError('Invalid enrolment URI.')
+        buffer = io.BytesIO(); qrcode.make(uri).save(buffer, format='PNG')
+        return jsonify(qr='data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode())
 
     @routes.get('/status')
     def status():

@@ -1,8 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth, displayName } from "@/lib/auth";
 import { useGetAdminOverview, getGetAdminOverviewQueryKey } from "@workspace/api-client-react";
-import { Home, Hourglass, LogOut, Menu, Package, Search, Settings2, X } from "lucide-react";
+import { BarChart3, Home, Hourglass, LogOut, Menu, Moon, Package, Search, Settings2, Sun, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./bits";
 import { AccessGate, LIVE, useAdminReady } from "./access";
@@ -15,8 +15,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
   );
 }
 
+function useTheme() {
+  const [dark, setDark] = useState(() => { try { return localStorage.getItem("admin-theme") === "dark"; } catch { return false; } });
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    try { localStorage.setItem("admin-theme", dark ? "dark" : "light"); } catch { /* private mode */ }
+  }, [dark]);
+  return [dark, setDark] as const;
+}
+
 function Frame({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [dark, setDark] = useTheme();
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
   const { user, logout } = useAuth();
@@ -47,6 +57,9 @@ function Frame({ children }: { children: ReactNode }) {
           />
         </form>
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <button onClick={() => setDark(!dark)} className="rounded-md p-1.5 text-[#b5b5b5] transition-colors hover:bg-white/10 hover:text-white" title={dark ? "Switch to light" : "Switch to dark"} aria-label="Toggle dark mode" data-testid="button-theme">
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           <span className="hidden text-sm text-[#e3e3e3] sm:inline" data-testid="text-user-email">{name}</span>
           {user?.profileImageUrl ? (
             <img src={user.profileImageUrl} alt="" className="h-7 w-7 rounded-md object-cover" />
@@ -89,6 +102,8 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
     { href: "/dashboard", label: "Home", icon: Home, count: undefined as number | undefined, hot: false },
     { href: "/orders", label: "Orders", icon: Package, count: ov.data?.review, hot: true },
     { href: "/trials", label: "Trials", icon: Hourglass, count: ov.data?.trials, hot: false },
+    { href: "/resellers", label: "Resellers", icon: Users, count: ov.data?.activeResellers, hot: false },
+    { href: "/reports", label: "Reports", icon: BarChart3, count: undefined, hot: false },
     { href: "/settings", label: "Settings", icon: Settings2, count: undefined, hot: false },
   ];
   return (
@@ -103,13 +118,13 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
             data-testid={`link-nav-${it.label.toLowerCase()}`}
             className={cn(
               "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
-              active ? "bg-white text-foreground shadow-[0_1px_0_rgba(0,0,0,0.05)]" : "text-sidebar-foreground hover:bg-black/5",
+              active ? "bg-white text-foreground shadow-[0_1px_0_rgba(0,0,0,0.05)] dark:bg-white/10 dark:text-white" : "text-sidebar-foreground hover:bg-black/5 dark:hover:bg-white/5",
             )}
           >
-            <it.icon className={cn("h-[18px] w-[18px]", active ? "text-[#29845a]" : "text-[#4a4a4a]")} />
+            <it.icon className={cn("h-[18px] w-[18px]", active ? "text-[#29845a]" : "text-[#4a4a4a] dark:text-[#a3a3a3]")} />
             {it.label}
             {!!it.count && (
-              <span className={cn("ml-auto rounded-md px-1.5 py-px text-[11px] font-semibold", it.hot ? "bg-[#ffd79d] text-[#5e4200]" : "bg-[#e3e3e3] text-foreground")} title={it.label === "Orders" ? "In review" : "Trials"}>
+              <span className={cn("ml-auto rounded-md px-1.5 py-px text-[11px] font-semibold", it.hot ? "bg-[#ffd79d] text-[#5e4200]" : "bg-[#e3e3e3] text-foreground dark:bg-white/10")} title={it.label === "Orders" ? "In review" : it.label === "Resellers" ? "Active resellers" : "Trials"}>
                 {it.count}
               </span>
             )}

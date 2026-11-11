@@ -26,20 +26,33 @@ import type {
   AdminOrderDetail,
   AdminOrderPage,
   AdminOverview,
+  AdminRateCard,
+  AdminReports,
+  AdminResellerDetail,
+  AdminResellerPage,
   AdminStatus,
   AuthUserEnvelope,
+  GetAdminReportsParams,
   HealthStatus,
   ListAdminOrdersParams,
+  ListAdminResellersParams,
   PasswordAccount,
   PasswordAccountInput,
   PasswordAuthStatus,
   PasswordLoginInput,
   PasswordLogoutInput,
   PasswordSetupInput,
+  RateCardInput,
   RecoveryConfirmation,
   RecoveryDraft,
   RecoveryPreviewInput,
   RecoveryResult,
+  ResellerCreditsInput,
+  ResellerStatusInput,
+  TotpCodeInput,
+  TotpDisableInput,
+  TotpSetup,
+  TotpSetupInput,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1916,6 +1929,1331 @@ export const useConfirmTrialRecovery = <
 > => {
   return useMutation(
     getConfirmTrialRecoveryMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getSetupTotpUrl = () => {
+  return `/api/auth/totp/setup`;
+};
+
+export const setupTotp = async (
+  totpSetupInput: TotpSetupInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<TotpSetup> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<TotpSetup>(getSetupTotpUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(totpSetupInput),
+  });
+};
+
+export const getSetupTotpMutationKey = () => ["setupTotp"] as const;
+
+export const getSetupTotpMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setupTotp>>,
+    TError,
+    SetupTotpMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setupTotp>>,
+  TError,
+  SetupTotpMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetupTotpMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setupTotp>>,
+    SetupTotpMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setupTotp(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetupTotpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setupTotp>>
+>;
+export type SetupTotpMutationBody = BodyType<TotpSetupInput>;
+export type SetupTotpMutationError = ErrorType<unknown>;
+export type SetupTotpMutationVariables = { data: BodyType<TotpSetupInput> };
+
+export const useSetupTotp = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setupTotp>>,
+      TError,
+      SetupTotpMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setupTotp>>,
+  TError,
+  SetupTotpMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetupTotpMutationOptions(options), queryClient);
+};
+
+export const getEnableTotpUrl = () => {
+  return `/api/auth/totp/enable`;
+};
+
+export const enableTotp = async (
+  totpCodeInput: TotpCodeInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<PasswordAccount> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<PasswordAccount>(getEnableTotpUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(totpCodeInput),
+  });
+};
+
+export const getEnableTotpMutationKey = () => ["enableTotp"] as const;
+
+export const getEnableTotpMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof enableTotp>>,
+    TError,
+    EnableTotpMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof enableTotp>>,
+  TError,
+  EnableTotpMutationVariables,
+  TContext
+> => {
+  const mutationKey = getEnableTotpMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof enableTotp>>,
+    EnableTotpMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return enableTotp(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EnableTotpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof enableTotp>>
+>;
+export type EnableTotpMutationBody = BodyType<TotpCodeInput>;
+export type EnableTotpMutationError = ErrorType<unknown>;
+export type EnableTotpMutationVariables = { data: BodyType<TotpCodeInput> };
+
+export const useEnableTotp = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof enableTotp>>,
+      TError,
+      EnableTotpMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof enableTotp>>,
+  TError,
+  EnableTotpMutationVariables,
+  TContext
+> => {
+  return useMutation(getEnableTotpMutationOptions(options), queryClient);
+};
+
+export const getDisableTotpUrl = () => {
+  return `/api/auth/totp/disable`;
+};
+
+export const disableTotp = async (
+  totpDisableInput: TotpDisableInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<PasswordAccount> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<PasswordAccount>(getDisableTotpUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(totpDisableInput),
+  });
+};
+
+export const getDisableTotpMutationKey = () => ["disableTotp"] as const;
+
+export const getDisableTotpMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableTotp>>,
+    TError,
+    DisableTotpMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disableTotp>>,
+  TError,
+  DisableTotpMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDisableTotpMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disableTotp>>,
+    DisableTotpMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return disableTotp(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisableTotpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disableTotp>>
+>;
+export type DisableTotpMutationBody = BodyType<TotpDisableInput>;
+export type DisableTotpMutationError = ErrorType<unknown>;
+export type DisableTotpMutationVariables = { data: BodyType<TotpDisableInput> };
+
+export const useDisableTotp = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof disableTotp>>,
+      TError,
+      DisableTotpMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof disableTotp>>,
+  TError,
+  DisableTotpMutationVariables,
+  TContext
+> => {
+  return useMutation(getDisableTotpMutationOptions(options), queryClient);
+};
+
+export const getListAdminResellersUrl = (params?: ListAdminResellersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/resellers?${stringifiedParams}`
+    : `/api/admin/resellers`;
+};
+
+export const listAdminResellers = async (
+  params?: ListAdminResellersParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminResellerPage> => {
+  return customFetch<AdminResellerPage>(getListAdminResellersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminResellersQueryKey = (
+  params?: ListAdminResellersParams,
+) => {
+  return [`/api/admin/resellers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminResellersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminResellers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminResellersParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminResellers>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminResellersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminResellers>>
+  > = ({ signal }) => listAdminResellers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminResellers>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListAdminResellersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminResellers>>
+>;
+export type ListAdminResellersQueryError = ErrorType<unknown>;
+
+export function useListAdminResellers<
+  TData = Awaited<ReturnType<typeof listAdminResellers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: undefined | ListAdminResellersParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminResellers>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminResellers>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminResellers>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminResellers<
+  TData = Awaited<ReturnType<typeof listAdminResellers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminResellersParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminResellers>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminResellers>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminResellers>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminResellers<
+  TData = Awaited<ReturnType<typeof listAdminResellers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminResellersParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminResellers>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useListAdminResellers<
+  TData = Awaited<ReturnType<typeof listAdminResellers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminResellersParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminResellers>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListAdminResellersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getGetAdminResellerUrl = (id: string) => {
+  return `/api/admin/resellers/${id}`;
+};
+
+export const getAdminReseller = async (
+  id: string,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminResellerDetail> => {
+  return customFetch<AdminResellerDetail>(getGetAdminResellerUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminResellerQueryKey = (id: string) => {
+  return [`/api/admin/resellers/${id}`] as const;
+};
+
+export const getGetAdminResellerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminReseller>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReseller>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminResellerQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminReseller>>
+  > = ({ signal }) => getAdminReseller(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: id !== null && id !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminReseller>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetAdminResellerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminReseller>>
+>;
+export type GetAdminResellerQueryError = ErrorType<unknown>;
+
+export function useGetAdminReseller<
+  TData = Awaited<ReturnType<typeof getAdminReseller>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReseller>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminReseller>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminReseller>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAdminReseller<
+  TData = Awaited<ReturnType<typeof getAdminReseller>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReseller>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminReseller>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminReseller>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAdminReseller<
+  TData = Awaited<ReturnType<typeof getAdminReseller>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReseller>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetAdminReseller<
+  TData = Awaited<ReturnType<typeof getAdminReseller>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReseller>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetAdminResellerQueryOptions(id, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSetAdminResellerStatusUrl = (id: string) => {
+  return `/api/admin/resellers/${id}/status`;
+};
+
+export const setAdminResellerStatus = async (
+  id: string,
+  resellerStatusInput: ResellerStatusInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminResellerDetail> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AdminResellerDetail>(getSetAdminResellerStatusUrl(id), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(resellerStatusInput),
+  });
+};
+
+export const getSetAdminResellerStatusMutationKey = () =>
+  ["setAdminResellerStatus"] as const;
+
+export const getSetAdminResellerStatusMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAdminResellerStatus>>,
+    TError,
+    SetAdminResellerStatusMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setAdminResellerStatus>>,
+  TError,
+  SetAdminResellerStatusMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetAdminResellerStatusMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setAdminResellerStatus>>,
+    SetAdminResellerStatusMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setAdminResellerStatus(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetAdminResellerStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAdminResellerStatus>>
+>;
+export type SetAdminResellerStatusMutationBody = BodyType<ResellerStatusInput>;
+export type SetAdminResellerStatusMutationError = ErrorType<unknown>;
+export type SetAdminResellerStatusMutationVariables = {
+  id: string;
+  data: BodyType<ResellerStatusInput>;
+};
+
+export const useSetAdminResellerStatus = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setAdminResellerStatus>>,
+      TError,
+      SetAdminResellerStatusMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setAdminResellerStatus>>,
+  TError,
+  SetAdminResellerStatusMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getSetAdminResellerStatusMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getAdjustAdminResellerCreditsUrl = (id: string) => {
+  return `/api/admin/resellers/${id}/credits`;
+};
+
+export const adjustAdminResellerCredits = async (
+  id: string,
+  resellerCreditsInput: ResellerCreditsInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminResellerDetail> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AdminResellerDetail>(
+    getAdjustAdminResellerCreditsUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(resellerCreditsInput),
+    },
+  );
+};
+
+export const getAdjustAdminResellerCreditsMutationKey = () =>
+  ["adjustAdminResellerCredits"] as const;
+
+export const getAdjustAdminResellerCreditsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adjustAdminResellerCredits>>,
+    TError,
+    AdjustAdminResellerCreditsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adjustAdminResellerCredits>>,
+  TError,
+  AdjustAdminResellerCreditsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAdjustAdminResellerCreditsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adjustAdminResellerCredits>>,
+    AdjustAdminResellerCreditsMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adjustAdminResellerCredits(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdjustAdminResellerCreditsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adjustAdminResellerCredits>>
+>;
+export type AdjustAdminResellerCreditsMutationBody =
+  BodyType<ResellerCreditsInput>;
+export type AdjustAdminResellerCreditsMutationError = ErrorType<unknown>;
+export type AdjustAdminResellerCreditsMutationVariables = {
+  id: string;
+  data: BodyType<ResellerCreditsInput>;
+};
+
+export const useAdjustAdminResellerCredits = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof adjustAdminResellerCredits>>,
+      TError,
+      AdjustAdminResellerCreditsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof adjustAdminResellerCredits>>,
+  TError,
+  AdjustAdminResellerCreditsMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAdjustAdminResellerCreditsMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getGetAdminReportsUrl = (params?: GetAdminReportsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/reports?${stringifiedParams}`
+    : `/api/admin/reports`;
+};
+
+export const getAdminReports = async (
+  params?: GetAdminReportsParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminReports> => {
+  return customFetch<AdminReports>(getGetAdminReportsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminReportsQueryKey = (params?: GetAdminReportsParams) => {
+  return [`/api/admin/reports`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAdminReportsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminReports>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAdminReportsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReports>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminReportsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminReports>>> = ({
+    signal,
+  }) => getAdminReports(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminReports>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetAdminReportsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminReports>>
+>;
+export type GetAdminReportsQueryError = ErrorType<unknown>;
+
+export function useGetAdminReports<
+  TData = Awaited<ReturnType<typeof getAdminReports>>,
+  TError = ErrorType<unknown>,
+>(
+  params: undefined | GetAdminReportsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReports>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminReports>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminReports>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAdminReports<
+  TData = Awaited<ReturnType<typeof getAdminReports>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAdminReportsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReports>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminReports>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminReports>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAdminReports<
+  TData = Awaited<ReturnType<typeof getAdminReports>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAdminReportsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReports>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetAdminReports<
+  TData = Awaited<ReturnType<typeof getAdminReports>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAdminReportsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminReports>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetAdminReportsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getGetAdminRateCardUrl = () => {
+  return `/api/admin/ratecard`;
+};
+
+export const getAdminRateCard = async (
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminRateCard> => {
+  return customFetch<AdminRateCard>(getGetAdminRateCardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminRateCardQueryKey = () => {
+  return [`/api/admin/ratecard`] as const;
+};
+
+export const getGetAdminRateCardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminRateCard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof getAdminRateCard>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminRateCardQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminRateCard>>
+  > = ({ signal }) => getAdminRateCard({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminRateCard>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetAdminRateCardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminRateCard>>
+>;
+export type GetAdminRateCardQueryError = ErrorType<unknown>;
+
+export function useGetAdminRateCard<
+  TData = Awaited<ReturnType<typeof getAdminRateCard>>,
+  TError = ErrorType<unknown>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminRateCard>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminRateCard>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminRateCard>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAdminRateCard<
+  TData = Awaited<ReturnType<typeof getAdminRateCard>>,
+  TError = ErrorType<unknown>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminRateCard>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminRateCard>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminRateCard>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetAdminRateCard<
+  TData = Awaited<ReturnType<typeof getAdminRateCard>>,
+  TError = ErrorType<unknown>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminRateCard>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetAdminRateCard<
+  TData = Awaited<ReturnType<typeof getAdminRateCard>>,
+  TError = ErrorType<unknown>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getAdminRateCard>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetAdminRateCardQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateAdminRateCardUrl = () => {
+  return `/api/admin/ratecard`;
+};
+
+export const updateAdminRateCard = async (
+  rateCardInput: RateCardInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminRateCard> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AdminRateCard>(getUpdateAdminRateCardUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(rateCardInput),
+  });
+};
+
+export const getUpdateAdminRateCardMutationKey = () =>
+  ["updateAdminRateCard"] as const;
+
+export const getUpdateAdminRateCardMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminRateCard>>,
+    TError,
+    UpdateAdminRateCardMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminRateCard>>,
+  TError,
+  UpdateAdminRateCardMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateAdminRateCardMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminRateCard>>,
+    UpdateAdminRateCardMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateAdminRateCard(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminRateCardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminRateCard>>
+>;
+export type UpdateAdminRateCardMutationBody = BodyType<RateCardInput>;
+export type UpdateAdminRateCardMutationError = ErrorType<unknown>;
+export type UpdateAdminRateCardMutationVariables = {
+  data: BodyType<RateCardInput>;
+};
+
+export const useUpdateAdminRateCard = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateAdminRateCard>>,
+      TError,
+      UpdateAdminRateCardMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminRateCard>>,
+  TError,
+  UpdateAdminRateCardMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getUpdateAdminRateCardMutationOptions(options),
     queryClient,
   );
 };

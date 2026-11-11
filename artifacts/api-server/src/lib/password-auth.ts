@@ -27,6 +27,8 @@ export async function verifyPassword(value: string, encoded: string): Promise<bo
 }
 export interface PasswordProfile {
   id: string; username: string; email: string; passwordHash: string; version: number;
+  /** Two-factor sign-in. Present only once the owner has confirmed a code from their authenticator app. */
+  totp?: { secret: string; enabledAt: number };
 }
 export function serviceActor(id = "auth_service"): string {
   return `local:${id}:${randomBytes(32).toString("hex")}`;

@@ -59,6 +59,45 @@ class AdminWebTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         return result.json['nonce']
 
+    def test_owner_manages_resellers_reports_and_rate_card_through_the_bridge(self):
+        finance = self.service.resellers.finance
+        finance.register(777, 'shop_one'); finance.account_status(self.actor, 777, 'active', 'Approved from the website')
+        finance.register(778, 'shop_two')
+        page = self.call('/resellers?q=shop').json
+        self.assertEqual({r['telegramId'] for r in page['items']}, {777, 778})
+        one = [r for r in page['items'] if r['telegramId'] == 777][0]
+        self.assertEqual((one['status'], one['available'], one['customers']), ('active', 0, 0))
+        credited = self.call('/resellers/777/credits', {'movement': 25, 'reason': 'bank:TEST-REF-1', 'requestKey': 'web-adjust-0001'}).json
+        self.assertEqual(credited['reseller']['available'], 25)
+        self.assertEqual(credited['history'][0]['movement'], 25)
+        # the same request key is idempotent; a bad one is refused
+        self.assertEqual(self.call('/resellers/777/credits', {'movement': 25, 'reason': 'bank:TEST-REF-1', 'requestKey': 'web-adjust-0001'}).json['reseller']['available'], 25)
+        self.assertEqual(self.call('/resellers/777/credits', {'movement': 5, 'reason': 'x', 'requestKey': 'bad'}).status_code, 400)
+        suspended = self.call('/resellers/777/status', {'status': 'suspended', 'reason': 'Chargeback dispute'}).json
+        self.assertEqual(suspended['reseller']['status'], 'suspended')
+        self.assertEqual(self.call('/resellers/777/status', {'status': 'deleted', 'reason': 'nope'}).status_code, 400)
+        self.assertIn(self.call('/resellers/1').status_code, (400, 404))
+        with self.store.connection() as db:
+            audit = db.execute("SELECT administrator,details FROM rs_audit WHERE action='suspended'").fetchone()
+        self.assertEqual(audit['administrator'], 0)
+        self.assertIn(self.actor, audit['details'])
+        reports = self.call('/reports?months=6').json
+        self.assertIn('months', reports)
+        self.assertEqual(len(reports['resellers']), 2)
+        card = self.call('/ratecard').json
+        self.assertEqual(card['packages'][0]['id'], '100')
+        updated = self.call('/ratecard', {'category': 'package', 'values': ['100', 12000, 40, True], 'reason': 'Price test'}).json
+        self.assertEqual((updated['packages'][0]['pricePence'], updated['packages'][0]['credits']), (12000, 40))
+        updated = self.call('/ratecard', {'category': 'cost', 'values': [1, 1, 2], 'reason': 'Cost test'}).json
+        self.assertEqual([c for c in updated['costs'] if c['months'] == 1 and c['connections'] == 1][0]['credits'], 2)
+        self.assertEqual(self.call('/ratecard', {'category': 'cost', 'values': [2, 1, 2], 'reason': 'bad months'}).status_code, 400)
+        overview = self.call('/overview').json
+        self.assertEqual(overview['activeResellers'], 0)  # 777 is suspended, 778 pending
+        self.assertIn('revenueMonthGbp', overview)
+        qr = self.call('/auth/qr', {'uri': 'otpauth://totp/Streamline%20Admin:owner%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Streamline%20Admin'}).json
+        self.assertTrue(qr['qr'].startswith('data:image/png;base64,'))
+        self.assertEqual(self.call('/auth/qr', {'uri': 'https://evil.example'}).status_code, 400)
+
     def test_all_routes_reject_browser_identity_headers(self):
         for method, path in [('GET', '/overview'), ('GET', '/orders'), ('GET', '/status'),
                              ('GET', '/orders/' + self.order['id']),

@@ -150,15 +150,28 @@ class ResellerBot:
                             [button('📲 Customer setup guide','apps')]],keep=True,parse_mode='HTML')  # send() appends the dashboard button
         self.store.metadata(key,'sent')
 
+    def _progress(self,state):
+        """One-line summary of the choices so far, shown above every wizard step."""
+        kind={'create':'New subscription','trial':'New 24-hour test','extend':'Extend subscription'}.get(state.get('kind'),'New request')
+        parts=[kind]
+        if state.get('months'):parts.append(('1 month' if state['months']==1 else str(state['months'])+' months'))
+        if state.get('connections') and state.get('kind')!='trial':parts.append(str(state['connections'])+' device'+('s' if state['connections']>1 else ''))
+        if 'adult' in state and state.get('kind')=='create':parts.append('with adult' if state['adult'] else 'no adult')
+        return ' · '.join(parts)
+
     def _durations(self,uid):
-        self.send(uid,'How long should the subscription run?',[[button('1 month' if months==1 else str(months)+' months','duration:'+str(months))] for months in (1,3,6,9,12)])
+        state=self.state(uid) or {}
+        self.send(uid,self._progress(state)+'\n\nStep 1 of 4 · How long should the subscription run?',
+                  [[button('1 month' if months==1 else str(months)+' months','duration:'+str(months))] for months in (1,3,6,9,12)])
 
     def _content(self,uid):
-        self.send(uid,'Choose the content option:',[[button('With adult','adult:1'),button('No adult','adult:0')]])
+        state=self.state(uid) or {}
+        self.send(uid,self._progress(state)+'\n\nStep 3 of 4 · Content:',[[button('With adult','adult:1'),button('No adult','adult:0')]])
 
     def _reference(self,uid,state):
         state['input']='reference';self.state(uid,state)
-        self.send(uid,'Send an optional customer name or reference (up to 100 characters), or skip it.',[[button('Skip customer reference','skip')]])
+        step='Step 2 of 2' if state.get('kind')=='trial' else 'Step 4 of 4'
+        self.send(uid,self._progress(state)+'\n\n'+step+' · Type the customer\'s name or a note (up to 100 characters), or skip it.',[[button('Skip','skip')]])
 
     def _details(self,uid,sid):
         record,warning,extensions=self.r.ops.refresh(uid,sid)
@@ -287,7 +300,7 @@ class ResellerBot:
                 if name=='duration':
                     state['months']=int(parts[2]);self.state(uid,state)
                     if state['kind']=='extend':self._confirmation(uid,state)
-                    else:self.send(uid,'How many devices will watch at the same time?\n🏠 All devices must be in the same household.',[[button(str(n)+' device'+('s' if n>1 else ''),'connections:'+str(n)) for n in (1,2,3)]])
+                    else:self.send(uid,self._progress(state)+'\n\nStep 2 of 4 · How many devices will watch at the same time?\n🏠 All devices must be in the same household.',[[button(str(n)+' device'+('s' if n>1 else ''),'connections:'+str(n)) for n in (1,2,3)]])
                 elif name=='connections':
                     state['connections']=int(parts[2]);self.state(uid,state);self._content(uid)
                 elif name=='adult':
