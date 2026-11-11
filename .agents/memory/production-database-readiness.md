@@ -35,7 +35,8 @@ Publish schema-diff report.
 
 **Why:** The schema-diff helper reported no changes while read-only catalog queries
 showed reseller and notification tables present in development but absent from
-managed production. A no-diff result alone did not establish schema parity.
+managed production. A no-diff result alone did not establish schema parity;
+a subsequent successful republish also left required columns absent.
 
 **How to apply:** Check both environments in the application's private schema.
 If the Publish dialog also omits the missing tables, investigate the migration
