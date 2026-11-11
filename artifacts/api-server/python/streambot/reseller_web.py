@@ -81,14 +81,15 @@ class ResellerWeb:
         """Create a pending login request. The browser keeps `poll` (its secret); the Telegram deep link carries `code`."""
         self.require_ready()
         bot = self.bot_username()
-        if not bot:
+        base = self.service.config.get('telegram_start_url') or ('https://t.me/' + bot + '?start=' if bot else '')
+        if not base:
             raise CheckoutError('Telegram login is not set up yet. Open the bot and use Open web dashboard instead.')
         code = secrets.token_urlsafe(16); poll = secrets.token_urlsafe(24)
         with self.r.finance.transaction() as db:
             db.execute('DELETE FROM rs_login_requests WHERE expires_at<?', (now(),))
             db.execute('INSERT INTO rs_login_requests(poll_hash,code_hash,reseller_id,created_at,expires_at) VALUES(?,?,NULL,?,?)',
                        (digest(poll), digest(code), now(), now() + self.LOGIN_TTL))
-        return dict(code=code, poll=poll, url='https://t.me/' + bot + '?start=login_' + code, expires_in=self.LOGIN_TTL)
+        return dict(code=code, poll=poll, url=base + 'login_' + code, expires_in=self.LOGIN_TTL)
 
     @staticmethod
     def valid_login_code(code):

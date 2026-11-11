@@ -305,7 +305,12 @@
 
   // ---------- boot ----------
   let saved = null; try { saved = +localStorage.getItem('tg-preview-uid') || null; } catch (e) {}
-  fetch('/api/state?uid=0&since=0').then(r => r.json()).then(s => { users = s.users; switchUser(saved || users[0].id); });
+  fetch('/api/state?uid=0&since=0').then(r => r.json()).then(s => {
+    users = s.users; switchUser(saved || users[0].id);
+    // Deep link from the reseller panel's "Log in with Telegram": acts like opening t.me/<bot>?start=…
+    const start = new URLSearchParams(location.search).get('start');
+    if (start && /^login_[A-Za-z0-9_-]{16,40}$/.test(start)) { history.replaceState(null, '', location.pathname); setTimeout(() => send('/start ' + start), 700); }
+  });
 })();
 </script>
 </body>

@@ -182,10 +182,10 @@ def start_bot():
         key_path.write_bytes(Fernet.generate_key())
     env = {'APP_MODE': 'demo', 'TELEGRAM_BOT_TOKEN': 'preview', 'TELEGRAM_ENABLED': 'true',
            'SUPPORT_ADMIN_ID': str(ADMIN), 'DATABASE_PATH': str(DATA / 'preview.sqlite3'),
-           'CREDENTIAL_KEY': key_path.read_text().strip(), 'PUBLIC_URL': 'http://127.0.0.1:%d' % WEB_PORT,
-           'TELEGRAM_BOT_USERNAME': 'StreamlinePreviewBot'}
+           'CREDENTIAL_KEY': key_path.read_text().strip(), 'PUBLIC_URL': 'http://127.0.0.1:%d' % WEB_PORT}
     config = load_config(ROOT / 'config.json', env=env)
     config['demo_banner'] = False  # the look-alike shows what customers see
+    config['telegram_start_url'] = 'http://127.0.0.1:%d/?start=' % PORT  # 'Open Telegram' on the panel opens this look-alike
     service = build(config)
     service.recover_interrupted()
     api = FakeTelegram()

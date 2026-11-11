@@ -423,7 +423,7 @@ async function tgTick(){
 $('tg-login').onclick=()=>busy($('tg-login'),async()=>{
   const r=await api('/session/start',{method:'POST',data:{}});
   tgPoll=r.poll;tgDeadline=Date.now()+(r.expires_in||600)*1000;
-  $('tg-open').href=r.url;
+  $('tg-open').href=r.url;if(r.bot)$('tg-open').textContent='Open @'+r.bot;
   const bytes=Uint8Array.from(atob(r.qr),c=>c.charCodeAt(0));tgBlob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));$('tg-qr').src=tgBlob;
   $('tg-status').textContent='Waiting for you to confirm in Telegram…';$('tg-status').classList.add('waiting');
   $('tg-start').hidden=true;$('tg-wait').hidden=false;
