@@ -25,6 +25,9 @@ service, preserved in a pnpm workspace, with a separate owner administration por
 ## Run and verify
 
 - Start managed `artifacts/api-server: API Server`, then `artifacts/streamline: web`.
+- Start `artifacts/streamline-admin: web` for the owner portal at `/admin/`.
+- Install workspace dependencies with `pnpm install --frozen-lockfile` and Python
+  dependencies from the root `requirements.txt` using Replit's package manager.
 - The API development command forces demo mode and disables Telegram polling,
   live payments, and panel writes, regardless of saved production settings.
 - Run existing tests from `artifacts/api-server/python`:
