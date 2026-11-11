@@ -21,12 +21,19 @@
       <div id="signin-error" class="notice error" role="alert" hidden></div>
       <article class="card">
         <h2>Log in with Telegram</h2>
-        <ol class="steps">
-          <li>Open the Streamline bot in Telegram.</li>
-          <li>Tap <strong>Become A Reseller</strong>. Once you hold credits, tap <strong>Open web dashboard</strong>.</li>
-          <li>Tap the link the bot sends you. It signs you in here.</li>
-        </ol>
-        <p class="fineprint">Links work once and expire after 10 minutes.</p>
+        <div id="tg-start">
+          <p class="muted">Confirm in the Telegram bot and this page logs you in. No password needed.</p>
+          <button class="primary tg-button" id="tg-login" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 4.3 18.7 19.6c-.2 1-.9 1.3-1.7.8l-4.8-3.6-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.9 8.9-8c.4-.3-.1-.5-.6-.2L6.5 13.3 1.8 11.8c-1-.3-1-1 .2-1.5L20.6 3c.9-.3 1.6.2 1.3 1.3z"/></svg>Log in with Telegram</button>
+          <p class="inline-error" hidden></p>
+          <details class="fineprint-details"><summary>Prefer a link from the bot?</summary><p class="fineprint">In the bot tap <strong>Reseller dashboard</strong> → <strong>Open web dashboard</strong>. The link it sends logs you in here and works once.</p></details>
+        </div>
+        <div id="tg-wait" hidden>
+          <p class="muted" id="tg-hint">Tap the button to open Telegram, then confirm <strong>Yes, log me in</strong>.</p>
+          <a class="primary tg-button" id="tg-open" href="#" target="_blank" rel="noopener">Open Telegram</a>
+          <div class="qr-wrap"><img id="tg-qr" alt="QR code for the Telegram login link" width="168" height="168"><p class="fineprint">On a computer? Scan this with your phone's camera. It opens the bot.</p></div>
+          <p class="waiting" id="tg-status">Waiting for you to confirm in Telegram…</p>
+          <button class="text-button" id="tg-cancel" type="button">Cancel</button>
+        </div>
       </article>
       <article class="card">
         <h2>Log in with email</h2>

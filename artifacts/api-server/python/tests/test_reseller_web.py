@@ -190,6 +190,32 @@ class ResellerWebTests(unittest.TestCase):
                     self.assertEqual(self.client.get('/reseller/static/' + step['picture']).status_code, 200)
         self.assertTrue(all(a['url'].startswith('https://') for a in guide['android']['apps']))
 
+    def test_log_in_with_telegram_button_flow(self):
+        self.config['bot_username'] = 'StreamlineTestBot'
+        started = self.post('/api/reseller/session/start', {})
+        self.assertEqual(started.status_code, 200, started.get_json())
+        req = started.get_json()
+        self.assertTrue(req['url'].startswith('https://t.me/StreamlineTestBot?start=login_'))
+        self.assertTrue(req['qr']); self.assertEqual(req['expires_in'], 600)
+        code = req['url'].split('login_', 1)[1]
+        self.assertEqual(self.client.get('/api/reseller/session/poll?poll=' + req['poll']).get_json(), {'status': 'pending'})
+        # bot side: a non-reseller cannot approve; the reseller can, once
+        with self.assertRaises(CheckoutError): self.web.approve_login(code, 555)
+        self.assertIsNotNone(self.web.login_request(code))
+        self.web.approve_login(code, 42)
+        with self.assertRaises(CheckoutError): self.web.approve_login(code, 43)
+        with self.assertRaises(CheckoutError): self.web.login_request(code)
+        done = self.client.get('/api/reseller/session/poll?poll=' + req['poll'])
+        self.assertEqual(done.status_code, 200); self.assertEqual(done.get_json()['status'], 'approved'); self.assertEqual(done.get_json()['telegram_id'], 42)
+        self.assertIn('rs_session', done.headers.get('Set-Cookie', '') + str(done.headers))
+        self.assertEqual(self.client.get('/api/reseller/me').status_code, 200)
+        # the poll token is single use, and the code alone never yields a session
+        self.assertEqual(self.client.get('/api/reseller/session/poll?poll=' + req['poll']).status_code, 400)
+        self.assertEqual(self.client.get('/api/reseller/session/poll?poll=' + code).status_code, 400)
+        # no bot username configured → clear error
+        self.config['bot_username'] = ''
+        self.assertEqual(self.post('/api/reseller/session/start', {}).status_code, 400)
+
     def test_delete_expired_routes(self):
         self.r.finance.adjust(9001, 42, 10, 'test funding', 'fund-42-delete')
         self.sign_in()

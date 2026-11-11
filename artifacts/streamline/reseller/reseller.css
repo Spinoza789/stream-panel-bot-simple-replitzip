@@ -306,3 +306,14 @@ textarea{resize:vertical;min-height:120px;line-height:1.5}
 .reply-form .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ticket-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--muted)}
 @media(max-width:900px){.support-grid{grid-template-columns:1fr}}
+
+/* Log in with Telegram */
+.tg-button{width:100%;min-height:42px;font-size:14px;gap:8px}
+.tg-button svg{width:18px;height:18px;fill:currentColor}
+#tg-start .primary{margin:4px 0 12px}
+.fineprint-details summary{cursor:pointer;color:var(--muted);font-size:12px}
+.fineprint-details .fineprint{margin-top:6px}
+.qr-wrap{display:flex;gap:14px;align-items:center;margin:14px 0 6px}
+.qr-wrap img{border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px;background:#fff;flex:none}
+.waiting{color:var(--muted);animation:pulse 1.6s ease-in-out infinite;margin:10px 0 4px}
+@media(max-width:600px){.qr-wrap{display:none}}

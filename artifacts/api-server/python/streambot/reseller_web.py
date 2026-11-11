@@ -47,6 +47,7 @@ class ResellerWeb:
                 db.execute('SELECT token_hash FROM rs_web_sessions WHERE 1=0')
                 db.execute('SELECT reseller_id FROM rs_logins WHERE 1=0')
                 db.execute('SELECT code_hash FROM rs_web_codes WHERE 1=0')
+                db.execute('SELECT poll_hash FROM rs_login_requests WHERE 1=0')
             self.ready = True
         except Exception as exc:
             self.ready = False
@@ -68,6 +69,66 @@ class ResellerWeb:
             db.execute('DELETE FROM rs_web_codes WHERE expires_at<? OR reseller_id=?', (now(), member['id']))
             db.execute('INSERT INTO rs_web_codes VALUES(?,?,?)', (digest(code), member['id'], now() + self.CODE_TTL))
         return code
+
+    # ---- "Log in with Telegram" button: browser starts a request, the bot approves it -----
+    LOGIN_TTL = 600
+
+    def bot_username(self):
+        name = self.service.config.get('bot_username') or self.store.metadata('bot_username') or ''
+        return name if re.fullmatch(r'[A-Za-z0-9_]{3,64}', name) else ''
+
+    def start_login(self):
+        """Create a pending login request. The browser keeps `poll` (its secret); the Telegram deep link carries `code`."""
+        self.require_ready()
+        bot = self.bot_username()
+        if not bot:
+            raise CheckoutError('Telegram login is not set up yet. Open the bot and use Open web dashboard instead.')
+        code = secrets.token_urlsafe(16); poll = secrets.token_urlsafe(24)
+        with self.r.finance.transaction() as db:
+            db.execute('DELETE FROM rs_login_requests WHERE expires_at<?', (now(),))
+            db.execute('INSERT INTO rs_login_requests(poll_hash,code_hash,reseller_id,created_at,expires_at) VALUES(?,?,NULL,?,?)',
+                       (digest(poll), digest(code), now(), now() + self.LOGIN_TTL))
+        return dict(code=code, poll=poll, url='https://t.me/' + bot + '?start=login_' + code, expires_in=self.LOGIN_TTL)
+
+    @staticmethod
+    def valid_login_code(code):
+        return isinstance(code, str) and re.fullmatch(r'[A-Za-z0-9_-]{16,40}', code) is not None
+
+    def login_request(self, code):
+        """The pending request behind a deep-link code, for the bot's confirmation screen."""
+        self.require_ready()
+        if not self.valid_login_code(code): raise CheckoutError('This login link is not valid.')
+        with self.store.connection() as db:
+            row = db.execute('SELECT reseller_id,expires_at FROM rs_login_requests WHERE code_hash=?', (digest(code),)).fetchone()
+        if not row or row['expires_at'] < now() or row['reseller_id']:
+            raise CheckoutError('This login request has expired or was already used. Tap Log in with Telegram on the website again.')
+        return dict(expires_at=row['expires_at'])
+
+    def approve_login(self, code, uid):
+        """Bind the browser's request to the Telegram user who confirmed it. Only resellers can use the panel."""
+        self.require_ready()
+        if not self.valid_login_code(code): raise CheckoutError('This login link is not valid.')
+        member = self.r.member(uid)
+        if not member: raise CheckoutError('Buy a credit pack in the bot first; that creates your reseller account and the web panel opens up.')
+        with self.r.finance.transaction() as db:
+            cursor = db.execute('UPDATE rs_login_requests SET reseller_id=? WHERE code_hash=? AND reseller_id IS NULL AND expires_at>=?',
+                                (member['id'], digest(code), now()))
+            if not cursor.rowcount:
+                raise CheckoutError('This login request has expired or was already used. Tap Log in with Telegram on the website again.')
+        return member
+
+    def poll_login(self, poll):
+        """Session token once the bot approved the request; None while still waiting."""
+        self.require_ready()
+        if not isinstance(poll, str) or not 20 <= len(poll) <= 100: raise CheckoutError('This login request is not valid.')
+        with self.r.finance.transaction() as db:
+            row = db.execute('SELECT reseller_id,expires_at FROM rs_login_requests WHERE poll_hash=?', (digest(poll),)).fetchone()
+            if not row or row['expires_at'] < now():
+                db.execute('DELETE FROM rs_login_requests WHERE poll_hash=?', (digest(poll),))
+                raise CheckoutError('This login request has expired. Tap Log in with Telegram again.')
+            if not row['reseller_id']: return None
+            db.execute('DELETE FROM rs_login_requests WHERE poll_hash=?', (digest(poll),))
+            return self._create_session(db, row['reseller_id'])
 
     def login_url(self, code):
         config = self.service.config

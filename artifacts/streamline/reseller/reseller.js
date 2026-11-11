@@ -408,6 +408,28 @@ $('search-form').onsubmit=e=>{e.preventDefault();sub.search=$('search').value.tr
 $('global-search').onsubmit=e=>{e.preventDefault();sub.search=$('global-search-input').value.trim();sub.page=0;sub.filter='all';if(location.hash.startsWith('#/subscriptions'))loadSubs().catch(fail);else location.hash='#/subscriptions';};
 $('sub-prev').onclick=()=>{sub.page--;loadSubs().catch(fail);};$('sub-next').onclick=()=>{sub.page++;loadSubs().catch(fail);};
 $('hist-prev').onclick=()=>{hist.page--;loadHistory().catch(fail);};$('hist-next').onclick=()=>{hist.page++;loadHistory().catch(fail);};
+// ---------- Log in with Telegram (deep link + poll) ----------
+let tgPoll=null,tgTimer=null,tgDeadline=0,tgBlob=null;
+function tgReset(){clearTimeout(tgTimer);tgTimer=null;tgPoll=null;if(tgBlob){URL.revokeObjectURL(tgBlob);tgBlob=null;}$('tg-wait').hidden=true;$('tg-start').hidden=false;}
+async function tgTick(){
+  if(!tgPoll)return;
+  if(Date.now()>tgDeadline){$('tg-status').textContent='That request expired. Tap Log in with Telegram to try again.';$('tg-status').classList.remove('waiting');return;}
+  try{
+    const r=await api('/session/poll?poll='+encodeURIComponent(tgPoll));
+    if(r.status==='approved'){const data=r;tgReset();applyMe(data);location.hash='#/dashboard';route();toast('Logged in with Telegram');return;}
+  }catch(e){if(!(e instanceof SignedOut)){$('tg-status').textContent=e.message;$('tg-status').classList.remove('waiting');tgPoll=null;return;}}
+  tgTimer=setTimeout(tgTick,2000);
+}
+$('tg-login').onclick=()=>busy($('tg-login'),async()=>{
+  const r=await api('/session/start',{method:'POST',data:{}});
+  tgPoll=r.poll;tgDeadline=Date.now()+(r.expires_in||600)*1000;
+  $('tg-open').href=r.url;
+  const bytes=Uint8Array.from(atob(r.qr),c=>c.charCodeAt(0));tgBlob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));$('tg-qr').src=tgBlob;
+  $('tg-status').textContent='Waiting for you to confirm in Telegram…';$('tg-status').classList.add('waiting');
+  $('tg-start').hidden=true;$('tg-wait').hidden=false;
+  tgTimer=setTimeout(tgTick,2000);
+});
+$('tg-cancel').onclick=tgReset;
 $('password-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('password-form').querySelector('.primary'),async()=>{applyMe(await api('/session/password',{method:'POST',data:{email:$('login-email').value,password:$('login-password').value}}));$('login-password').value='';location.hash='#/dashboard';route();});};
 $('account-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('account-form').querySelector('.primary'),async()=>{
   const r=await api('/account',{method:'POST',data:{email:$('acc-new-email').value,password:$('acc-new-password').value,current_password:$('acc-current').value}});

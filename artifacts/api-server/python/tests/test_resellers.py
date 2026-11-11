@@ -466,6 +466,27 @@ class Scenarios:
         self.message(44,'/start')  # not a reseller
         self.assertIn('Become A Reseller',str(self.sent_to(44)[-1]['reply_markup']))
 
+    def test_start_login_deep_link_confirms_in_the_bot(self):
+        self.config['bot_username']='StreamlineTestBot'
+        self.fund(1)
+        req=self.r.web.start_login(); code=req['url'].split('login_',1)[1]
+        self.message(42,'/start login_'+code)
+        prompt=self.sent_to(42)[-1]
+        self.assertIn('Log in to the reseller web panel?',prompt['text']); self.assertIn('rs:weblogin:'+code,str(prompt['reply_markup']))
+        self.assertIsNone(self.r.web.poll_login(req['poll']))
+        self.click(42,'rs:weblogindeny'); self.assertIn('Nothing was done',self.sent_to(42)[-1]['text'])
+        self.assertIsNone(self.r.web.poll_login(req['poll']))
+        self.click(42,'rs:weblogin:'+code)
+        self.assertIn('Logged in',self.sent_to(42)[-1]['text'])
+        token=self.r.web.poll_login(req['poll'])
+        self.assertEqual(self.r.web.session_uid(token),42)
+        # a stranger tapping the same link gets the become-a-reseller message, and a used code is refused
+        other=self.r.web.start_login(); other_code=other['url'].split('login_',1)[1]
+        self.message(44,'/start login_'+other_code); self.click(44,'rs:weblogin:'+other_code)
+        self.assertIn('Buy a credit pack',self.sent_to(44)[-1]['text']); self.assertIsNone(self.r.web.poll_login(other['poll']))
+        self.message(42,'/start login_'+code); self.assertIn('expired or was already used',self.sent_to(42)[-1]['text'])
+        self.message(42,'/start'); self.assertIn('Welcome to',self.sent_to(42)[-1]['text'])
+
     def test_bot_trial_form_never_asks_about_adult_content(self):
         self.fund(1)
         self.click(42,'rs:trial')

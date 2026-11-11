@@ -101,6 +101,25 @@ def register_reseller_web(app, service):
         uid = web.session_uid(token)
         return with_cookie(jsonify(me(uid)), token)
 
+    @routes.post('/session/start')
+    def session_start():
+        # "Log in with Telegram": the browser gets a deep link (and a QR of it) plus a private poll token.
+        if not service.store.limit('rsweb_start:' + ip(), 20, 600):
+            return jsonify(error='Too many sign-in attempts. Please wait a few minutes.'), 429
+        import base64, io, qrcode
+        req = web.start_login()
+        buffer = io.BytesIO(); qrcode.make(req['url']).save(buffer, format='PNG')
+        return jsonify(url=req['url'], poll=req['poll'], expires_in=req['expires_in'], qr=base64.b64encode(buffer.getvalue()).decode(), bot=web.bot_username())
+
+    @routes.get('/session/poll')
+    def session_poll():
+        if not service.store.limit('rsweb_poll:' + ip(), 240, 600):
+            return jsonify(error='Too many requests. Please wait a minute.'), 429
+        token = web.poll_login(request.args.get('poll', ''))
+        if not token: return jsonify(status='pending')
+        uid = web.session_uid(token)
+        return with_cookie(jsonify(dict(me(uid), status='approved')), token)
+
     @routes.post('/session/password')
     def session_from_password():
         data = body()

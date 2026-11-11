@@ -256,6 +256,11 @@ class ResellerBot:
                 self.state(uid,clear=True);self.home(uid)
             elif name=='guide':
                 self.send(uid,self.credit_guide(),[[button('💳 Buy credits','packages')]],parse_mode='HTML')
+            elif name=='weblogin':
+                member=self.r.web.approve_login(parts[2],uid)
+                self.bot.send(uid,'✅ Logged in as @'+(member.get('username') or 'you')+'. Go back to your browser; the panel opens by itself.' if member.get('username') else '✅ Logged in. Go back to your browser; the panel opens by itself.',keyboard([],False),keep=True)
+            elif name=='weblogindeny':
+                self.bot.send(uid,'Nothing was done. If you did not try to log in, no one got in: the request only completes when you confirm.',keyboard([],False),keep=True)
             elif name=='web':
                 if not self.store.limit('rs_web_link:'+str(uid),5,600):raise CheckoutError('Please wait a few minutes before requesting another sign-in link.')
                 url=self.r.web.login_url(self.r.web.issue_code(uid))
@@ -428,6 +433,12 @@ class ResellerBot:
         try:
             if command=='/reseller':
                 self.home(uid);return True
+            if command=='/start' and argument.startswith('login_'):
+                code=argument[6:].strip()
+                self.r.web.login_request(code)
+                self.bot.send(uid,'🌐 Log in to the reseller web panel?\n\nA browser just tapped "Log in with Telegram". Confirm only if that was you.',
+                              keyboard([[button('✅ Yes, log me in','weblogin:'+code)],[button('❌ No, that was not me','weblogindeny')]],False),keep=True)
+                return True
             if command.startswith('/rs'):
                 self.r.require_ready();self.r.finance.admin(uid)
                 if command in ('/rsapprove','/rssuspend'):

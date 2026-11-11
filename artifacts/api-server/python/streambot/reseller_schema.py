@@ -71,6 +71,10 @@ CREATE TABLE IF NOT EXISTS rs_logins (
 CREATE TABLE IF NOT EXISTS rs_web_codes (
  code_hash TEXT PRIMARY KEY, reseller_id TEXT NOT NULL REFERENCES rs_resellers(id), expires_at BIGINT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS rs_login_requests (
+ poll_hash TEXT PRIMARY KEY, code_hash TEXT NOT NULL UNIQUE, reseller_id TEXT REFERENCES rs_resellers(id),
+ created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS rs_web_sessions (
  token_hash TEXT PRIMARY KEY, reseller_id TEXT NOT NULL REFERENCES rs_resellers(id),
  created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL, last_seen BIGINT NOT NULL

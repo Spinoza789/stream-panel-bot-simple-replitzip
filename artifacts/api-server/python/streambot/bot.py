@@ -380,7 +380,8 @@ class TelegramBot:
                 if not registered:
                     stage='registration'
                     self.notifications.recover()
-                    self.api('getMe',{})
+                    me=self.api('getMe',{})
+                    if isinstance(me,dict) and isinstance(me.get('username'),str):self.store.metadata('bot_username',me['username'])  # for the web panel's Log in with Telegram link
                     self.api('setMyCommands',{'commands':[{'command':c,'description':d} for c,d in [('start','Account assistant'),('trial','One free 24-hour trial'),('status','Linked account status'),('link','Link an existing account'),('notifications','Reminders and optional deals'),('contact','Message support'),('support','Message support'),('cancel','Leave support chat'),('myid','Show my Telegram ID'),('privacy','Data information')]]})
                     registered=True
                 stage='poll'

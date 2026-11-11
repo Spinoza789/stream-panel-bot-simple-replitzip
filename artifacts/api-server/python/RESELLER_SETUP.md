@@ -131,7 +131,7 @@ same preview-then-confirm flow and the same reservation rules as the bot.
 - Every API call is scoped to the signed-in reseller's own records. POSTs must be
   same-origin JSON like the rest of the site. Sign-in attempts, account changes and
   purchase quotes are rate limited. **Sign out of all devices** drops every session.
-- Tables: `rs_logins`, `rs_web_codes`, `rs_web_sessions` (additive, in
+- Tables: `rs_logins`, `rs_web_codes`, `rs_login_requests`, `rs_web_sessions` (additive, in
   `streambot/reseller_schema.py`). If they are missing, the bot reports that the web
   dashboard is unavailable and everything else keeps working.
 
@@ -140,7 +140,7 @@ same preview-then-confirm flow and the same reservation rules as the bot.
 The additive schema source is `streambot/reseller_schema.py`. It is applied to
 local SQLite during local initialization. The reseller tables have been applied to
 the **managed development PostgreSQL** schema, without modifying production. The
-web-portal tables (`rs_logins`, `rs_web_codes`, `rs_web_sessions`) must be applied
+web-portal tables (`rs_logins`, `rs_web_codes`, `rs_login_requests`, `rs_web_sessions`) must be applied
 to development PostgreSQL the same way before the portal works on Postgres.
 
 Publish the app normally so Replit applies the development schema additions to
@@ -150,6 +150,27 @@ production migration scripts, or add DDL to startup/build commands.
 There is no automatic conversion of existing retail customers into approved
 resellers, no transfer of existing customer accounts, and no automatic credit
 grant. New accounts start pending with zero balance.
+
+## Log in with Telegram (website button)
+
+The sign-in page's **Log in with Telegram** button creates a pending request
+(`rs_login_requests`): the browser keeps a private poll token and the Telegram deep link
+`https://t.me/<bot>?start=login_<code>` carries a separate one-time code. The bot shows
+"Log in to the reseller web panel?" and only a reseller tapping **Yes, log me in** binds
+the request; the browser then polls and receives its session. Codes expire after
+10 minutes and work once. Scanning someone else's QR can never log *you* into *their*
+panel: approval only ever attaches the approver's own account.
+
+The bot's username is taken from `TELEGRAM_BOT_USERNAME` (without the @), or learned
+automatically from Telegram's `getMe` the first time the polling worker starts. Until
+one of those is available the button explains how to get a link from the bot instead.
+
+```sql
+CREATE TABLE IF NOT EXISTS rs_login_requests (
+ poll_hash TEXT PRIMARY KEY, code_hash TEXT NOT NULL UNIQUE, reseller_id TEXT REFERENCES rs_resellers(id),
+ created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
+);
+```
 
 ## Support tickets
 

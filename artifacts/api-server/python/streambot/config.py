@@ -37,6 +37,8 @@ def load_config(path='config.json', env=None):
                   trust_proxy=env.get('TRUST_PROXY', 'false') == 'true',
                   telegram_enabled=env.get('TELEGRAM_ENABLED', 'true') == 'true')
     config['database_url']=env.get('STREAMBOT_DATABASE_URL','')
+    config['bot_username']=env.get('TELEGRAM_BOT_USERNAME','').strip().lstrip('@')
+    if config['bot_username'] and not re.fullmatch(r'[A-Za-z0-9_]{3,64}',config['bot_username']):raise ValueError('TELEGRAM_BOT_USERNAME must be the bot username without @.')
     admin=env.get('SUPPORT_ADMIN_ID','').strip()
     if admin and (not re.fullmatch(r'[1-9][0-9]{0,18}',admin)):
         raise ValueError('SUPPORT_ADMIN_ID must be your positive numeric Telegram user ID, obtained with /myid.')
