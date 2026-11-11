@@ -40,7 +40,7 @@ never connection strings or provider error text.
 | STREAMBOT_MODE | demo initially, live when ready |
 | STREAMBOT_PUBLIC_URL | Exact HTTPS published origin, such as https://your-bot.replit.app, with no path |
 | STREAMBOT_TELEGRAM_BOT_TOKEN | Token from official @BotFather |
-- `TELEGRAM_BOT_USERNAME` (optional): the bot's username without @, used for the reseller panel's Log in with Telegram link. Learned from getMe automatically when unset.
+- `STREAMBOT_TELEGRAM_BOT_USERNAME` (optional): the bot's username without @, used for the reseller panel's Log in with Telegram link. Learned from getMe automatically when unset.
 | STREAMBOT_TELEGRAM_ENABLED | false initially, true to connect Telegram |
 | STREAMBOT_SUPPORT_ADMIN_ID | Your numeric ID from /myid, sent from your @InterRamit account |
 | STREAMBOT_PANEL_USERNAME | Reseller panel username |

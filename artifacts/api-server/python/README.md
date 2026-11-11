@@ -51,7 +51,7 @@ Telegram, the panel or any blockchain. Per-user rate limits are off unless
 ## Connect Telegram
 
 Create a bot using Telegram's official @BotFather (`/newbot`). In Replit Secrets, add `STREAMBOT_TELEGRAM_BOT_TOKEN`, then set `STREAMBOT_TELEGRAM_ENABLED=true`. Restart. While logged into @InterRamit, send your bot `/start` and `/myid`. Save the number returned as Secret `STREAMBOT_SUPPORT_ADMIN_ID` and restart. Customers send `/contact`; you use Telegram's Reply action on their incoming support messages to answer them.
-- `TELEGRAM_BOT_USERNAME` (optional): the bot's username without @, used for the reseller panel's Log in with Telegram link. Learned from getMe automatically when unset.
+- `STREAMBOT_TELEGRAM_BOT_USERNAME` (optional): the bot's username without @, used for the reseller panel's Log in with Telegram link. Learned from getMe automatically when unset.
 
 ## Publish and accept real payments
 
