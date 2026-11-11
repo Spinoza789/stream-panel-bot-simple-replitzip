@@ -211,7 +211,7 @@ class Tickets:
         with self.store.connection() as db:
             rows = db.execute('SELECT status,COUNT(*) FROM tk_tickets GROUP BY status').fetchall()
         counts = {'open': 0, 'answered': 0, 'closed': 0}
-        for status, n in rows: counts[status] = int(n)
+        for row in rows: counts[row[0]] = int(row[1])  # positional: PostgreSQL rows are dicts, not tuples
         return counts
 
     # ---------- Telegram delivery (best effort; the ticket is the record) ----------

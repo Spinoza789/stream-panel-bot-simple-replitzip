@@ -138,7 +138,7 @@ def register_admin(app, service):
                 extra['testsConverted'] = int(db.execute("SELECT COUNT(*) FROM rs_subscriptions WHERE converted_at IS NOT NULL").fetchone()[0])
                 packs = db.execute("SELECT COALESCE(SUM(amount_pence),0) FROM rs_purchases WHERE status='granted' AND created_at>=?", (month,)).fetchone()[0]
                 retail = db.execute("SELECT o.plan_json FROM orders o JOIN payments p ON p.order_id=o.id WHERE o.kind='paid' AND o.created_at>=?", (month,)).fetchall()
-            revenue = packs / 100
+            revenue = float(packs or 0) / 100  # PostgreSQL sums arrive as Decimal; keep the maths in float
             for row in retail:
                 plan = json.loads(row['plan_json'])
                 if not plan.get('reseller_purchase'): revenue += float(plan.get('gbp_price') or 0)

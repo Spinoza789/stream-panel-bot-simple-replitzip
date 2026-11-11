@@ -30,15 +30,49 @@ class TelegramCheckout:
     def clear_session(self, uid):
         self.store.metadata(self.session_key(uid), '')
 
-    def crypto_keyboard(self, plan, renew_of=None):
+    def crypto_keyboard(self, plan, renew_of=None, upgrade=False):
         rows = []
         for asset in self.service.config['assets'].values():
             if asset.get('enabled', True):
                 label = asset['symbol'] + ' · ' + network_name(asset)
-                data = f"pay:rquote:{renew_of}:{asset['id']}" if renew_of else f"pay:quote:{plan['id']}:{asset['id']}"
+                if upgrade: data = f"pay:uquote:{plan['id']}:{asset['id']}"
+                elif renew_of: data = f"pay:rquote:{renew_of}:{asset['id']}"
+                else: data = f"pay:quote:{plan['id']}:{asset['id']}"
                 rows.append([{'text': label, 'callback_data': data}])
-        rows.append([{'text': '⬅️ Back', 'callback_data': 'pay:orders' if renew_of else f"plan:duration:{plan['months']}"}])
+        back = 'pay:upgrade' if upgrade else 'pay:orders' if renew_of else f"plan:duration:{plan['months']}"
+        rows.append([{'text': '⬅️ Back', 'callback_data': back}])
         return {'inline_keyboard': rows}
+
+    def upgrade(self, uid):
+        """Length picker for turning the customer's own 24-hour trial login into a paid membership."""
+        target = self.service.trial_upgrade_target(uid)
+        if not target:
+            raise CheckoutError('No trial login to upgrade. Choose a plan under Subscription Plans instead.')
+        plans = sorted(self.service.trial_upgrade_plans(), key=lambda p: int(p['months']))
+        if not plans:
+            raise CheckoutError('No one-device plans are on sale right now. Contact support.')
+        self.clear_session(uid)
+        buttons = [{'text': f"📅 {p['months']} month" + ('s' if int(p['months']) != 1 else '') + ' · £' + str(p['gbp_price']),
+                    'callback_data': 'pay:ucoin:' + p['id']} for p in plans]
+        rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+        rows.append([{'text': '⬅️ Back', 'callback_data': 'menu'}])
+        self.bot.send(uid, '<b>⬆️ UPGRADE YOUR TRIAL</b>\n\n'
+                      'Keep the username and password from your trial: the login is extended by the length you choose, '
+                      'starting from now or from your trial expiry, whichever is later.\n\n'
+                      '📺 Trial logins are one device. Need more devices at once? Buy a new subscription under Subscription Plans.\n\n'
+                      'Choose a length:', {'inline_keyboard': rows}, parse_mode='HTML')
+
+    def upgrade_coin(self, uid, plan_id):
+        if not self.service.trial_upgrade_target(uid):
+            raise CheckoutError('No trial login to upgrade. Choose a plan under Subscription Plans instead.')
+        plan = next((p for p in self.service.trial_upgrade_plans() if p['id'] == plan_id), None)
+        if not plan:
+            raise CheckoutError('That plan cannot be applied to a trial login. Choose a one-device plan.')
+        self.clear_session(uid)
+        self.bot.send(uid, '<b>🪙 CHOOSE COIN &amp; NETWORK</b>\n\n' + escape(plan['name']) + ' · trial upgrade · £' + escape(str(plan['gbp_price'])) +
+                      '\n\nSame login as your trial, extended by ' + escape(str(plan['months'])) + (' month' if int(plan['months']) == 1 else ' months') +
+                      '. Pick how you want to pay. The next screen shows the exact amount and the wallet to send it to.',
+                      self.crypto_keyboard(plan, upgrade=True), parse_mode='HTML')
 
     def renew(self, uid, order_id):
         """Coin picker for renewing a delivered membership. The order is quoted only when a coin is tapped."""
@@ -101,6 +135,8 @@ class TelegramCheckout:
             creds=order['credentials'] or {}
             until=creds.get('expires_at')
             when=datetime.fromtimestamp(int(until),timezone.utc).strftime('%d %b %Y') if isinstance(until,int) or (isinstance(until,str) and until.isdigit()) else None
+            if plan.get('trial_upgrade'):
+                return ('DEMO — simulated payment.\n\n' if demo else '')+'<b>✅ Trial upgraded to a membership.</b>\nKeep using your trial username and password'+(' — now valid until <b>'+escape(when)+'</b>' if when else '')+'.\nOrder: '+escape(order['id'])
             return ('DEMO — simulated payment.\n\n' if demo else '')+'<b>✅ Membership extended.</b>\nYour existing login keeps working'+(' until <b>'+escape(when)+'</b>' if when else '')+'.\nOrder: '+escape(order['id'])
         if order['status']=='fulfilled':
             text=membership_ready_text(plan,order['credentials'])
@@ -208,6 +244,14 @@ class TelegramCheckout:
                 if not plan:
                     raise CheckoutError('Membership not found. Please start again.')
                 self.choose(uid, plan)
+            elif action == 'pay:upgrade':
+                self.upgrade(uid)
+            elif len(parts) == 3 and parts[1] == 'ucoin':
+                self.upgrade_coin(uid, parts[2])
+            elif len(parts) == 4 and parts[1] == 'uquote':
+                self.clear_session(uid)
+                result = self.service.upgrade_trial_order(uid, parts[2], parts[3], request_key='tg_quote:' + digest(f'{uid}:{callback_id}'))
+                self.show_order(uid, result['order'])
             elif len(parts) == 3 and parts[1] == 'renew':
                 self.renew(uid, parts[2])
             elif len(parts) == 4 and parts[1] == 'rquote':

@@ -25,6 +25,11 @@ log=logging.getLogger('streambot')
 
 
 class DemoPanel:
+    """Simulated panel for demo mode. Accounts it creates are registered as demo lines so the
+    demo reseller provider can extend them (renewals and trial upgrades) exactly like live lines."""
+    def __init__(self,store=None,trial_package_id=None):
+        self.store=store;self.trial_package_id=str(trial_package_id) if trial_package_id is not None else None
+
     def find_account(self,username):
         return None
 
@@ -33,8 +38,16 @@ class DemoPanel:
 
     def create_account(self,package_id,username='',password='',description='',*,generation=None):
         if username or password or description: raise ValueError('Demo generation fields must be empty')
-        return dict(username='demo_'+secrets.token_urlsafe(6),password=secrets.token_urlsafe(12),
-                    package_id=package_id,server_url='DEMO — no live streaming server')
+        account=dict(username='demo_'+secrets.token_urlsafe(6),password=secrets.token_urlsafe(12),
+                     package_id=package_id,server_url='DEMO — no live streaming server')
+        if self.store is not None:
+            now=int(time.time())
+            pid=str(secrets.randbelow(10**15)+1)
+            expires=now+(86400 if str(package_id)==self.trial_package_id else 30*86400)
+            self.store.metadata('rs_demo:'+pid,self.store.seal(dict(provider_id=pid,expires_at=expires,status='active',starts_at=now,connections=1,
+                                                                   credentials=dict(username=account['username'],password=account['password'],server_url=account['server_url']))))
+            account.update(panel_id=pid,expires_at=expires)
+        return account
 
 
 class DemoVerifier:
@@ -58,7 +71,7 @@ def build(config):
     key_id=digest(key)
     if store.metadata('key_id') not in (None,key_id): raise ValueError('Credential encryption key does not match this database. Restore the original key.')
     store.metadata('mode',config['mode']);store.metadata('key_id',key_id)
-    panel=DemoPanel() if config['mode']=='demo' else PanelClient(config['panel_base_url'],config['panel_username'],config['panel_password'],allow_create=config['panel_writes'])
+    panel=DemoPanel(store,config.get('trial_package_id')) if config['mode']=='demo' else PanelClient(config['panel_base_url'],config['panel_username'],config['panel_password'],allow_create=config['panel_writes'])
     verifier=DemoVerifier() if config['mode']=='demo' else BlockchainVerifier()
     return CheckoutService(config,store,verifier,panel)
 

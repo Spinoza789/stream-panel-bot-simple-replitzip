@@ -337,6 +337,56 @@ class TelegramPaymentTests(unittest.TestCase):
         self.service.verify_order(order_id=theirs['id'])
         self.assertEqual(self.store.get(theirs['id'])['status'], 'paid')
 
+    def test_trial_login_can_be_upgraded_to_a_paid_membership(self):
+        # No trial yet: the upgrade entry is refused and the main menu does not offer it.
+        self.assertIn('No trial login to upgrade', self.click('pay:upgrade')['text'])
+        trial = self.service.create_trial(42)
+        self.store.update(trial['id'], status='fulfilled', credentials={'username': 'trial-user', 'password': 'trial-pass', 'panel_id': '777', 'expires_at': int(time.time()) + 3600})
+        menu = self.click('menu')
+        self.assertEqual(menu['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'pay:upgrade')
+        picker = self.click('pay:upgrade')
+        self.assertIn('UPGRADE YOUR TRIAL', picker['text'])
+        callbacks = [b['callback_data'] for row in picker['reply_markup']['inline_keyboard'] for b in row]
+        self.assertIn('pay:ucoin:month-1', callbacks)
+        self.assertTrue(all(int(p['connections']) == 1 for p in self.service.trial_upgrade_plans()))  # one-device line stays one device
+        coins = self.click('pay:ucoin:month-1')
+        coin_callbacks = [b['callback_data'] for row in coins['reply_markup']['inline_keyboard'] for b in row]
+        self.assertIn('pay:uquote:month-1:usdc-ethereum', coin_callbacks)
+        self.assertIn('one-device plan', self.click('pay:ucoin:month-1-2')['text'])  # two-device plans are not offered on a trial line
+        invoice = self.click('pay:uquote:month-1:usdc-ethereum')
+        self.assertIn('trial upgrade', invoice['text'])
+        order = [o for o in self.store.telegram_orders(42) if o['plan'].get('trial_upgrade')][0]
+        self.assertEqual((order['plan']['renew_of'], order['plan']['renew_panel_id']), (trial['id'], '777'))
+        self.service.submit_telegram_tx(42, order['id'], TXID)
+        self.proof(order)
+        self.service.verify_order(order_id=order['id'])
+        self.assertEqual(self.store.get(order['id'])['status'], 'paid')
+
+        class Provider:
+            calls = []
+            def read(self, pid): return dict(provider_id=pid, expires_at=int(time.time()) + 3600, status='expired', connections=1)
+            def package(self, months, connections, adult):
+                assert (months, connections, adult) == (1, 1, False); return '137'
+            def prepare(self, operation, record=None):
+                self.calls.append(('prepare', record['provider_id'], operation['package_id'], operation['connections']))
+                return dict(mode='extend', provider_id=record['provider_id'], expected_expiry=record['expires_at'] + 30 * 86400)
+            def execute(self, operation, context):
+                self.calls.append(('execute', context['provider_id']))
+                return dict(provider_id=context['provider_id'], expires_at=context['expected_expiry'], status='active',
+                            credentials={'username': 'trial-user', 'password': 'trial-pass'})
+        self.service.resellers.ops.provider = Provider()
+        self.service.provision_pending()
+        upgraded = self.store.get(order['id'])
+        self.assertEqual(upgraded['status'], 'fulfilled')
+        self.assertEqual(self.panel.calls, [])  # the trial line was extended, no new account
+        self.assertEqual(Provider.calls, [('prepare', '777', '137', 1), ('execute', '777')])
+        self.assertEqual(upgraded['credentials']['username'], 'trial-user')
+        self.assertIn('Trial upgraded to a membership', self.bot.checkout.order_text(self.service.public(upgraded)))
+        # Once upgraded, the menu stops offering the upgrade and the membership order can be renewed as usual.
+        self.assertIsNone(self.service.trial_upgrade_target(42))
+        self.assertEqual(self.click('menu')['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'menu:plans')
+        self.assertIn('RENEW YOUR MEMBERSHIP', self.click('pay:renew:' + order['id'])['text'])
+
     def test_renewal_extends_the_existing_account_instead_of_creating_one(self):
         original = self.create()
         self.store.update(original['id'], status='fulfilled', credentials={'username': 'kept-user', 'password': 'kept-pass', 'panel_id': '555'})

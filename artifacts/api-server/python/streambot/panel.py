@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin, urlsplit
@@ -35,6 +36,15 @@ class PanelSessionExpired(PanelError):
     """The panel answered with its login page; the stored session is no longer valid."""
 
 
+_FALLBACK_LOCK = threading.RLock()
+
+
+def panel_lock(panel):
+    """The lock that serialises multi-step work against a panel; a shared fallback for test doubles."""
+    lock = getattr(panel, 'lock', None)
+    return lock if isinstance(lock, type(_FALLBACK_LOCK)) else _FALLBACK_LOCK
+
+
 class PanelClient:
     # The panel signs sessions out after about an hour. Re-authenticate well before that so
     # the one request that must never be repeated (account creation) never meets a dead session.
@@ -48,6 +58,9 @@ class PanelClient:
         self._username, self._password = username, password
         self.allow_create = allow_create
         self.session = session if session is not None else requests.Session()
+        # One panel session is shared by the account worker and the Telegram chat threads;
+        # requests are serialised so logins and multi-step operations never interleave.
+        self.lock = threading.RLock()
         self._authenticated = False
         self._authenticated_at = 0
         self.session_max_age = self.SESSION_MAX_AGE if session_max_age is None else session_max_age
@@ -59,10 +72,11 @@ class PanelClient:
         return url
 
     def _request(self, method, path, **kwargs):
-        try:
-            response = self.session.request(method, self._url(path), timeout=(10, 30), **kwargs)
-        except requests.RequestException:
-            raise PanelError('Panel request failed') from None
+        with self.lock:
+            try:
+                response = self.session.request(method, self._url(path), timeout=(10, 30), **kwargs)
+            except requests.RequestException:
+                raise PanelError('Panel request failed') from None
         if response.status_code >= 400:
             error = PanelError('Panel returned an unsuccessful response')
             error.http_status = response.status_code

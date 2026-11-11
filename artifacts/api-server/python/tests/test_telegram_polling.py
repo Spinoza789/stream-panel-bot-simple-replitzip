@@ -58,11 +58,26 @@ class PollingTests(unittest.TestCase):
         self.api.side_effect=lambda method,payload:(_ for _ in ()).throw(
             RuntimeError('private-provider-message')) if method=='getUpdates' else True
         self.run_failure('poll')
-        self.api.side_effect=lambda method,payload:self.updates if method=='getUpdates' else True
-        self.updates=[{'update_id':41,'message':{'text':'private-provider-message'}}]
+        # A failing handler is logged safely and the update is acknowledged, so one bad tap can
+        # never hold up the chat or make the loop replay it every few seconds.
+        stop=threading.Event()
+        polls=[]
+        def api(method,payload):
+            if method=='getUpdates':
+                polls.append(payload['offset'])
+                if len(polls)>1:stop.set();return []
+                return [{'update_id':41,'message':{'text':'private-provider-message'}}]
+            return True
+        self.bot.api=api
         self.bot.handle=Mock(side_effect=RuntimeError('private-provider-message'))
-        self.run_failure('handle_update')
-        self.assertIsNone(self.store.metadata('telegram_offset'))
+        with self.assertLogs('streambot.bot',level='WARNING') as captured:
+            self.bot.run(stop)
+        text='\n'.join(captured.output)
+        self.assertIn('stage=handle_update',text)
+        self.assertNotIn('private-provider-message',text)
+        self.assertEqual(polls,[0,42])
+        self.assertEqual(self.store.metadata('telegram_offset'),'42')
+        self.bot.handle.assert_called_once()
 
     def test_initial_offset_failure_is_retried_instead_of_killing_thread(self):
         with patch.object(self.store,'metadata',side_effect=RuntimeError('private-provider-message')):

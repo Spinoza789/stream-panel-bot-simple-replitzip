@@ -5,7 +5,7 @@ from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP
 from .config import display_units, units
 from .store import digest
 from .rates import Rates, RateUnavailable
-from .panel import PanelError, ProvisioningUncertain
+from .panel import PanelError, ProvisioningUncertain, panel_lock
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class CheckoutService:
         panel_id=str(credentials.get('panel_id') or '')
         if not panel_id.isdigit():raise CheckoutError('This account cannot be renewed automatically. Contact support.')
         base=original['plan']
-        if base.get('reseller_purchase') or base.get('renew_of'):
+        if base.get('reseller_purchase') or (base.get('renew_of') and not base.get('trial_upgrade')):
             raise CheckoutError('Renew from your original membership order in My orders.')
         plan=next((p for p in self.config['plans'] if p['id']==base.get('id')),None) or base
         renewal=dict(plan,name=plan['name']+' renewal',detail='Extends your current login by '+str(plan['months'])+(' month' if plan['months']==1 else ' months'),
@@ -98,8 +98,44 @@ class CheckoutService:
         renewal.pop('reseller_purchase',None)
         return self.quote_plan(renewal,asset_id,owner_telegram_id=telegram_id,request_key=request_key)
 
+    def trial_upgrade_target(self,telegram_id):
+        """The customer's delivered 24-hour trial, if its panel login can be extended into a paid membership.
+
+        Returns None when there is no such trial, it is still queued or under review, or it was
+        created before panel ids were recorded. Trials already upgraded return None as well so the
+        menus fall back to renewal from the membership order.
+        """
+        trial=self.store.trial(telegram_id)
+        if not trial or trial['kind']!='trial' or trial['status']!='fulfilled':return None
+        panel_id=str((trial.get('credentials') or {}).get('panel_id') or '')
+        if not panel_id.isdigit():return None
+        for order in self.store.telegram_orders(telegram_id):
+            if order['plan'].get('trial_upgrade') and order['status'] in ('paid','provisioning','fulfilled'):return None
+        return dict(id=trial['id'],panel_id=panel_id,expires_at=(trial.get('credentials') or {}).get('expires_at'))
+
+    def trial_upgrade_plans(self):
+        """Plans a trial login can be upgraded to: the trial line is a one-device line and the verified
+        extension path never changes a line's device count."""
+        return [p for p in self.config['plans'] if p.get('active',True) and int(p.get('connections',0))==1 and 'gbp_price' in p]
+
+    def upgrade_trial_order(self,telegram_id,plan_id,asset_id,request_key):
+        """Quote a paid plan as an extension of the customer's own trial login: same username and password, new expiry."""
+        self.resellers.guard(telegram_id)
+        target=self.trial_upgrade_target(telegram_id)
+        if not target:raise CheckoutError('No trial login to upgrade. Choose a plan under Subscription Plans instead.')
+        plan=next((p for p in self.trial_upgrade_plans() if p['id']==plan_id),None)
+        if not plan:raise CheckoutError('That plan cannot be applied to a trial login. Choose a one-device plan.')
+        months=int(plan['months'])
+        upgrade=dict(plan,name=plan['name']+' · trial upgrade',detail='Extends your trial login by '+str(months)+(' month' if months==1 else ' months'),
+                     renew_of=target['id'],renew_panel_id=target['panel_id'],trial_upgrade=True)
+        upgrade.pop('reseller_purchase',None)
+        return self.quote_plan(upgrade,asset_id,owner_telegram_id=telegram_id,request_key=request_key)
+
     def _provision_renewal(self,order):
         """Extend the original panel account instead of creating a new one. Uses the reseller provider's verified renewal path."""
+        with panel_lock(self.panel):return self._provision_renewal_locked(order)
+
+    def _provision_renewal_locked(self,order):
         plan=order['plan'];provider=self.resellers.ops.provider
         original=self.store.get(plan['renew_of'])
         credentials=dict((original or {}).get('credentials') or {})
@@ -107,11 +143,13 @@ class CheckoutService:
         if not original or panel_id!=str(plan.get('renew_panel_id')):raise PanelError('Renewal target does not match the original order')
         current=provider.read(panel_id)
         record=dict(provider_id=panel_id,connections=int(plan['connections']),adult=False,expires_at=current['expires_at'])
-        operation=dict(operation_type='extend',package_id=provider.package(int(plan['months']),int(plan['connections']),False),connections=int(plan['connections']))
+        operation=dict(operation_type='extend',package_id=provider.package(int(plan['months']),int(plan['connections']),False),connections=int(plan['connections']),months=int(plan['months']))
         context=provider.prepare(operation,record)
         account=provider.execute(operation,context)
         credentials.update(expires_at=account['expires_at'],renewed_at=int(time.time()),renewed_from=plan['renew_of'])
-        self.store.update(order['id'],status='fulfilled',credentials=credentials,message='Your membership has been extended. Same login, new expiry.')
+        message=('Your trial login is now a paid membership. Same login, new expiry.' if plan.get('trial_upgrade')
+                 else 'Your membership has been extended. Same login, new expiry.')
+        self.store.update(order['id'],status='fulfilled',credentials=credentials,message=message)
 
     def get_order(self, token):
         order = self.store.by_token(token)
@@ -252,46 +290,49 @@ class CheckoutService:
                 self.resellers.finance.grant(order['id'])
                 continue
             if not self.store.claim_provision(order['id']): continue
-            generation = None
-            try:
-                if order['plan'].get('renew_of'):
-                    self._provision_renewal(order)
-                    continue
-                credentials = order['credentials']
-                if credentials and credentials.get('generation_mode')=='panel':
-                    raise ProvisioningUncertain('Previous generation requires manual reconciliation')
-                if credentials and credentials.get('username'):
-                    existing = self.panel.find_account(credentials['username'])
-                    if existing is not None:
-                        if (existing.get('username')!=credentials['username'] or existing.get('password')!=credentials['password']
-                                or existing.get('package_id',str(order['plan']['package_id']))!=str(order['plan']['package_id'])):
-                            raise PanelError('Existing account credentials do not match')
-                        self.store.update(order['id'],status='fulfilled',credentials=existing,message='Your account is ready.')
-                        continue
-                generation = self.panel.prepare_generation(str(order['plan']['package_id']))
-                # Persist correlation before POST; never repeat an uncertain blank-field submission.
-                self.store.update(order['id'],credentials=generation)
-                account = self.panel.create_account(str(order['plan']['package_id']),'','','',generation=generation)
-                if not all(isinstance(account.get(key),str) and account[key] for key in ('username','password')):
-                    raise ValueError('Panel account confirmation mismatch')
-                self.store.update(order['id'],status='fulfilled',credentials=account,message='Your account is ready.')
-            except Exception as exc:
-                if generation is None and not credentials and isinstance(exc,PanelError):
-                    # prepare_generation failed before any business POST. Preserve
-                    # this proof so retry can requeue this order, not a new trial.
-                    self.store.update(order['id'],credentials=dict(
-                        generation_mode='panel',package_id=str(order['plan']['package_id']),
-                        post_attempted=False,failure_stage='generation_preflight'))
-                if generation and isinstance(exc,PanelError) and not isinstance(exc,ProvisioningUncertain):
-                    generation['post_attempted']=False
-                    self.store.update(order['id'],credentials=generation)
-                reason = exc.reason if isinstance(exc,ProvisioningUncertain) else (
-                    'generation_preflight' if generation is None and not credentials else 'unclassified_error')
-                log.error('Panel provisioning requires review for order %s (%s, %s)',order['id'],type(exc).__name__,reason)
-                self.store.update(order['id'],status='review',message='Your order needs a manual account check. Do not pay again. Contact support with your order ID.')
-                if order['kind']=='trial':
-                    self.store.metadata('trial_recheck_after:'+order['id'],int(time.time())+120)
+            with panel_lock(self.panel): self._provision_one(order)
         self.resellers.process()
+
+    def _provision_one(self,order):
+        generation = None; credentials = order.get('credentials')
+        try:
+            if order['plan'].get('renew_of'):
+                self._provision_renewal(order)
+                return
+            credentials = order['credentials']
+            if credentials and credentials.get('generation_mode')=='panel':
+                raise ProvisioningUncertain('Previous generation requires manual reconciliation')
+            if credentials and credentials.get('username'):
+                existing = self.panel.find_account(credentials['username'])
+                if existing is not None:
+                    if (existing.get('username')!=credentials['username'] or existing.get('password')!=credentials['password']
+                            or existing.get('package_id',str(order['plan']['package_id']))!=str(order['plan']['package_id'])):
+                        raise PanelError('Existing account credentials do not match')
+                    self.store.update(order['id'],status='fulfilled',credentials=existing,message='Your account is ready.')
+                    return
+            generation = self.panel.prepare_generation(str(order['plan']['package_id']))
+            # Persist correlation before POST; never repeat an uncertain blank-field submission.
+            self.store.update(order['id'],credentials=generation)
+            account = self.panel.create_account(str(order['plan']['package_id']),'','','',generation=generation)
+            if not all(isinstance(account.get(key),str) and account[key] for key in ('username','password')):
+                raise ValueError('Panel account confirmation mismatch')
+            self.store.update(order['id'],status='fulfilled',credentials=account,message='Your account is ready.')
+        except Exception as exc:
+            if generation is None and not credentials and isinstance(exc,PanelError):
+                # prepare_generation failed before any business POST. Preserve
+                # this proof so retry can requeue this order, not a new trial.
+                self.store.update(order['id'],credentials=dict(
+                    generation_mode='panel',package_id=str(order['plan']['package_id']),
+                    post_attempted=False,failure_stage='generation_preflight'))
+            if generation and isinstance(exc,PanelError) and not isinstance(exc,ProvisioningUncertain):
+                generation['post_attempted']=False
+                self.store.update(order['id'],credentials=generation)
+            reason = exc.reason if isinstance(exc,ProvisioningUncertain) else (
+                'generation_preflight' if generation is None and not credentials else 'unclassified_error')
+            log.error('Panel provisioning requires review for order %s (%s, %s)',order['id'],type(exc).__name__,reason)
+            self.store.update(order['id'],status='review',message='Your order needs a manual account check. Do not pay again. Contact support with your order ID.')
+            if order['kind']=='trial':
+                self.store.metadata('trial_recheck_after:'+order['id'],int(time.time())+120)
 
     def recover_interrupted(self):
         self.resellers.recover()

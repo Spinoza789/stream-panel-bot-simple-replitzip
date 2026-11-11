@@ -273,6 +273,7 @@ class Ledger:
         for row in rows:
             row=dict(row)
             if needle and needle not in (str(row['telegram_id'])+' '+row['username']+' '+row['status']).casefold():continue
+            row['credits_bought']=int(row['credits_bought'] or 0)  # PostgreSQL returns SUM() as Decimal, which the admin API would ship as a string
             row['last_activity']=max(row.pop('last_ledger') or 0,row.pop('last_customer') or 0,row['created_at'])
             row['available']=row['balance']-row['reserved']
             items.append(row)

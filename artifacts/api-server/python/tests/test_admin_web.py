@@ -275,3 +275,20 @@ class AdminWebTests(unittest.TestCase):
         self.assertFalse(self.call('/auth/attempt', dict(kind='setup', buckets=buckets)).json['allowed'])
         self.assertTrue(self.call('/auth/attempt', dict(kind='login', buckets=buckets)).json['allowed'])
         self.assertEqual(self.call('/auth/attempt', dict(kind='setup', buckets=['bad'])).status_code, 400)
+
+
+class PostgresShapedRowsTests(unittest.TestCase):
+    """PostgreSQL rows are dict-like and SUM() comes back as Decimal; the admin API must cope with both."""
+
+    def test_ticket_counts_read_rows_positionally(self):
+        from decimal import Decimal
+        from unittest.mock import MagicMock
+        from streambot.postgres_store import _Row
+        from streambot.tickets import Tickets
+        tickets = Tickets.__new__(Tickets)
+        tickets.ready = True
+        db = MagicMock()
+        db.execute.return_value.fetchall.return_value = [_Row([('status', 'open'), ('count', Decimal('2'))]), _Row([('status', 'closed'), ('count', 5)])]
+        store = MagicMock(); store.connection.return_value.__enter__.return_value = db
+        tickets.store = store
+        self.assertEqual(tickets.admin_counts(), {'open': 2, 'answered': 0, 'closed': 5})

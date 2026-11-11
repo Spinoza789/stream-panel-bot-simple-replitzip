@@ -6,6 +6,7 @@ import time
 import requests
 from .service import CheckoutError
 from .store import digest
+from .dispatch import ChatDispatcher
 from .trial_message import trial_ready_text
 
 log=logging.getLogger(__name__)
@@ -38,8 +39,32 @@ class TelegramBot:
         self.trial_recovery=TrialRecovery(self)
         from .payment_approval import PaymentApproval
         self.payment_approval=PaymentApproval(self)
-        # (chat_id, message_id) of the menu message a callback may edit in place; set per callback only.
-        self.editing=None
+        # (chat_id, message_id) of the menu message a callback may edit in place; set per callback only,
+        # and per thread: chats are handled on several threads at once.
+        self._local=threading.local()
+
+    @property
+    def editing(self):return getattr(self._local,'editing',None)
+
+    @editing.setter
+    def editing(self,value):self._local.editing=value
+
+    HANDLER_THREADS=6
+
+    @staticmethod
+    def chat_key(update):
+        """Updates from one chat run in order; different chats run side by side."""
+        query=update.get('callback_query') or {}
+        sender=query.get('from') or (update.get('message') or {}).get('chat') or {}
+        return sender.get('id') if isinstance(sender.get('id'),int) else 'update:'+str(update.get('update_id'))
+
+    def handler_failed(self,exc):
+        """A failing tap is logged (never its text) and skipped, so it cannot hold up the chat or the loop."""
+        if isinstance(exc,TelegramError):
+            if exc.code==403:return
+            log.warning('Telegram handler failed (stage=handle_update, %s, Telegram API code %s); update skipped.',exc.method or 'request',exc.code)
+            return
+        log.warning('Telegram handler failed (stage=handle_update, error=%s); update skipped.',type(exc).__name__)
 
     def call(self,method,payload):
         # Do not log URLs: Telegram's bot token is part of the URL.
@@ -96,12 +121,17 @@ class TelegramBot:
         trial=self.service.trial_status(uid)
         return bool(trial and trial['status']=='fulfilled')
 
+    def trial_upgradable(self,uid):
+        if not uid or not hasattr(self.service,'trial_upgrade_target'):return False
+        return self.service.trial_upgrade_target(uid) is not None
+
     def menu_keyboard(self,uid=None):
         member=self.service.resellers.member(uid) if uid else None
         active=bool(member and member['status']=='active')
         reseller='🏪 Reseller dashboard' if member and member['status']!='pending' else '🏪 Become A Reseller'
         if not self.trial_used(uid):first={'text':'🎁 Click For 24 hour Trial','callback_data':'menu:trial'}
         elif active:first={'text':'🎁 Create a customer trial','callback_data':'rs:trial'}
+        elif self.trial_upgradable(uid):first={'text':'⬆️ Upgrade my trial to a subscription','callback_data':'pay:upgrade'}
         else:first={'text':'✅ Trial used · Get a subscription','callback_data':'menu:plans'}
         return {'inline_keyboard':[
             [first],
@@ -225,7 +255,10 @@ class TelegramBot:
                                            [{'text':'Back to main menu','callback_data':'menu'}]]}
             return {'inline_keyboard':[[{'text':'Check / retry trial','callback_data':'menu:retrytrial'}],
                                        [{'text':'Back to main menu','callback_data':'menu'}]]}
-        return self.menu_keyboard(uid)
+        keyboard=self.menu_keyboard(uid)
+        if order['status']=='fulfilled' and self.trial_upgradable(uid) and keyboard['inline_keyboard'][0][0]['callback_data']!='pay:upgrade':
+            keyboard['inline_keyboard'].insert(0,[{'text':'⬆️ Upgrade this trial to a subscription','callback_data':'pay:upgrade'}])
+        return keyboard
 
     def handle_callback(self,query):
         callback_id=query.get('id')
@@ -381,6 +414,11 @@ class TelegramBot:
                     break
 
     def run(self,stop):
+        dispatcher=ChatDispatcher(self.handle,workers=self.HANDLER_THREADS,on_error=self.handler_failed)
+        try:self._poll(stop,dispatcher)
+        finally:dispatcher.shutdown(wait=True)  # finish taps already in progress before the thread ends
+
+    def _poll(self,stop,dispatcher):
         registered=False
         offset=None
         while not stop.is_set():
@@ -400,9 +438,7 @@ class TelegramBot:
                 for update in updates:
                     if stop.is_set(): break
                     stage='handle_update'
-                    try: self.handle(update)
-                    except TelegramError as exc:
-                        if exc.code!=403: raise
+                    dispatcher.submit(self.chat_key(update),update)  # handled on a chat thread; failures are logged there
                     stage='save_offset'
                     next_offset=update['update_id']+1
                     self.store.metadata('telegram_offset',next_offset)

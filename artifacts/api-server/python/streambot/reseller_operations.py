@@ -1,7 +1,7 @@
 """Durable credit reservations and provider operations. Never replay an uncertain POST."""
 import json
 
-from .panel import PanelError, ProvisioningUncertain
+from .panel import PanelError, ProvisioningUncertain, panel_lock
 from .reseller_ledger import identifier, integer, now
 from .service import CheckoutError
 
@@ -43,7 +43,8 @@ class Operations:
             record=self.owned(uid,target)
             connections,adult=record['connections'],bool(record['adult'])
             customer_ref=record['customer_ref']
-            try:provider_preview=self.provider.preview_extension(record,months)
+            try:
+                with panel_lock(getattr(self.provider,'panel',None)):provider_preview=self.provider.preview_extension(record,months)
             except Exception:raise CheckoutError('Provider renewal preview is unavailable. No credits were reserved. Contact support.') from None
         else:provider_preview=None
         integer(connections,1,3)
@@ -170,27 +171,30 @@ class Operations:
         with self.store.connection() as db:
             ids=[r[0] for r in db.execute("SELECT id FROM rs_operations WHERE status='queued' ORDER BY created_at,id LIMIT 2").fetchall()]
         for oid in ids:
-            with self.ledger.transaction() as db:
-                row=db.execute("SELECT o.* FROM rs_operations o JOIN rs_resellers r ON r.id=o.reseller_id WHERE o.id=? AND o.status='queued' AND r.status='active'",(oid,)).fetchone()
-                if not row:continue
-                op=dict(row)
-                db.execute("UPDATE rs_operations SET status='preparing',updated_at=? WHERE id=?",(now(),oid))
-                record=dict(db.execute('SELECT * FROM rs_subscriptions WHERE id=?',(op['target_id'],)).fetchone()) if op['target_id'] else None
-            try:context=self.provider.prepare(op,record)
-            except Exception:
-                self.fail(oid,'Provider preparation failed before submission. Credits released; contact support.')
-                continue
-            with self.ledger.transaction() as db:
-                # Durable submission intent BEFORE the external mutation.
-                db.execute("UPDATE rs_operations SET status='processing',provider_context=?,updated_at=? WHERE id=?",
-                           (self.store.seal(context),now(),oid))
-            try:account=self.provider.execute(op,context)
-            except ProvisioningUncertain:self.fail(oid,'',uncertain=True)
-            except PanelError:self.fail(oid,'Provider rejected this request before submission. Credits released.')
+            with panel_lock(getattr(self.provider,'panel',None)):self._process_one(oid)
+
+    def _process_one(self,oid):
+        with self.ledger.transaction() as db:
+            row=db.execute("SELECT o.* FROM rs_operations o JOIN rs_resellers r ON r.id=o.reseller_id WHERE o.id=? AND o.status='queued' AND r.status='active'",(oid,)).fetchone()
+            if not row:return
+            op=dict(row)
+            db.execute("UPDATE rs_operations SET status='preparing',updated_at=? WHERE id=?",(now(),oid))
+            record=dict(db.execute('SELECT * FROM rs_subscriptions WHERE id=?',(op['target_id'],)).fetchone()) if op['target_id'] else None
+        try:context=self.provider.prepare(op,record)
+        except Exception:
+            self.fail(oid,'Provider preparation failed before submission. Credits released; contact support.')
+            return
+        with self.ledger.transaction() as db:
+            # Durable submission intent BEFORE the external mutation.
+            db.execute("UPDATE rs_operations SET status='processing',provider_context=?,updated_at=? WHERE id=?",
+                       (self.store.seal(context),now(),oid))
+        try:account=self.provider.execute(op,context)
+        except ProvisioningUncertain:self.fail(oid,'',uncertain=True)
+        except PanelError:self.fail(oid,'Provider rejected this request before submission. Credits released.')
+        except Exception:self.fail(oid,'',uncertain=True)
+        else:
+            try:self.complete(oid,account)
             except Exception:self.fail(oid,'',uncertain=True)
-            else:
-                try:self.complete(oid,account)
-                except Exception:self.fail(oid,'',uncertain=True)
 
     def reconcile(self,actor,oid,provider_id=None):
         self.ledger.admin(actor)
@@ -199,7 +203,8 @@ class Operations:
         if not row or row['status']!='uncertain' or not row['provider_context']:
             raise CheckoutError('Only uncertain submitted operations can be reconciled.')
         context=self.store.unseal(row['provider_context'])
-        try:account=self.provider.reconcile(dict(row),context,provider_id)
+        try:
+            with panel_lock(getattr(self.provider,'panel',None)):account=self.provider.reconcile(dict(row),context,provider_id)
         except Exception:raise CheckoutError('Provider result still cannot be confirmed. Credits remain reserved. No request was resubmitted.') from None
         self.complete(oid,account)
         with self.ledger.transaction() as db:
@@ -209,7 +214,7 @@ class Operations:
         record=self.owned(uid,sid)
         warning=None
         try:
-            account=self.provider.read(record['provider_id'])
+            with panel_lock(getattr(self.provider,'panel',None)):account=self.provider.read(record['provider_id'])
             if account['provider_id']!=record['provider_id']:raise PanelError('Provider identity mismatch')
             with self.ledger.transaction() as db:
                 db.execute('UPDATE rs_subscriptions SET expires_at=?,status=?,credentials=?,confirmed_at=? WHERE id=? AND reseller_id=?',
@@ -300,7 +305,8 @@ class Operations:
             rows=[dict(r) for r in db.execute('SELECT id,provider_id FROM rs_subscriptions WHERE reseller_id=? AND deleted_at IS NULL',(member['id'],)).fetchall()]
         if not rows:return None
         try:
-            summary=self.provider.summary() if hasattr(self.provider,'summary') else {r['provider_id']:self.provider.read(r['provider_id']) for r in rows}
+            with panel_lock(getattr(self.provider,'panel',None)):
+                summary=self.provider.summary() if hasattr(self.provider,'summary') else {r['provider_id']:self.provider.read(r['provider_id']) for r in rows}
             with self.ledger.transaction() as db:
                 for row in rows:
                     item=summary.get(row['provider_id'])
