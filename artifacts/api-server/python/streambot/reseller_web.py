@@ -47,7 +47,6 @@ class ResellerWeb:
                 db.execute('SELECT token_hash FROM rs_web_sessions WHERE 1=0')
                 db.execute('SELECT reseller_id FROM rs_logins WHERE 1=0')
                 db.execute('SELECT code_hash FROM rs_web_codes WHERE 1=0')
-                db.execute('SELECT poll_hash FROM rs_login_requests WHERE 1=0')
             self.ready = True
         except Exception as exc:
             self.ready = False
@@ -57,6 +56,20 @@ class ResellerWeb:
         self.r.require_ready()
         if not self.ready:
             raise CheckoutError('The web dashboard is not available until the database schema is published.')
+
+    @property
+    def login_ready(self):
+        # The "Log in with Telegram" button needs rs_login_requests; the rest of the portal works without it.
+        if not self.ready: return False
+        try:
+            with self.store.connection() as db: db.execute('SELECT poll_hash FROM rs_login_requests WHERE 1=0')
+            return True
+        except Exception: return False
+
+    def require_login_ready(self):
+        self.require_ready()
+        if not self.login_ready:
+            raise CheckoutError('Telegram login is not set up yet (rs_login_requests table missing). Ask the bot for a sign-in link instead.')
 
     # ---- Telegram one-time link ------------------------------------------------
     def issue_code(self, uid):
@@ -79,7 +92,7 @@ class ResellerWeb:
 
     def start_login(self):
         """Create a pending login request. The browser keeps `poll` (its secret); the Telegram deep link carries `code`."""
-        self.require_ready()
+        self.require_login_ready()
         bot = self.bot_username()
         base = self.service.config.get('telegram_start_url') or ('https://t.me/' + bot + '?start=' if bot else '')
         if not base:
@@ -97,7 +110,7 @@ class ResellerWeb:
 
     def login_request(self, code):
         """The pending request behind a deep-link code, for the bot's confirmation screen."""
-        self.require_ready()
+        self.require_login_ready()
         if not self.valid_login_code(code): raise CheckoutError('This login link is not valid.')
         with self.store.connection() as db:
             row = db.execute('SELECT reseller_id,expires_at FROM rs_login_requests WHERE code_hash=?', (digest(code),)).fetchone()
@@ -107,7 +120,7 @@ class ResellerWeb:
 
     def approve_login(self, code, uid):
         """Bind the browser's request to the Telegram user who confirmed it. Only resellers can use the panel."""
-        self.require_ready()
+        self.require_login_ready()
         if not self.valid_login_code(code): raise CheckoutError('This login link is not valid.')
         member = self.r.member(uid)
         if not member: raise CheckoutError('Buy a credit pack in the bot first; that creates your reseller account and the web panel opens up.')
@@ -120,7 +133,7 @@ class ResellerWeb:
 
     def poll_login(self, poll):
         """Session token once the bot approved the request; None while still waiting."""
-        self.require_ready()
+        self.require_login_ready()
         if not isinstance(poll, str) or not 20 <= len(poll) <= 100: raise CheckoutError('This login request is not valid.')
         with self.r.finance.transaction() as db:
             row = db.execute('SELECT reseller_id,expires_at FROM rs_login_requests WHERE poll_hash=?', (digest(poll),)).fetchone()

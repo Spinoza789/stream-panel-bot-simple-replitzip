@@ -201,6 +201,9 @@ CREATE INDEX IF NOT EXISTS tk_messages_ticket ON tk_messages(ticket_id,created_a
 
 ## Columns added later (apply by hand on PostgreSQL)
 
+Everything below, plus the web-portal, login-request and ticket tables, is collected in
+`sql/upgrade-2026-11-11.sql`, which is safe to run repeatedly on the development database.
+
 SQLite databases upgrade themselves. On PostgreSQL the application never runs DDL, so
 run these on the development database before publishing a build that uses them:
 
