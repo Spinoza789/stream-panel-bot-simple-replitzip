@@ -616,11 +616,23 @@ components:
         months: { type: integer }
         connections: { type: integer }
         credits: { type: integer }
+    RateCardPlan:
+      type: object
+      required: [id, name, months, connections, detail, gbpPrice, active]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        months: { type: integer }
+        connections: { type: integer }
+        detail: { type: string }
+        gbpPrice: { type: string }
+        active: { type: boolean }
     AdminRateCard:
       type: object
-      required: [packages, costs, trialDaily, trialActive]
+      required: [packages, plans, costs, trialDaily, trialActive]
       properties:
         packages: { type: array, items: { $ref: "#/components/schemas/RateCardPackage" } }
+        plans: { type: array, items: { $ref: "#/components/schemas/RateCardPlan" } }
         costs: { type: array, items: { $ref: "#/components/schemas/RateCardCost" } }
         trialDaily: { type: integer }
         trialActive: { type: integer }
@@ -629,7 +641,7 @@ components:
       required: [category, values, reason]
       additionalProperties: false
       properties:
-        category: { type: string, enum: [package, cost, trials] }
+        category: { type: string, enum: [package, package_add, package_delete, plan, cost, trials] }
         values: { type: array, maxItems: 4, items: { oneOf: [{ type: string, maxLength: 40 }, { type: integer }, { type: boolean }] } }
         reason: { type: string, minLength: 3, maxLength: 500 }
     PasswordAccountInput:

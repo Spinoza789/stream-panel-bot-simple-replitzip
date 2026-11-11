@@ -269,6 +269,7 @@ def register_admin(app, service):
                      db.execute('SELECT months,connections,credits FROM rs_costs ORDER BY months,connections').fetchall()]
             settings = {r['key']: r['value'] for r in db.execute('SELECT key,value FROM rs_settings').fetchall()}
         return dict(packages=[dict(id=p['id'], pricePence=p['price_pence'], credits=p['credits'], active=bool(p['active'])) for p in f.packages()],
+                    plans=service.pricing.public(),
                     costs=costs, trialDaily=int(settings.get('trial_daily', 0)), trialActive=int(settings.get('trial_active', 0)))
 
     @routes.get('/ratecard')
@@ -284,6 +285,15 @@ def register_admin(app, service):
         if category == 'package':
             pid, price, credits, active = (str(values[0]), int(values[1]), int(values[2]), int(bool(values[3]))) if len(values) == 4 else (None,) * 4
             finance().configure(request.admin_actor, 'package', (pid, price, credits, active), reason)
+        elif category == 'plan':
+            if len(values) != 3: raise CheckoutError('Invalid values.')
+            service.pricing.set_plan(request.admin_actor, str(values[0]), str(values[1]), bool(values[2]), reason)
+        elif category == 'package_add':
+            if len(values) != 2: raise CheckoutError('Invalid values.')
+            finance().configure(request.admin_actor, 'package_add', (int(values[0]), int(values[1])), reason)
+        elif category == 'package_delete':
+            if len(values) != 1: raise CheckoutError('Invalid values.')
+            finance().configure(request.admin_actor, 'package_delete', (str(values[0]),), reason)
         elif category == 'cost':
             if len(values) != 3: raise CheckoutError('Invalid values.')
             finance().configure(request.admin_actor, 'cost', (int(values[0]), int(values[1]), int(values[2])), reason)

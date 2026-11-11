@@ -198,7 +198,7 @@ class TelegramCheckout:
                 self.clear_session(uid)
                 self.show_orders(uid)
             elif len(parts) == 3 and parts[1] == 'choose':
-                plan = next((p for p in self.service.config['plans'] if p['id'] == parts[2]), None)
+                plan = next((p for p in self.service.config['plans'] if p['id'] == parts[2] and p.get('active', True)), None)
                 if not plan:
                     raise CheckoutError('Membership not found. Please start again.')
                 self.choose(uid, plan)

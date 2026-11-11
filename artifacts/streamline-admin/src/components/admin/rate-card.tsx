@@ -8,7 +8,7 @@ import { useAdminReady } from "./access";
 import { useToast } from "@/hooks/use-toast";
 import { errorMessage, gbp } from "@/lib/format";
 
-/** Credit packs, subscription costs and trial limits, edited in place. Every change needs a reason and is audited. */
+/** Subscription prices, credit packs (add, edit, remove), credit costs and trial limits, edited in place. Every change needs a reason and is audited. */
 export function RateCardPanel() {
   const ready = useAdminReady();
   const qc = useQueryClient();
@@ -19,7 +19,7 @@ export function RateCardPanel() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const d = q.data;
   const value = (key: string, fallback: number | string) => (key in draft ? draft[key] : String(fallback));
-  const save = (category: "package" | "cost" | "trials", values: (string | number | boolean)[]) => {
+  const save = (category: "package" | "package_add" | "package_delete" | "plan" | "cost" | "trials", values: (string | number | boolean)[]) => {
     if (reason.trim().length < 3) { toast({ title: "Give a reason first", description: "A short note goes into the audit log with every price change.", variant: "destructive" }); return; }
     upd.mutate({ data: { category, values, reason: reason.trim() } }, {
       onSuccess: (card: AdminRateCard) => { qc.setQueryData(getGetAdminRateCardQueryKey(), card); setDraft({}); toast({ title: "Rate card updated" }); },
@@ -44,6 +44,32 @@ export function RateCardPanel() {
             <Input id="rate-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} placeholder="e.g. Spring price update" className="mt-1 h-9" data-testid="input-rate-reason" />
           </div>
           <div>
+            <h3 className="mb-1 font-semibold">Subscription prices</h3>
+            <p className="mb-2 text-xs text-muted-foreground">What customers pay in the bot and on the website, in pounds. Hidden plans disappear from the menus; existing customers are not affected.</p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px]">
+                <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1 pr-2 font-medium">Plan</th><th className="py-1 pr-2 font-medium">Devices</th><th className="py-1 pr-2 font-medium">Price (£)</th><th className="py-1 pr-2 font-medium">Per month</th><th className="py-1 pr-2 font-medium">On sale</th><th /></tr></thead>
+                <tbody>
+                  {(d.plans ?? []).map((p) => {
+                    const price = parseFloat(value("pl-price-" + p.id, p.gbpPrice)) || 0;
+                    return (
+                      <tr key={p.id} className="border-t border-border">
+                        <td className="py-1.5 pr-2">{p.name}</td>
+                        <td className="py-1.5 pr-2 text-muted-foreground">{p.connections}</td>
+                        <td className="py-1.5 pr-2"><Input value={value("pl-price-" + p.id, p.gbpPrice)} onChange={(e) => setDraft({ ...draft, ["pl-price-" + p.id]: e.target.value })} inputMode="decimal" className="h-8 w-24" data-testid={`input-plan-price-${p.id}`} /></td>
+                        <td className="num py-1.5 pr-2 text-muted-foreground">{p.months ? gbp(price / p.months) : "—"}</td>
+                        <td className="py-1.5 pr-2">
+                          <select value={value("pl-active-" + p.id, p.active ? "1" : "0")} onChange={(e) => setDraft({ ...draft, ["pl-active-" + p.id]: e.target.value })} className="h-8 rounded-lg border border-input bg-card px-2 text-[13px]"><option value="1">Yes</option><option value="0">Hidden</option></select>
+                        </td>
+                        <td className="py-1.5 text-right"><Button size="sm" variant="outline" disabled={upd.isPending || !(price >= 1)} onClick={() => save("plan", [p.id, price.toFixed(2), value("pl-active-" + p.id, p.active ? "1" : "0") === "1"])} data-testid={`button-save-plan-${p.id}`}>Save</Button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
             <h3 className="mb-2 font-semibold">Credit packs</h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[480px]">
@@ -58,9 +84,17 @@ export function RateCardPanel() {
                       <td className="py-1.5 pr-2">
                         <select value={value("p-active-" + p.id, p.active ? "1" : "0")} onChange={(e) => setDraft({ ...draft, ["p-active-" + p.id]: e.target.value })} className="h-8 rounded-lg border border-input bg-card px-2 text-[13px]"><option value="1">Yes</option><option value="0">Hidden</option></select>
                       </td>
-                      <td className="py-1.5 text-right"><Button size="sm" variant="outline" onClick={(e) => savePackage(e, p.id)} disabled={upd.isPending} data-testid={`button-save-pack-${p.id}`}>Save</Button></td>
+                      <td className="py-1.5 text-right whitespace-nowrap"><Button size="sm" variant="outline" onClick={(e) => savePackage(e, p.id)} disabled={upd.isPending} data-testid={`button-save-pack-${p.id}`}>Save</Button> <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={upd.isPending} onClick={() => { if (confirm(`Remove the ${gbp(p.pricePence / 100)} pack? Past purchases keep their own record.`)) save("package_delete", [p.id]); }} data-testid={`button-delete-pack-${p.id}`}>Remove</Button></td>
                     </tr>
                   ))}
+                  <tr className="border-t border-border">
+                    <td className="py-1.5 pr-2 text-xs text-muted-foreground">New pack</td>
+                    <td className="py-1.5 pr-2"><Input value={value("np-price", "")} onChange={(e) => setDraft({ ...draft, "np-price": e.target.value })} inputMode="decimal" placeholder="50" className="h-8 w-24" data-testid="input-new-pack-price" /></td>
+                    <td className="py-1.5 pr-2"><Input value={value("np-credits", "")} onChange={(e) => setDraft({ ...draft, "np-credits": e.target.value })} inputMode="numeric" placeholder="16" className="h-8 w-20" data-testid="input-new-pack-credits" /></td>
+                    <td className="num py-1.5 pr-2 text-muted-foreground">{parseFloat(value("np-price", "")) > 0 && parseInt(value("np-credits", ""), 10) > 0 ? gbp(parseFloat(value("np-price", "")) / parseInt(value("np-credits", ""), 10)) : "—"}</td>
+                    <td className="py-1.5 pr-2 text-xs text-muted-foreground">On sale</td>
+                    <td className="py-1.5 text-right"><Button size="sm" disabled={upd.isPending || !(parseFloat(value("np-price", "")) > 0 && parseInt(value("np-credits", ""), 10) > 0)} onClick={() => save("package_add", [Math.round(parseFloat(value("np-price", "")) * 100), parseInt(value("np-credits", ""), 10)])} data-testid="button-add-pack">Add pack</Button></td>
+                  </tr>
                 </tbody>
               </table>
             </div>

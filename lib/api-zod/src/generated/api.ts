@@ -759,6 +759,17 @@ export const GetAdminRateCardResponse = zod.object({
       active: zod.boolean(),
     }),
   ),
+  plans: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      months: zod.number().int(),
+      connections: zod.number().int(),
+      detail: zod.string(),
+      gbpPrice: zod.string(),
+      active: zod.boolean(),
+    }),
+  ),
   costs: zod.array(
     zod.object({
       months: zod.number().int(),
@@ -778,7 +789,14 @@ export const updateAdminRateCardBodyReasonMin = 3;
 export const updateAdminRateCardBodyReasonMax = 500;
 
 export const UpdateAdminRateCardBody = zod.object({
-  category: zod.enum(["package", "cost", "trials"]),
+  category: zod.enum([
+    "package",
+    "package_add",
+    "package_delete",
+    "plan",
+    "cost",
+    "trials",
+  ]),
   values: zod
     .array(
       zod.union([
@@ -800,6 +818,17 @@ export const UpdateAdminRateCardResponse = zod.object({
       id: zod.string(),
       pricePence: zod.number().int(),
       credits: zod.number().int(),
+      active: zod.boolean(),
+    }),
+  ),
+  plans: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      months: zod.number().int(),
+      connections: zod.number().int(),
+      detail: zod.string(),
+      gbpPrice: zod.string(),
       active: zod.boolean(),
     }),
   ),

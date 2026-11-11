@@ -112,6 +112,21 @@ use production data or actual passwords for these tests.
   sessions.
 - The admin has a light/dark toggle in the top bar, remembered per browser.
 
+## Prices, credit costs and packs
+
+Settings → Rate card is the one place for pricing. Every save needs a reason, which
+goes into the audit log, and changes apply to new orders only.
+
+- **Subscription prices**: the pound price customers pay for each plan in the bot and
+  on the website, plus an on-sale switch. Hidden plans leave the menus; existing
+  customers keep what they bought. At least one plan must stay on sale. Prices are
+  stored in the database as overrides on top of `config.json`, so a redeploy keeps them.
+- **Credit packs**: edit price and credits, hide a pack, remove one, or add a new one.
+  Removed packs stay on past purchases as a snapshot. At least one pack must stay on sale.
+- **Subscription cost in credits**: the credits a reseller spends per duration and
+  device count.
+- **Trial limits**: free tests per reseller per day and tests running at once.
+
 ## Support tickets
 
 Tickets replace the old support chat relay. A customer or reseller taps Contact support

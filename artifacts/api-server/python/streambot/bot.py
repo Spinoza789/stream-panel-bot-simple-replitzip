@@ -109,6 +109,7 @@ class TelegramBot:
     def menu_text(self):
         prices=[]
         for plan in self.service.config.get('plans',[]):
+            if not plan.get('active',True):continue
             try: prices.append(float(plan['gbp_price']))
             except (KeyError,TypeError,ValueError): pass
         starting_price=('Plans from '+self.gbp(min(prices)) if prices else 'Flexible membership plans')
@@ -141,6 +142,7 @@ class TelegramBot:
 
     def find_plan(self,months,adult=False,connections=None):
         for plan in self.service.config.get('plans',[]):
+            if not plan.get('active',True):continue
             if (plan.get('months')==months
                     and bool(plan.get('adult_content',False))==adult
                     and (connections is None or plan.get('connections')==connections)):
@@ -148,7 +150,7 @@ class TelegramBot:
         return None
 
     def duration_keyboard(self):
-        durations=sorted({p['months'] for p in self.service.config.get('plans',[])})
+        durations=sorted({p['months'] for p in self.service.config.get('plans',[]) if p.get('active',True)})
         buttons=[[{'text':f'📅 {months} month'+('s' if months!=1 else ''),
                    'callback_data':f'plan:duration:{months}'} for months in durations[i:i+2]]
                  for i in range(0,len(durations),2)]
@@ -160,7 +162,7 @@ class TelegramBot:
     def pick_screen(self,months):
         """One screen for a duration: a button per connection count."""
         row=[]
-        for connections in sorted({p['connections'] for p in self.service.config.get('plans',[]) if p.get('months')==months}):
+        for connections in sorted({p['connections'] for p in self.service.config.get('plans',[]) if p.get('months')==months and p.get('active',True)}):
             plan=self.find_plan(months,False,connections)
             if plan:
                 row.append({'text':f'{connections} device'+('s' if connections!=1 else '')+' · '+self.gbp(plan['gbp_price']),

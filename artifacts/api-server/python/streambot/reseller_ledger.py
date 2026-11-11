@@ -142,6 +142,17 @@ class Ledger:
                 if not db.execute('SELECT id FROM rs_packages WHERE id=?',(pid,)).fetchone():
                     raise CheckoutError('Package not found.')
                 db.execute('UPDATE rs_packages SET price_pence=?,credits=?,active=?,updated_at=? WHERE id=?',(price,credits,active,now(),pid))
+            elif category=='package_add':
+                price,credits=values
+                integer(price,1);integer(credits,1)
+                pid=str(price//100) if price%100==0 and not db.execute('SELECT 1 FROM rs_packages WHERE id=?',(str(price//100),)).fetchone() else 'pk'+secrets.token_hex(3)
+                db.execute('INSERT INTO rs_packages VALUES(?,?,?,?,?)',(pid,price,credits,1,now()))
+            elif category=='package_delete':
+                pid,=values
+                if not db.execute('SELECT id FROM rs_packages WHERE id=?',(pid,)).fetchone():raise CheckoutError('Package not found.')
+                if db.execute('SELECT COUNT(*) FROM rs_packages WHERE id!=? AND active=1',(pid,)).fetchone()[0]==0 and db.execute('SELECT active FROM rs_packages WHERE id=?',(pid,)).fetchone()[0]:
+                    raise CheckoutError('Keep at least one credit pack on sale.')
+                db.execute('DELETE FROM rs_packages WHERE id=?',(pid,))  # past purchases keep their own snapshot of the pack
             elif category=='cost':
                 months,connections,cost=values
                 if months not in (1,3,6,9,12):raise CheckoutError('Invalid duration.')

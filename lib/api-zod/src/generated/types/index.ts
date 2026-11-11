@@ -40,6 +40,7 @@ export * from "./rateCardCost";
 export * from "./rateCardInput";
 export * from "./rateCardInputCategory";
 export * from "./rateCardPackage";
+export * from "./rateCardPlan";
 export * from "./recoveryConfirmation";
 export * from "./recoveryDraft";
 export * from "./recoveryPreviewInput";

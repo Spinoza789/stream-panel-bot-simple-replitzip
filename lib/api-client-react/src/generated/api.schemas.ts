@@ -305,8 +305,19 @@ export interface RateCardCost {
   credits: number;
 }
 
+export interface RateCardPlan {
+  id: string;
+  name: string;
+  months: number;
+  connections: number;
+  detail: string;
+  gbpPrice: string;
+  active: boolean;
+}
+
 export interface AdminRateCard {
   packages: RateCardPackage[];
+  plans: RateCardPlan[];
   costs: RateCardCost[];
   trialDaily: number;
   trialActive: number;
@@ -317,6 +328,9 @@ export type RateCardInputCategory =
 
 export const RateCardInputCategory = {
   package: "package",
+  package_add: "package_add",
+  package_delete: "package_delete",
+  plan: "plan",
   cost: "cost",
   trials: "trials",
 } as const;

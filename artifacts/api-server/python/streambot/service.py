@@ -21,6 +21,8 @@ class CheckoutService:
         self.resellers=Resellers(self)
         from .tickets import Tickets
         self.tickets=Tickets(self)
+        from .pricing import Pricing
+        self.pricing=Pricing(self)
 
     def public(self, order, credentials=True):
         allowed = ('id','kind','plan','asset','amount_units','created_at','expires_at','status','txid','message')
@@ -39,7 +41,7 @@ class CheckoutService:
 
     def create_order(self, plan_id, asset_id, *, owner_telegram_id=None, request_key=None):
         if not isinstance(plan_id,str) or not isinstance(asset_id,str): raise CheckoutError('Choose a plan and a payment network.')
-        plan = next((p for p in self.config['plans'] if p['id']==plan_id),None)
+        plan = next((p for p in self.config['plans'] if p['id']==plan_id and p.get('active',True)),None)
         asset = self.config['assets'].get(asset_id)
         if not plan or not asset or not asset.get('enabled',True): raise CheckoutError('Unknown plan or payment network.')
         return self.quote_plan(plan,asset_id,owner_telegram_id=owner_telegram_id,request_key=request_key)

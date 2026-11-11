@@ -91,6 +91,29 @@ class AdminWebTests(unittest.TestCase):
         updated = self.call('/ratecard', {'category': 'cost', 'values': [1, 1, 2], 'reason': 'Cost test'}).json
         self.assertEqual([c for c in updated['costs'] if c['months'] == 1 and c['connections'] == 1][0]['credits'], 2)
         self.assertEqual(self.call('/ratecard', {'category': 'cost', 'values': [2, 1, 2], 'reason': 'bad months'}).status_code, 400)
+        # retail plan prices and on-sale flags, credit pack add/remove
+        plans = card['plans']; self.assertEqual(plans[0]['id'], 'month-1'); self.assertEqual(plans[0]['gbpPrice'], '10.00')
+        updated = self.call('/ratecard', {'category': 'plan', 'values': ['month-1', '11.50', True], 'reason': 'Price test'}).json
+        self.assertEqual([p['gbpPrice'] for p in updated['plans'] if p['id'] == 'month-1'], ['11.50'])
+        self.assertEqual(next(p for p in self.service.config['plans'] if p['id'] == 'month-1')['gbp_price'], '11.50')
+        self.assertEqual(self.call('/ratecard', {'category': 'plan', 'values': ['month-1', '0.50', True], 'reason': 'too cheap'}).status_code, 400)
+        hidden = self.call('/ratecard', {'category': 'plan', 'values': ['month-1-2', '12.00', False], 'reason': 'Hide test'}).json
+        self.assertFalse(next(p for p in hidden['plans'] if p['id'] == 'month-1-2')['active'])
+        with self.assertRaises(CheckoutError): self.service.create_order('month-1-2', 'usdc-ethereum')
+        self.assertIsNotNone(self.service.create_order('month-1', 'usdc-ethereum'))
+        # survives a restart: overrides are stored, not just in memory
+        from streambot.service import CheckoutService
+        fresh = CheckoutService(load_config(env={'APP_MODE': 'demo'}), self.store, Mock(), Mock())
+        self.assertEqual(next(p for p in fresh.config['plans'] if p['id'] == 'month-1')['gbp_price'], '11.50')
+        self.assertFalse(next(p for p in fresh.config['plans'] if p['id'] == 'month-1-2').get('active', True))
+        added = self.call('/ratecard', {'category': 'package_add', 'values': [5000, 15], 'reason': 'New pack'}).json
+        new_pack = next(p for p in added['packages'] if p['pricePence'] == 5000)
+        self.assertEqual((new_pack['id'], new_pack['credits'], new_pack['active']), ('50', 15, True))
+        removed = self.call('/ratecard', {'category': 'package_delete', 'values': ['50'], 'reason': 'Remove pack'}).json
+        self.assertNotIn('50', [p['id'] for p in removed['packages']])
+        self.assertIn(self.call('/ratecard', {'category': 'package_delete', 'values': ['nope'], 'reason': 'missing'}).status_code, (400, 404))
+        with self.store.connection() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM rs_audit WHERE action='plan_price'").fetchone()[0], 2)
         overview = self.call('/overview').json
         self.assertEqual(overview['activeResellers'], 0)  # 777 is suspended, 778 pending
         self.assertIn('revenueMonthGbp', overview)

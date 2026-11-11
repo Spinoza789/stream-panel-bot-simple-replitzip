@@ -7,9 +7,11 @@
  */
 import type { RateCardCost } from "./rateCardCost";
 import type { RateCardPackage } from "./rateCardPackage";
+import type { RateCardPlan } from "./rateCardPlan";
 
 export interface AdminRateCard {
   packages: RateCardPackage[];
+  plans: RateCardPlan[];
   costs: RateCardCost[];
   trialDaily: number;
   trialActive: number;

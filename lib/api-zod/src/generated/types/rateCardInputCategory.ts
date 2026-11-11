@@ -11,6 +11,9 @@ export type RateCardInputCategory =
 
 export const RateCardInputCategory = {
   package: "package",
+  package_add: "package_add",
+  package_delete: "package_delete",
+  plan: "plan",
   cost: "cost",
   trials: "trials",
 } as const;

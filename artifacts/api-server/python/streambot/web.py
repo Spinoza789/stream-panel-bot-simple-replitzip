@@ -70,7 +70,7 @@ def create_app(service,ready=None):
     def catalog():
         return jsonify(brand=service.config['brand'],support=service.config['support'],support_url=service.config['support_url'],
                        demo=service.config['mode']=='demo',
-                       plans=[{k:v for k,v in plan.items() if k not in ('prices','package_id')} for plan in service.config['plans']],
+                       plans=[{k:v for k,v in plan.items() if k not in ('prices','package_id')} for plan in service.config['plans'] if plan.get('active',True)],
                        assets=[{k:asset[k] for k in ('id','symbol','network','decimals')} for asset in service.config['assets'].values() if asset.get('enabled',True)])
 
     def token():
