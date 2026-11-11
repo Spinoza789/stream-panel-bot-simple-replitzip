@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const BASE=document.querySelector('meta[name="streambot-base-path"]').content;
 const API=BASE+'/api/reseller';
 let me=null,packages=null,apps=null,sub={filter:'active',page:0,search:'',items:[],sort:{key:'expires_at',dir:'asc'},selected:new Set()},hist={page:0},
-    create={kind:'create',months:1,connections:1,adult:false},nonce=null,pollTimer=null,credits={pack:null,asset:null};
+    create={kind:'create',months:1,connections:1},nonce=null,pollTimer=null,credits={pack:null,asset:null};
 const names={ethereum:'Ethereum',solana:'Solana',bitcoin:'Bitcoin'};
 const when=ts=>new Date(ts*1000).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'});
 const whenDay=ts=>new Date(ts*1000).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Europe/London'});
@@ -101,7 +101,7 @@ function subRow(r,{selectable=true}={}){
   if(selectable){const td=el('td','check');const cb=el('input');cb.type='checkbox';cb.checked=sub.selected.has(r.id);cb.setAttribute('aria-label','Select '+(r.customer_ref||r.username));
     cb.onclick=e=>{e.stopPropagation();if(cb.checked)sub.selected.add(r.id);else sub.selected.delete(r.id);tr.classList.toggle('selected',cb.checked);renderBulk();};td.append(cb);tr.append(td);}
   const name=el('td');name.append(el('strong',null,r.customer_ref||r.username));name.append(el('small',null,(r.contact?r.contact+' · ':'')+r.username));
-  const kind=el('td');kind.append(document.createTextNode(r.kind==='trial'?'24-hour test':'Subscription'));kind.append(el('small',null,plural(r.connections,'device')+(r.adult?' · with adult':'')));
+  const kind=el('td');kind.append(document.createTextNode(r.kind==='trial'?'24-hour test':'Subscription'));kind.append(el('small',null,plural(r.connections,'device')));
   const started=el('td','hide-sm',whenDay(r.starts_at));
   const info=expiryInfo(r);const exp=el('td');exp.append(document.createTextNode(whenDay(r.expires_at)));const d=el('small','days '+info.days[1],info.days[0]);exp.append(d);
   const st=el('td');st.append(el('span','pill '+info.pill[1],info.pill[0]));
@@ -202,7 +202,7 @@ async function openDetail(id){
   form.onsubmit=e=>{e.preventDefault();busy(save,async()=>{await api('/subscriptions/'+encodeURIComponent(id)+'/notes',{method:'POST',data:{customer_ref:nameIn.value,contact:contactIn.value}});toast('Saved');$('drawer-title').textContent=nameIn.value||r.credentials.username;loadSubs().catch(()=>{});});};
   box.append(form);box.append(el('p','fineprint','Only you see these. They are never sent to the customer or the provider.'));
   const dl=el('dl','plain');
-  for(const [k,v] of [['Subscription ID',r.provider_id],['Devices',plural(r.connections,'device')]].concat(r.kind==='trial'?[]:[['Content',r.adult?'With adult':'No adult']]).concat([['Status',r.status[0].toUpperCase()+r.status.slice(1)],['Started',when(r.starts_at)],['Expires',when(r.expires_at)],['Last confirmed',when(r.confirmed_at)]])){const d=el('div');d.append(el('dt',null,k),el('dd',null,String(v)));dl.append(d);}
+  for(const [k,v] of [['Subscription ID',r.provider_id],['Devices',plural(r.connections,'device')]].concat([['Status',r.status[0].toUpperCase()+r.status.slice(1)],['Started',when(r.starts_at)],['Expires',when(r.expires_at)],['Last confirmed',when(r.confirmed_at)]])){const d=el('div');d.append(el('dt',null,k),el('dd',null,String(v)));dl.append(d);}
   box.append(el('h3','sub','Details'));box.append(dl);
   if(data.extensions.length){box.append(el('h3','sub','Extensions'));const l=el('div','muted');for(const e of data.extensions)l.append(el('div',null,when(e.created_at)+' · extended by '+plural(e.months,'month')+' · '+plural(e.credits,'credit')+' · now expires '+when(e.confirmed_expiry)));box.append(l);}
   if(me.status==='active'&&!data.warning&&['active','expired'].includes(r.status)){
@@ -262,31 +262,42 @@ async function loadApps(){
 $('copy-guide').onclick=async()=>{if(!apps)await loadApps().catch(fail);copyText($('copy-guide'),guideText());};
 
 // ---------- create ----------
+function creditsFor(months,connections){if(!packages)return undefined;const c=packages.costs.find(x=>x.months===months&&x.connections===connections);return c?c.credits:undefined;}
+function priceChip(label,cost){const b=el('button','choice',label);b.type='button';if(cost!==undefined)b.append(el('span','choice-price',plural(cost,'credit')));return b;}
 function renderCreate(){
+  const trial=create.kind==='trial';
   document.querySelectorAll('[data-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===create.kind)));
-  document.querySelectorAll('[data-adult]').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.adult==='1')===create.adult)));
-  $('months-field').hidden=create.kind==='trial';$('connections-field').hidden=create.kind==='trial';$('content-field').hidden=create.kind==='trial';
-  const mo=$('months-options');mo.replaceChildren();for(const m of [1,3,6,9,12]){const b=el('button','choice',plural(m,'month'));b.type='button';b.setAttribute('aria-pressed',String(create.months===m));b.onclick=()=>{create.months=m;renderCreate();};mo.append(b);}
-  const co=$('connections-options');co.replaceChildren();for(const c of [1,2,3]){const b=el('button','choice',String(c));b.type='button';b.setAttribute('aria-pressed',String(create.connections===c));b.onclick=()=>{create.connections=c;renderCreate();};co.append(b);}
-  $('cs-title').textContent=create.kind==='trial'?'24-hour test':plural(create.months,'month')+' subscription';
-  $('cs-detail').textContent=create.kind==='trial'?'1 device · standard content':plural(create.connections,'device')+' · '+(create.adult?'With adult':'No adult');
-  const cost=create.kind==='trial'?0:(packages&&packages.costs.find(c=>c.months===create.months&&c.connections===create.connections)||{}).credits;
-  $('cs-cost').textContent=cost===undefined?'–':cost;$('cs-unit').textContent=cost===1?'credit':'credits';$('cs-available').textContent=me?me.credits.available:'–';$('cs-remaining').textContent='–';
-  $('confirm-create').hidden=true;nonce=null;$('op-status').hidden=true;
+  $('plan-card').hidden=trial;$('details-no').textContent=trial?'2':'3';
+  const mo=$('months-options');mo.replaceChildren();for(const m of [1,3,6,9,12]){const b=priceChip(plural(m,'month'),creditsFor(m,create.connections));b.setAttribute('aria-pressed',String(create.months===m));b.onclick=()=>{create.months=m;renderCreate();};mo.append(b);}
+  const co=$('connections-options');co.replaceChildren();for(const c of [1,2,3]){const b=priceChip(plural(c,'device'),creditsFor(create.months,c));b.setAttribute('aria-pressed',String(create.connections===c));b.onclick=()=>{create.connections=c;renderCreate();};co.append(b);}
+  $('cs-title').textContent=trial?'24-hour test':plural(create.months,'month')+' subscription';
+  $('cs-detail').textContent=trial?'1 device · ends after 24 hours':plural(create.connections,'device')+' · same household';
+  const cost=trial?0:creditsFor(create.months,create.connections);
+  showCost(cost,me?me.credits.available:'–','–');
+  $('confirm-create').hidden=true;$('review-create').hidden=false;nonce=null;$('op-status').hidden=true;inlineError($('review-create'),'');
+  $('cs-note').textContent=trial?'Tests are free and never use credits.':'Nothing is charged until you confirm.';
   if(!packages)loadPackages().then(renderCreate).catch(()=>{});
 }
+function showCost(cost,available,remaining){
+  if(cost===0){$('cs-cost').textContent='Free';$('cs-unit').textContent='';}
+  else{$('cs-cost').textContent=cost===undefined?'–':cost;$('cs-unit').textContent=cost===1?'credit':'credits';}
+  $('cs-available').textContent=available;$('cs-remaining').textContent=remaining;
+}
 document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{create.kind=b.dataset.kind;renderCreate();});
-document.querySelectorAll('[data-adult]').forEach(b=>b.onclick=()=>{create.adult=b.dataset.adult==='1';renderCreate();});
-$('create-form').onsubmit=e=>{e.preventDefault();busy(e.submitter||$('create-form').querySelector('.primary'),async()=>{
-  const data={kind:create.kind,months:create.kind==='trial'?0:create.months,connections:create.kind==='trial'?1:create.connections,adult:create.kind==='trial'?false:create.adult,customer_ref:$('customer-ref').value.trim()};
+$('create-form').onsubmit=e=>{e.preventDefault();busy($('review-create'),async()=>{
+  const trial=create.kind==='trial';
+  const data={kind:create.kind,months:trial?0:create.months,connections:trial?1:create.connections,adult:false,customer_ref:$('customer-ref').value.trim()};
   const p=await api('/operations/preview',{method:'POST',data});nonce=p.nonce;
-  $('cs-cost').textContent=p.preview.cost;$('cs-unit').textContent=p.preview.cost===1?'credit':'credits';$('cs-available').textContent=p.preview.available;$('cs-remaining').textContent=p.preview.remaining;
-  $('confirm-create').hidden=p.preview.remaining<0;$('cs-note').textContent=p.preview.remaining<0?'Not enough credits. Order more under Credits first.':'Confirm to reserve '+plural(p.preview.cost,'credit')+'. They are only taken once the account is confirmed.';
+  showCost(p.preview.cost,p.preview.available,p.preview.remaining);
+  const short=p.preview.remaining<0;
+  $('confirm-create').hidden=short;$('review-create').hidden=!short;
+  $('cs-note').textContent=short?'Not enough credits. Order more under Credits first.':trial?'Confirm to create the test. No credits are used.':'Confirm to reserve '+plural(p.preview.cost,'credit')+'. They are only taken once the account is live.';
+  if(window.innerWidth<=900)$('create-summary').scrollIntoView({behavior:'smooth',block:'start'});
 });};
 $('confirm-create').onclick=()=>busy($('confirm-create'),async()=>{if(!nonce)return;const c=await api('/operations/confirm',{method:'POST',data:{nonce}});nonce=null;$('confirm-create').hidden=true;
   await watch(c.operation.id,$('op-status'),async op=>{if(op.result_id){
-    const contact=$('customer-contact').value.trim();
-    if(contact){try{await api('/subscriptions/'+encodeURIComponent(op.result_id)+'/notes',{method:'POST',data:{customer_ref:$('customer-ref').value.trim(),contact}});}catch(e){}}
+    const customer_ref=$('customer-ref').value.trim(),contact=$('customer-contact').value.trim();
+    if(contact||customer_ref){try{await api('/subscriptions/'+encodeURIComponent(op.result_id)+'/notes',{method:'POST',data:{customer_ref,contact}});}catch(e){}}
     $('customer-ref').value='';$('customer-contact').value='';toast('Account created');
     location.hash='#/subscriptions?open='+encodeURIComponent(op.result_id);}});});
 

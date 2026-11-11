@@ -135,26 +135,39 @@
       </section>
 
       <section id="view-create" hidden>
-        <div class="page-head"><h1>Create test / subscription</h1></div>
+        <div class="page-head"><div><h1>New customer</h1><p class="muted page-sub">Set up a 24-hour test or a paid subscription. Credits are only taken once the account is live.</p></div></div>
         <div class="create-grid">
-          <form id="create-form" class="card">
-            <h2>New customer account</h2>
-            <fieldset><legend>What to create</legend><div class="connection-options"><button type="button" class="choice" data-kind="create" aria-pressed="true">Paid subscription</button><button type="button" class="choice" data-kind="trial" aria-pressed="false">24-hour test</button></div></fieldset>
-            <fieldset id="months-field"><legend>Duration</legend><div class="connection-options" id="months-options"></div></fieldset>
-            <fieldset id="connections-field"><legend>Devices watching at the same time</legend><div class="connection-options" id="connections-options"></div><p class="fineprint">All devices must be in the same household.</p></fieldset>
-            <fieldset id="content-field"><legend>Content</legend><div class="connection-options"><button type="button" class="choice" data-adult="0" aria-pressed="true">No adult</button><button type="button" class="choice" data-adult="1" aria-pressed="false">With adult</button></div></fieldset>
-            <label class="select-label" for="customer-ref">Customer name or note (optional, only you see it)</label><input id="customer-ref" maxlength="100" placeholder="e.g. John – living room TV">
-            <label class="select-label" for="customer-contact">Contact (optional, only you see it)</label><input id="customer-contact" maxlength="100" placeholder="Phone, Telegram handle or email">
-            <button class="primary" type="submit">Check cost</button>
-            <p class="inline-error" hidden></p>
+          <form id="create-form" class="create-form" novalidate>
+            <article class="card step-card">
+              <div class="step-head"><span class="step-no">1</span><h2>What are you creating?</h2></div>
+              <div class="kind-options">
+                <button type="button" class="kind-card" data-kind="create" aria-pressed="true"><b>Paid subscription</b><small>1 to 12 months. Paid with credits.</small></button>
+                <button type="button" class="kind-card" data-kind="trial" aria-pressed="false"><b>24-hour test</b><small>Free. 1 device, ends after a day.</small></button>
+              </div>
+            </article>
+            <article class="card step-card" id="plan-card">
+              <div class="step-head"><span class="step-no">2</span><h2>Choose the plan</h2></div>
+              <fieldset id="months-field"><legend>How long</legend><div class="connection-options" id="months-options"></div></fieldset>
+              <fieldset id="connections-field" class="last"><legend>Devices watching at the same time</legend><div class="connection-options" id="connections-options"></div><p class="fineprint">All devices must be in the same household.</p></fieldset>
+            </article>
+            <article class="card step-card">
+              <div class="step-head"><span class="step-no" id="details-no">3</span><h2>Customer details <span class="optional">optional</span></h2></div>
+              <p class="muted">Only you see these. They help you find the customer later.</p>
+              <div class="field-row">
+                <div><label class="select-label" for="customer-ref">Name or note</label><input id="customer-ref" maxlength="100" placeholder="e.g. John – living room TV"></div>
+                <div><label class="select-label" for="customer-contact">Contact</label><input id="customer-contact" maxlength="100" placeholder="Phone, Telegram or email"></div>
+              </div>
+            </article>
           </form>
           <aside class="summary card" id="create-summary">
             <span class="eyebrow">Summary</span>
-            <h2 id="cs-title">1 month subscription</h2><p id="cs-detail">1 device · No adult</p>
+            <h2 id="cs-title">1 month subscription</h2><p id="cs-detail">1 device</p>
             <div class="price"><span id="cs-cost">1</span><span id="cs-unit">credit</span></div>
             <dl><div><dt>Credits available</dt><dd id="cs-available">–</dd></div><div><dt>Credits left after</dt><dd id="cs-remaining">–</dd></div></dl>
-            <button class="primary" id="confirm-create" hidden>Confirm and create</button>
-            <p class="fineprint" id="cs-note">Check the cost, then confirm. Credits are only taken once the account is confirmed.</p>
+            <button class="primary" id="review-create" type="submit" form="create-form">Review cost</button>
+            <button class="primary" id="confirm-create" type="button" hidden>Confirm and create</button>
+            <p class="inline-error" hidden></p>
+            <p class="fineprint" id="cs-note">Nothing is charged until you confirm.</p>
             <div id="op-status" class="notice" hidden></div>
           </aside>
         </div>
