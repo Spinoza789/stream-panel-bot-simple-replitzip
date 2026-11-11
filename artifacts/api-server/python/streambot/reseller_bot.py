@@ -16,6 +16,15 @@ log=logging.getLogger(__name__)
 def date(value):
     return datetime.fromtimestamp(int(value),ZoneInfo('Europe/London')).strftime('%d %b %Y %H:%M %Z')
 
+def short_date(value):
+    return datetime.fromtimestamp(int(value),ZoneInfo('Europe/London')).strftime('%d %b %Y')
+
+def record_label(r):
+    # List button: paid subscriptions show when they expire; tests keep the panel id.
+    name=(r['customer_ref'] or r['username'])[:35]
+    if r['kind']=='trial':return name+' · '+r['provider_id']
+    return name+' · '+('expired' if r['status']=='expired' else 'expires')+' '+short_date(r['expires_at'])
+
 
 def button(text,action):
     return {'text':text,'callback_data':'rs:'+action}
@@ -224,7 +233,7 @@ class ResellerBot:
         text='My Subscriptions — '+filter_name+('\nSearch: '+search if search else '')+'\n\n'
         if warning:text+=warning+'\n\n'
         text+='\n'.join(('TRIAL' if r['kind']=='trial' else 'PAID')+' · '+(r['customer_ref'] or r['username'])+' · '+r['status']+' · '+date(r['expires_at']) for r in rows[:10]) or 'No matching records.'
-        actions=[[button((r['customer_ref'] or r['username'])[:35]+' · '+r['provider_id'],'detail:'+r['id'])] for r in rows[:10]]
+        actions=[[button(record_label(r),'detail:'+r['id'])] for r in rows[:10]]
         nav=[]
         if page:nav.append(button('Previous','list:'+filter_name+':'+str(page-1)))
         if len(rows)>10:nav.append(button('Next','list:'+filter_name+':'+str(page+1)))
