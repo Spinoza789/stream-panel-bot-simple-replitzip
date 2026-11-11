@@ -5,6 +5,7 @@ import { LIVE, useAdminReady } from "@/components/admin/access";
 import { OwnerLoginPanel } from "@/components/admin/owner-login";
 import { RateCardPanel } from "@/components/admin/rate-card";
 import { TwoFactorPanel } from "@/components/admin/two-factor";
+import { FaqPanel } from "@/components/admin/faq";
 import { Bar, ErrorState, PageHeader, Panel } from "@/components/admin/bits";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/format";
@@ -40,6 +41,7 @@ function Settings() {
         <RateCardPanel />
         <TwoFactorPanel />
       </div>
+      <div className="mb-5"><FaqPanel /></div>
       {st.isError ? (
         <ErrorState message={errorMessage(st.error)} onRetry={() => st.refetch()} />
       ) : (

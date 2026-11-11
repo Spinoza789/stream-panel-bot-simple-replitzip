@@ -58,7 +58,7 @@ class Ledger:
         row=db.execute('SELECT r.*,a.balance,a.reserved FROM rs_resellers r JOIN rs_accounts a ON a.reseller_id=r.id WHERE r.telegram_id=?',(uid,)).fetchone()
         result=dict(row) if row else None
         if active and (not result or result['status']!='active'):
-            if not result:raise CheckoutError('Open Become A Reseller and buy a credit pack first.')
+            if not result:raise CheckoutError('Open Become a reseller and buy a credit pack first.')
             raise CheckoutError('Buy a credit pack to activate your reseller account first.' if result['status']=='pending' else 'Your reseller account is suspended. Contact support for help.')
         if result:result['available']=result['balance']-result['reserved']
         return result
@@ -169,7 +169,7 @@ class Ledger:
     def quote_purchase(self, uid, package_id, asset, request_key, with_token=False):
         self.seed()
         member=self.member(uid)
-        if not member:raise CheckoutError('Open Become A Reseller first.')
+        if not member:raise CheckoutError('Open Become a reseller first.')
         if member['status']=='suspended':raise CheckoutError('Your reseller account is suspended and cannot buy credits.')
         package=next((p for p in self.packages() if p['id']==package_id and p['active']),None)
         if not package:raise CheckoutError('Credit package is unavailable.')

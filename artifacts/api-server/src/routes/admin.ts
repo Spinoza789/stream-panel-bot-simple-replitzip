@@ -5,7 +5,7 @@ import {
   GetAdminStatusResponse, PreviewTrialRecoveryResponse, ConfirmTrialRecoveryResponse,
   ListAdminResellersQueryParams, ListAdminResellersResponse, GetAdminResellerResponse,
   SetAdminResellerStatusBody, AdjustAdminResellerCreditsBody, GetAdminReportsQueryParams, GetAdminReportsResponse,
-  GetAdminRateCardResponse, UpdateAdminRateCardBody,
+  GetAdminRateCardResponse, UpdateAdminRateCardBody, GetAdminFaqResponse, UpdateAdminFaqBody,
   ListAdminTicketsQueryParams, ListAdminTicketsResponse, GetAdminTicketResponse, ReplyAdminTicketBody, SetAdminTicketStatusBody,
 } from "@workspace/api-zod";
 import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
@@ -107,6 +107,12 @@ router.use(async (req, res) => {
       const parsed = SetAdminTicketStatusBody.safeParse(req.body);
       if (!parsed.success) { res.status(400).json({ error: "Status must be open or closed." }); return; }
       target = req.path; schema = GetAdminTicketResponse; body = parsed.data;
+    } else if (req.method === "GET" && req.path === "/faq") {
+      target = "/faq"; schema = GetAdminFaqResponse;
+    } else if (req.method === "POST" && req.path === "/faq") {
+      const parsed = UpdateAdminFaqBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Each FAQ entry needs a question (up to 120 characters) and an answer (up to 1500)." }); return; }
+      target = "/faq"; schema = GetAdminFaqResponse; body = parsed.data;
     } else if (req.method === "GET" && req.path === "/ratecard") {
       target = "/ratecard"; schema = GetAdminRateCardResponse;
     } else if (req.method === "POST" && req.path === "/ratecard") {

@@ -31,7 +31,13 @@ class TrialMenuTests(unittest.TestCase):
         self.assertEqual(self.buttons(self.menu(42))[0], 'menu:trial')  # still queued: the button shows its status
         self.store.update(order['id'], status='fulfilled', credentials={'username': 'u', 'password': 'p'})
         shown = self.menu(42)
-        self.assertEqual(self.buttons(shown)[0], 'menu:plans'); self.assertIn('Trial used', str(shown['reply_markup'])); self.assertIn('has been used', shown['text'])
+        self.assertEqual(self.buttons(shown)[0], 'menu:login'); self.assertIn('Free trial active', shown['text']); self.assertNotIn('menu:trial', self.buttons(shown))
+        import time
+        self.store.update(order['id'], credentials={'username': 'u', 'password': 'p', 'expires_at': int(time.time()) + 3600})
+        self.assertIn('Your trial ends in', self.menu(42)['text'])
+        self.store.update(order['id'], credentials={'username': 'u', 'password': 'p', 'expires_at': int(time.time()) - 60})
+        shown = self.menu(42)
+        self.assertEqual(self.buttons(shown)[0], 'menu:plans'); self.assertIn('free trial has ended', shown['text']); self.assertNotIn('menu:trial', self.buttons(shown))
         # the account screen no longer offers to start a trial, and My orders lists the trial
         self.bot.handle({'callback_query': {'id': 'c1', 'from': {'id': 42}, 'data': 'menu:account', 'message': {'chat': {'id': 42, 'type': 'private'}, 'message_id': 1}}})
         self.assertNotIn('Start free trial', str(self.calls[-1][1]['reply_markup']))

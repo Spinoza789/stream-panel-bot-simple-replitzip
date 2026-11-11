@@ -92,13 +92,14 @@ class MembershipMenuTests(unittest.TestCase):
             self.bot.membership_step('plan:pick:1:1:1')
         self.assertIn('no longer offered', str(caught.exception))
 
-    def test_main_menu_is_trial_plans_reseller_notifications_and_account_row(self):
+    def test_main_menu_for_a_new_visitor_leads_with_the_trial_then_plans(self):
         home = self.click('menu')
         rows = [[b['callback_data'] for b in row] for row in home['reply_markup']['inline_keyboard']]
-        self.assertEqual(rows, [['menu:trial'], ['menu:plans'], ['rs:home'], ['nt:settings'],
-                                ['menu:account', 'menu:contact']])
-        self.assertIn('Welcome to', home['text'])
-        self.assertIn('Choose an option below', home['text'])
+        # No FAQ entries yet, so Support takes the FAQ slot; notifications live under My account.
+        self.assertEqual(rows, [['menu:trial'], ['menu:plans'], ['menu:watch', 'menu:contact'], ['menu:account'], ['rs:home']])
+        self.assertIn('📺', home['text'])
+        self.assertIn('Free for 24 hours', home['text'])
+        self.assertIn('from £', home['text'])
 
     def test_legacy_more_button_returns_to_the_main_menu(self):
         more = self.click('menu:more')
@@ -106,10 +107,14 @@ class MembershipMenuTests(unittest.TestCase):
 
     def test_duration_buttons_and_back_to_main_menu(self):
         message = self.click('menu:plans')
+        # One screen with every price: a one-device button per length, then a way to more devices.
         self.assertEqual(self.callbacks(message), [
-            'plan:duration:1', 'plan:duration:3', 'plan:duration:6', 'plan:duration:12', 'menu',
+            'plan:pick:1:0:1', 'plan:pick:3:0:1', 'plan:pick:6:0:1', 'plan:pick:12:0:1', 'plan:duration', 'menu',
         ])
-        self.assertIn('Choose a subscription length', message['text'])
+        self.assertIn('PLANS AND PRICES', message['text'])
+        self.assertIn('3 dev', message['text'])
+        multi = self.click('plan:duration')
+        self.assertEqual(self.callbacks(multi), ['plan:duration:1', 'plan:duration:3', 'plan:duration:6', 'plan:duration:12', 'menu:plans'])
         home = self.click('menu')
         self.assertIn('menu:plans', self.callbacks(home))
 
@@ -139,7 +144,7 @@ class MembershipMenuTests(unittest.TestCase):
         plans = self.click('menu:plans', message_id=11)
         self.assertEqual(self.methods(), ['answerCallbackQuery', 'editMessageText'])
         self.assertEqual(self.api.calls[-1][1]['message_id'], 11)
-        self.assertIn('plan:duration:1', self.callbacks(plans))
+        self.assertIn('plan:pick:1:0:1', self.callbacks(plans))
         # An older menu further up the chat gets a fresh message instead.
         self.click('menu:plans', message_id=3)
         self.assertEqual(self.methods(), ['answerCallbackQuery', 'sendMessage'])
@@ -162,7 +167,7 @@ class MembershipMenuTests(unittest.TestCase):
     def test_expired_acknowledgement_does_not_block_menu(self):
         self.api.ack_error = 400
         message = self.click('menu:plans')
-        self.assertIn('plan:duration:1', self.callbacks(message))
+        self.assertIn('plan:pick:1:0:1', self.callbacks(message))
 
     def test_transient_telegram_errors_are_not_silently_ignored(self):
         self.api.ack_error = 429

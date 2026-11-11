@@ -843,6 +843,69 @@ export const UpdateAdminRateCardResponse = zod.object({
   trialActive: zod.number().int(),
 });
 
+export const getAdminFaqResponseItemsItemQuestionMax = 120;
+
+export const getAdminFaqResponseItemsItemAnswerMax = 1500;
+
+export const getAdminFaqResponseItemsMax = 30;
+
+export const GetAdminFaqResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        question: zod
+          .string()
+          .min(1)
+          .max(getAdminFaqResponseItemsItemQuestionMax),
+        answer: zod.string().min(1).max(getAdminFaqResponseItemsItemAnswerMax),
+      }),
+    )
+    .max(getAdminFaqResponseItemsMax),
+});
+
+export const updateAdminFaqBodyItemsItemQuestionMax = 120;
+
+export const updateAdminFaqBodyItemsItemAnswerMax = 1500;
+
+export const updateAdminFaqBodyItemsMax = 30;
+
+export const UpdateAdminFaqBody = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        question: zod
+          .string()
+          .min(1)
+          .max(updateAdminFaqBodyItemsItemQuestionMax),
+        answer: zod.string().min(1).max(updateAdminFaqBodyItemsItemAnswerMax),
+      }),
+    )
+    .max(updateAdminFaqBodyItemsMax),
+});
+
+export const updateAdminFaqResponseItemsItemQuestionMax = 120;
+
+export const updateAdminFaqResponseItemsItemAnswerMax = 1500;
+
+export const updateAdminFaqResponseItemsMax = 30;
+
+export const UpdateAdminFaqResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        question: zod
+          .string()
+          .min(1)
+          .max(updateAdminFaqResponseItemsItemQuestionMax),
+        answer: zod
+          .string()
+          .min(1)
+          .max(updateAdminFaqResponseItemsItemAnswerMax),
+      }),
+    )
+    .max(updateAdminFaqResponseItemsMax),
+});
+
 /**
  * Returns server health status
  * @summary Health check

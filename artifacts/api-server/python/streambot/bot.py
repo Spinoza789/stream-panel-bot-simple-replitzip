@@ -7,7 +7,7 @@ import requests
 from .service import CheckoutError
 from .store import digest
 from .dispatch import ChatDispatcher
-from .trial_message import trial_ready_text
+from .trial_message import trial_ready_text, membership_ready_text, watch_menu_text, watch_text, WATCH_DEVICES
 
 log=logging.getLogger(__name__)
 
@@ -25,6 +25,8 @@ class TelegramBot:
     def __init__(self,service,api=None):
         self.service=service;self.store=service.store
         self.http=requests.Session();self.api=api or self.call
+        from .menu import Menus
+        self.menus=Menus(self)
         from .ticket_bot import TicketBot
         self.tickets=TicketBot(self)
         from .support import SupportRelay
@@ -125,59 +127,56 @@ class TelegramBot:
         if not uid or not hasattr(self.service,'trial_upgrade_target'):return False
         return self.service.trial_upgrade_target(uid) is not None
 
-    def menu_keyboard(self,uid=None):
-        member=self.service.resellers.member(uid) if uid else None
-        active=bool(member and member['status']=='active')
-        reseller='🏪 Reseller dashboard' if member and member['status']!='pending' else '🏪 Become A Reseller'
-        if not self.trial_used(uid):first={'text':'🎁 Click For 24 hour Trial','callback_data':'menu:trial'}
-        elif active:first={'text':'🎁 Create a customer trial','callback_data':'rs:trial'}
-        elif self.trial_upgradable(uid):first={'text':'⬆️ Upgrade my trial to a subscription','callback_data':'pay:upgrade'}
-        else:first={'text':'✅ Trial used · Get a subscription','callback_data':'menu:plans'}
-        return {'inline_keyboard':[
-            [first],
-            [{'text':'🌐 Subscription Plans','callback_data':'menu:plans'}],
-            [{'text':reseller,'callback_data':'rs:home'}],
-            [{'text':'🔔 Notifications','callback_data':'nt:settings'}],
-            [{'text':'📋 My account','callback_data':'menu:account'},
-             {'text':'💬 Contact support','callback_data':'menu:contact'}],
-        ]}
+    def menu(self,uid=None):
+        """(text, keyboard) for the main menu, built around this user's current state."""
+        return self.menus.build(uid)
+
+    def menu_keyboard(self,uid=None):return self.menus.build(uid)[1]
 
     @staticmethod
     def gbp(value):
         return '£'+format(float(value),'.2f').rstrip('0').rstrip('.')
 
-    def menu_text(self,uid=None):
-        prices=[]
-        for plan in self.service.config.get('plans',[]):
-            if not plan.get('active',True):continue
-            try: prices.append(float(plan['gbp_price']))
-            except (KeyError,TypeError,ValueError): pass
-        starting_price=('Plans from '+self.gbp(min(prices)) if prices else 'Flexible membership plans')
-        demo=('🧪 DEMO MODE — orders and accounts are simulations. No real payments are accepted.\n\n'
-              if self.service.config['mode']=='demo' and self.service.config.get('demo_banner',True) else '')
-        return (demo+'✨ Welcome to '+self.service.config['brand']+'\n\n'
-                'Live TV, sport, movies and more on any device.\n\n'
-                +('✅ Your free 24-hour trial has been used\n' if self.trial_used(uid) else '🎁 Try it free for 24 hours\n')+
-                '💳 '+starting_price+' · pay in crypto\n'
-                '👤 Manage your account or talk to support\n\n'
-                'Choose an option below 👇')
+    def menu_text(self,uid=None):return self.menus.build(uid)[0]
 
-    def account_screen(self,uid):
-        accounts=self.service.linked_accounts(uid)
-        trial=self.service.trial_status(uid)
-        lines=['👤 MY ACCOUNT','']
-        if trial: lines.append('🎁 24-hour trial — '+trial['status'])
-        lines.extend('🌐 '+a['plan']['name']+' — '+a['status']+' (order '+a['id']+')' for a in accounts)
-        if not trial and not accounts:
-            lines.append('Nothing here yet. Start a free trial or choose a plan.')
-        lines.extend(['','💬 Support: '+self.service.config['support_url']])
-        rows=[]
-        if trial and trial['status']=='review': rows.append([{'text':'🔁 Check / retry trial','callback_data':'menu:retrytrial'}])
-        elif trial and trial['status']=='fulfilled': rows.append([{'text':'🎁 Show trial login','callback_data':'menu:trial'}])
-        rows.append([{'text':'🧾 My orders','callback_data':'pay:orders'}])
-        rows.append([{'text':'💬 Contact support','callback_data':'menu:contact'}])
+    def account_screen(self,uid):return self.menus.account(uid)
+
+    def login_screen(self,uid):
+        """The customer's current login again: their membership if they have one, otherwise their trial."""
+        state=self.menus.state(uid)
+        if state.get('sub'):
+            order=state['sub']['order']
+            return membership_ready_text(order['plan'],order['credentials'])
+        trial=state.get('trial')
+        if trial and trial['status']=='fulfilled' and trial.get('credentials'):
+            return trial_ready_text(trial['credentials'])
+        raise CheckoutError('You do not have a login yet. Start a free trial or choose a plan.')
+
+    def watch_screen(self,device=None):
+        text=watch_text(device) if device else None
+        if text:
+            return text,{'inline_keyboard':[[{'text':'🔑 Show my login','callback_data':'menu:login'}],
+                                            [{'text':'⬅️ Other devices','callback_data':'menu:watch'},{'text':'🛟 Support','callback_data':'menu:contact'}],
+                                            [{'text':'🏠 Main menu','callback_data':'menu'}]]}
+        rows=[[{'text':label,'callback_data':'menu:watch:'+key}] for key,label in WATCH_DEVICES]
         rows.append([{'text':'⬅️ Back','callback_data':'menu'}])
-        return '\n'.join(lines),{'inline_keyboard':rows}
+        return watch_menu_text(),{'inline_keyboard':rows}
+
+    def faq_screen(self,index=None):
+        from html import escape
+        items=self.service.faq.items()
+        if not items:
+            return ('<b>💡 FAQ</b>\n\nNo questions have been added yet. Contact support and we will help.',
+                    {'inline_keyboard':[[{'text':'🛟 Support','callback_data':'menu:contact'}],[{'text':'⬅️ Back','callback_data':'menu'}]]})
+        if index is not None and 0<=index<len(items):
+            item=items[index]
+            return ('<b>💡 '+escape(item['question'])+'</b>\n\n'+escape(item['answer']),
+                    {'inline_keyboard':[[{'text':'⬅️ All questions','callback_data':'menu:faq'},{'text':'🛟 Support','callback_data':'menu:contact'}],
+                                        [{'text':'🏠 Main menu','callback_data':'menu'}]]})
+        rows=[[{'text':item['question'][:60],'callback_data':'menu:faq:'+str(i)}] for i,item in enumerate(items)]
+        rows.append([{'text':'🛟 Still stuck? Contact support','callback_data':'menu:contact'}])
+        rows.append([{'text':'⬅️ Back','callback_data':'menu'}])
+        return '<b>💡 FAQ</b>\n\nTap a question:',{'inline_keyboard':rows}
 
     def find_plan(self,months,adult=False,connections=None):
         for plan in self.service.config.get('plans',[]):
@@ -193,10 +192,10 @@ class TelegramBot:
         buttons=[[{'text':f'📅 {months} month'+('s' if months!=1 else ''),
                    'callback_data':f'plan:duration:{months}'} for months in durations[i:i+2]]
                  for i in range(0,len(durations),2)]
-        buttons.append([{'text':'⬅️ Back','callback_data':'menu'}])
+        buttons.append([{'text':'⬅️ Back','callback_data':'menu:plans'}])
         return {'inline_keyboard':buttons}
 
-    PLANS_TEXT='🌐 MEMBERSHIP PLANS\n\nChoose a subscription length:'
+    PLANS_TEXT='📱 PLANS FOR 2 OR 3 DEVICES\n\nChoose a subscription length, then how many devices:'
 
     def pick_screen(self,months):
         """One screen for a duration: a button per connection count."""
@@ -256,8 +255,9 @@ class TelegramBot:
             return {'inline_keyboard':[[{'text':'Check / retry trial','callback_data':'menu:retrytrial'}],
                                        [{'text':'Back to main menu','callback_data':'menu'}]]}
         keyboard=self.menu_keyboard(uid)
-        if order['status']=='fulfilled' and self.trial_upgradable(uid) and keyboard['inline_keyboard'][0][0]['callback_data']!='pay:upgrade':
-            keyboard['inline_keyboard'].insert(0,[{'text':'⬆️ Upgrade this trial to a subscription','callback_data':'pay:upgrade'}])
+        if (order['status']=='fulfilled' and self.trial_upgradable(uid)
+                and not any(b['callback_data']=='pay:upgrade' for row in keyboard['inline_keyboard'] for b in row)):
+            keyboard['inline_keyboard'].insert(0,[{'text':'🚀 Upgrade this trial to a subscription','callback_data':'pay:upgrade'}])
         return keyboard
 
     def handle_callback(self,query):
@@ -278,8 +278,8 @@ class TelegramBot:
             return
         action=query.get('data','')
         allowed={'menu','menu:plans','menu:trial','menu:retrytrial','menu:status','menu:account','menu:link','menu:more',
-                 'menu:contact','menu:about','menu:privacy'}
-        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:','rs:','nt:','tr:','pa:','tk:'))):
+                 'menu:contact','menu:about','menu:privacy','menu:login','menu:watch','menu:faq'}
+        if not isinstance(action,str) or (action not in allowed and not action.startswith(('plan:','pay:','rs:','nt:','tr:','pa:','tk:','menu:watch:','menu:faq:'))):
             self.answer_callback({'callback_query_id':callback_id,
                                             'text':'This menu option is unavailable.'})
             return
@@ -309,18 +309,23 @@ class TelegramBot:
                 self.checkout.handle_callback(uid,action,callback_id)
                 return
             self.checkout.clear_session(uid)
-            markup=self.menu_keyboard(uid);keep=False;mode=None
+            markup=None;keep=False;mode=None
             if action.startswith('plan:'):
                 step=self.membership_step(action)
                 if isinstance(step,dict):
                     self.checkout.choose(uid,step);return
                 text,markup=step
-            elif action=='menu':
-                text=self.menu_text(uid)
+            elif action in ('menu','menu:more'):  # "More" sat on menus sent before this layout
+                text,markup=self.menu(uid)
             elif action=='menu:plans':
-                text,markup=self.PLANS_TEXT,self.duration_keyboard()
-            elif action=='menu:more':  # "More" button on menus sent before this layout
-                text=self.menu_text()
+                text,markup=self.menus.plans();mode='HTML'
+            elif action=='menu:login':
+                text=self.login_screen(uid);mode='HTML';keep=True  # login details must stay in the chat
+            elif action=='menu:watch' or action.startswith('menu:watch:'):
+                text,markup=self.watch_screen(action[11:] or None);mode='HTML'
+            elif action=='menu:faq' or action.startswith('menu:faq:'):
+                tail=action[9:]
+                text,markup=self.faq_screen(int(tail) if tail.isdigit() else None);mode='HTML'
             elif action in ('menu:trial','menu:retrytrial'):
                 order=self.service.retry_trial(uid) if action=='menu:retrytrial' else self.service.create_trial(uid)
                 text,markup=self.trial_text(order),self.trial_keyboard(order,uid)
@@ -341,7 +346,7 @@ class TelegramBot:
                       'Login details are encrypted. Using contact support shares your identity and messages '
                       'with support. Notification preferences and delivery history are stored; deals require opt-in. '
                       'Use /notifications to manage reminders or /contact for data requests.')
-            self.send(uid,text,markup,parse_mode=mode,keep=keep)
+            self.send(uid,text,markup if markup is not None else self.menu_keyboard(uid),parse_mode=mode,keep=keep)
         except CheckoutError as exc:
             self.send(uid,str(exc),self.menu_keyboard(uid))
         except ValueError:
@@ -380,7 +385,7 @@ class TelegramBot:
             if self.checkout.handle_message(message,command):return
             if self.support.handle(message,command,parts[1] if len(parts)>1 else ''):return
             if command in ('/start','/help') or not command:
-                self.send(uid,self.menu_text(uid),self.menu_keyboard(uid))
+                self.send(uid,*self.menu(uid))
             elif command=='/trial':
                 order=self.service.create_trial(uid)
                 self.send(uid,self.trial_text(order),self.trial_keyboard(order,uid),parse_mode=self.trial_mode(order),keep=order['status']=='fulfilled')
@@ -394,7 +399,7 @@ class TelegramBot:
             elif command=='/privacy':
                 self.send(uid,'This assistant stores your numeric Telegram ID, trial history and accounts you choose to link. Login details are encrypted on the server. Notification preferences and delivery history are stored; deals require opt-in. Use /notifications to manage reminders. /contact shares messages and your Telegram identity with support. Reply routing is encrypted; message contents are copied through Telegram. Your ID is retained to enforce one trial per user. Contact support to request access or deletion. '+self.service.config['support'],self.menu_keyboard(uid))
             else:
-                self.send(uid,self.menu_text(uid),self.menu_keyboard(uid))
+                self.send(uid,*self.menu(uid))
         except CheckoutError as exc: self.send(uid,str(exc))
 
     def notify_trials(self):

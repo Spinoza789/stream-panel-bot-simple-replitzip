@@ -456,15 +456,16 @@ class Scenarios:
         self.fund(1)
         self.message(42,'/start')
         sent=self.sent_to(42)[-1]
-        self.assertIn('Welcome to',sent['text'])
+        self.assertIn('📺',sent['text']);self.assertIn('1 credit available',sent['text'])
+        self.assertNotIn('RESELLER DASHBOARD',sent['text'])  # the main menu, with the dashboard one tap away
         self.assertIn('Reseller dashboard',str(sent['reply_markup']))
-        self.assertNotIn('Become A Reseller',str(sent['reply_markup']))
+        self.assertNotIn('Become a reseller',str(sent['reply_markup']))
         self.click(42,'menu')
-        self.assertIn('Welcome to',self.sent_to(42)[-1]['text'])
+        self.assertIn('1 credit available',self.sent_to(42)[-1]['text'])
         self.message(42,'/reseller')
         self.assertIn('RESELLER DASHBOARD',self.sent_to(42)[-1]['text'])
         self.message(44,'/start')  # not a reseller
-        self.assertIn('Become A Reseller',str(self.sent_to(44)[-1]['reply_markup']))
+        self.assertIn('Become a reseller',str(self.sent_to(44)[-1]['reply_markup']))
 
     def test_start_login_deep_link_confirms_in_the_bot(self):
         self.config['bot_username']='StreamlineTestBot'
@@ -485,7 +486,7 @@ class Scenarios:
         self.message(44,'/start login_'+other_code); self.click(44,'rs:weblogin:'+other_code)
         self.assertIn('Buy a credit pack',self.sent_to(44)[-1]['text']); self.assertIsNone(self.r.web.poll_login(other['poll']))
         self.message(42,'/start login_'+code); self.assertIn('expired or was already used',self.sent_to(42)[-1]['text'])
-        self.message(42,'/start'); self.assertIn('Welcome to',self.sent_to(42)[-1]['text'])
+        self.message(42,'/start'); self.assertIn('📺',self.sent_to(42)[-1]['text'])
 
     def test_bot_trial_form_never_asks_about_adult_content(self):
         self.fund(1)

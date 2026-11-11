@@ -7,6 +7,7 @@
  */
 
 export * from "./adminAccess";
+export * from "./adminFaq";
 export * from "./adminOrder";
 export * from "./adminOrderDetail";
 export * from "./adminOrderPage";
@@ -23,6 +24,7 @@ export * from "./adminTicketPage";
 export * from "./adminTicketStatus";
 export * from "./authUser";
 export * from "./authUserEnvelope";
+export * from "./faqItem";
 export * from "./getAdminReportsParams";
 export * from "./healthStatus";
 export * from "./ledgerEntry";

@@ -276,6 +276,16 @@ class AdminWebTests(unittest.TestCase):
         self.assertTrue(self.call('/auth/attempt', dict(kind='login', buckets=buckets)).json['allowed'])
         self.assertEqual(self.call('/auth/attempt', dict(kind='setup', buckets=['bad'])).status_code, 400)
 
+    def test_owner_writes_the_bot_faq(self):
+        self.assertEqual(self.call('/faq').json, {'items': []})
+        saved = self.call('/faq', {'items': [{'question': '  How long   does payment take? ', 'answer': 'About 3 minutes.\n'}]})
+        self.assertEqual(saved.json, {'items': [{'question': 'How long does payment take?', 'answer': 'About 3 minutes.'}]})
+        self.assertEqual(self.call('/faq').json, saved.json)
+        self.assertEqual(self.call('/faq', {'items': [{'question': 'q', 'answer': ''}]}).status_code, 400)
+        self.assertEqual(self.call('/faq', {'items': 'nope'}).status_code, 400)
+        self.assertEqual(self.call('/faq').json, saved.json)  # a rejected save changes nothing
+        self.assertEqual(self.call('/faq', {'items': []}).json, {'items': []})
+
 
 class PostgresShapedRowsTests(unittest.TestCase):
     """PostgreSQL rows are dict-like and SUM() comes back as Decimal; the admin API must cope with both."""

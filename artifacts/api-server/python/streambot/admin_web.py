@@ -272,6 +272,16 @@ def register_admin(app, service):
                     plans=service.pricing.public(),
                     costs=costs, trialDaily=int(settings.get('trial_daily', 0)), trialActive=int(settings.get('trial_active', 0)))
 
+    @routes.get('/faq')
+    def get_faq():
+        finance().admin(request.admin_actor)
+        return jsonify(items=service.faq.items())
+
+    @routes.post('/faq')
+    def update_faq():
+        data = request.get_json(silent=True) or {}
+        return jsonify(items=service.faq.save(request.admin_actor, data.get('items')))
+
     @routes.get('/ratecard')
     def get_rate_card():
         finance().admin(request.admin_actor)

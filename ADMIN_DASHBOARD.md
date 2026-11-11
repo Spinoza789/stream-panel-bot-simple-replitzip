@@ -142,3 +142,9 @@ Tickets in the dashboard with a "Needs reply" badge in the sidebar.
 - Tables `tk_tickets` and `tk_messages` are in `sql/schema.sql`; create them on
   PostgreSQL before publishing (see RESELLER_SETUP.md).
 
+## Bot FAQ
+
+Settings → Bot FAQ holds the questions and answers customers see under FAQ in the Telegram
+bot. Add, reorder, edit or remove entries and press Save FAQ; changes show in the bot
+straight away. Up to 30 entries, questions up to 120 characters, answers up to 1500. While
+the list is empty the bot hides the FAQ button and offers Support in its place.

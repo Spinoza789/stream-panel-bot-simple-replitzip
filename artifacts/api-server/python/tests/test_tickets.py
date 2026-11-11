@@ -74,7 +74,7 @@ class TicketTests(unittest.TestCase):
         tickets = self.t.list(42)
         self.assertEqual((tickets[0]['id'], tickets[0]['status'], tickets[0]['topic'], tickets[0]['messages']), (tid, 'open', 'payment', 1))
         # plain text afterwards is not captured
-        self.message(42, 'just chatting'); self.assertIn('Welcome to', self.last(42)[0]['text'])
+        self.message(42, 'just chatting'); self.assertIn('Free for 24 hours', self.last(42)[0]['text'])
         self.assertEqual(self.t.list(42)[0]['messages'], 1)
 
     def test_owner_replies_by_telegram_reply_and_customer_is_notified(self):

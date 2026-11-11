@@ -89,3 +89,30 @@ def account_ready_text(heading,credentials):
     return ('<blockquote>'+heading+'\n\n'
             '<b>Username: '+escape(credentials['username'])+'</b>\n'
             '<b>Password: '+escape(credentials['password'])+'</b></blockquote>\n\n'+APP_DOWNLOAD_GUIDE)
+
+
+WATCH_DEVICES = (('firestick', '🔥 Fire Stick / Fire TV'), ('apple', '🍏 iPhone, iPad, Apple TV'), ('android', '🤖 Android phone, tablet, TV box'))
+
+
+def watch_menu_text():
+    return ('<b>📲 HOW TO WATCH</b>\n\nSetting up takes about five minutes: install the app for your device, '
+            'then sign in with the username and password from your trial or subscription.\n\nWhich device are you using?')
+
+
+def watch_text(device):
+    """Step-by-step setup for one device family, with its app codes or links."""
+    guide = APP_GUIDE.get(device) if device in dict(WATCH_DEVICES) else None
+    if not guide: return None
+    lines = ['<b>📲 ' + escape(guide['title']) + '</b>', '']
+    lines += [str(n) + '. ' + escape(step['text']) for n, step in enumerate(guide['steps'], 1)]
+    if device == 'firestick':
+        lines += ['', '<b>Downloader codes</b> (tap a code to copy it)']
+        for app in guide['apps']:
+            lines.append('<b>' + escape(app['name']) + '</b>: ' + ' • '.join('<code>' + escape(c) + '</code>' for c in app['codes']))
+        lines += ['', escape(guide['note'])]
+    elif device == 'apple':
+        lines += ['', 'App: ' + escape(guide['site']), 'URL code: <code>' + escape(guide['url_code']) + '</code>']
+    else:
+        lines += ['', '<b>App links</b>'] + [escape(app['name']) + ': ' + escape(app['url']) for app in guide['apps']]
+    lines += ['', '🔑 Need your username and password? Tap Show my login.']
+    return '\n'.join(lines)

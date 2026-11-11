@@ -361,6 +361,28 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminRateCard" }
+  /admin/faq:
+    get:
+      operationId: getAdminFaq
+      responses:
+        "200":
+          description: Customer FAQ shown in the Telegram bot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminFaq" }
+    post:
+      operationId: updateAdminFaq
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminFaq" }
+      responses:
+        "200":
+          description: FAQ after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminFaq" }
   /healthz:
     get:
       operationId: healthCheck
@@ -636,6 +658,19 @@ components:
         costs: { type: array, items: { $ref: "#/components/schemas/RateCardCost" } }
         trialDaily: { type: integer }
         trialActive: { type: integer }
+    FaqItem:
+      type: object
+      required: [question, answer]
+      additionalProperties: false
+      properties:
+        question: { type: string, minLength: 1, maxLength: 120 }
+        answer: { type: string, minLength: 1, maxLength: 1500 }
+    AdminFaq:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items: { type: array, maxItems: 30, items: { $ref: "#/components/schemas/FaqItem" } }
     RateCardInput:
       type: object
       required: [category, values, reason]

@@ -384,7 +384,11 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertIn('Trial upgraded to a membership', self.bot.checkout.order_text(self.service.public(upgraded)))
         # Once upgraded, the menu stops offering the upgrade and the membership order can be renewed as usual.
         self.assertIsNone(self.service.trial_upgrade_target(42))
-        self.assertEqual(self.click('menu')['reply_markup']['inline_keyboard'][0][0]['callback_data'], 'menu:plans')
+        after = self.click('menu')
+        self.assertIn('🟢 Active until', after['text'])
+        callbacks = [b['callback_data'] for row in after['reply_markup']['inline_keyboard'] for b in row]
+        self.assertEqual(callbacks[0], 'menu:login'); self.assertNotIn('pay:upgrade', callbacks); self.assertIn('pay:renew:' + order['id'], callbacks)
+        self.assertIn('Username: trial-user', self.click('menu:login')['text'])
         self.assertIn('RENEW YOUR MEMBERSHIP', self.click('pay:renew:' + order['id'])['text'])
 
     def test_renewal_extends_the_existing_account_instead_of_creating_one(self):

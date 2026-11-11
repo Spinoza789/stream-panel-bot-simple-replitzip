@@ -323,6 +323,24 @@ export interface AdminRateCard {
   trialActive: number;
 }
 
+export interface FaqItem {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  question: string;
+  /**
+   * @minLength 1
+   * @maxLength 1500
+   */
+  answer: string;
+}
+
+export interface AdminFaq {
+  /** @maxItems 30 */
+  items: FaqItem[];
+}
+
 export type RateCardInputCategory =
   (typeof RateCardInputCategory)[keyof typeof RateCardInputCategory];
 
