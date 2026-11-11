@@ -45,7 +45,7 @@ export function verifyTotp(secret: string, code: string, at = Date.now()): boole
   }
   return ok;
 }
-export function otpauthUri(secret: string, account: string, issuer = "Streamline Admin"): string {
+export function otpauthUri(secret: string, account: string, issuer = "UKCTV Admin"): string {
   const label = encodeURIComponent(issuer) + ":" + encodeURIComponent(account);
   return `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }

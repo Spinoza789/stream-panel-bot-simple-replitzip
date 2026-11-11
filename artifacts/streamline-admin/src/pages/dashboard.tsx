@@ -9,7 +9,7 @@ import { errorMessage, gbp, humanize } from "@/lib/format";
 import { usePageMeta } from "@/lib/meta";
 
 function Overview() {
-  usePageMeta("Home", "Order counts, review queue and most recent orders for Streamline.");
+  usePageMeta("Home", "Order counts, review queue and most recent orders for UKCTV.");
   const ready = useAdminReady();
   const q = useGetAdminOverview({ query: { enabled: ready, queryKey: getGetAdminOverviewQueryKey(), ...LIVE } });
   const d = q.data;

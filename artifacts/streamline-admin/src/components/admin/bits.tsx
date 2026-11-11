@@ -13,7 +13,7 @@ export function Logo({ className, withWord = true }: { className?: string; withW
       <img src={`${basePath}/logo.svg`} alt="" className="h-7 w-7 rounded-md" />
       {withWord && (
         <span className="text-[15px] font-semibold tracking-tight">
-          Streamline <span className="font-normal opacity-60">Admin</span>
+          UKCTV <span className="font-normal opacity-60">Admin</span>
         </span>
       )}
     </span>

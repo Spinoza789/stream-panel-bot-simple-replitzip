@@ -183,10 +183,12 @@ class TelegramCheckout:
 
     def show_orders(self, uid):
         orders = self.store.telegram_orders(uid, limit=10)
+        trial = self.service.trial_status(uid)
         rows = [[{'text': order['plan']['name'] + ' · ' + order['status'] + ' · ' + order['id'][:8],
                   'callback_data': 'pay:status:' + order['id']}] for order in orders]
+        if trial: rows.append([{'text': '🎁 24-hour trial · ' + trial['status'] + ' · ' + trial['id'][:8], 'callback_data': 'menu:trial'}])
         rows.append([{'text': '⬅️ Back', 'callback_data': 'menu'}])
-        self.bot.send(uid, '<b>🧾 MY ORDERS</b>\n\nChoose an order to view it.' if orders else '<b>🧾 MY ORDERS</b>\n\nNo paid orders yet.',
+        self.bot.send(uid, '<b>🧾 MY ORDERS</b>\n\nChoose an order to view it.' if (orders or trial) else '<b>🧾 MY ORDERS</b>\n\nNo orders yet.',
                       {'inline_keyboard': rows}, parse_mode='HTML')
 
     def handle_callback(self, uid, action, callback_id):

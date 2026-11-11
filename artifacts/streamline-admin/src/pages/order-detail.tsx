@@ -26,7 +26,7 @@ import { usePageMeta } from "@/lib/meta";
 function Detail() {
   const params = useParams<{ id: string }>();
   const id = decodeURIComponent(params.id ?? "");
-  usePageMeta(`Order ${id.slice(0, 10)}`, "Order status explanation and trial recovery for a single Streamline order.");
+  usePageMeta(`Order ${id.slice(0, 10)}`, "Order status explanation and trial recovery for a single UKCTV order.");
   const ready = useAdminReady();
   const q = useGetAdminOrder(id, { query: { enabled: ready && !!id, queryKey: getGetAdminOrderQueryKey(id), ...LIVE } });
   const [open, setOpen] = useState(false);

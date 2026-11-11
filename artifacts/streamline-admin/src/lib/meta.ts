@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 export function usePageMeta(title: string, description: string) {
   useEffect(() => {
-    document.title = `${title} · Streamline Admin`;
+    document.title = `${title} · UKCTV Admin`;
     let m = document.querySelector('meta[name="description"]');
     if (!m) {
       m = document.createElement("meta");

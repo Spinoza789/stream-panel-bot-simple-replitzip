@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = { "": "All", pending: "Pending", qu
 function OrdersList({ trialsOnly }: { trialsOnly?: boolean }) {
   usePageMeta(
     trialsOnly ? "Trials" : "Orders",
-    trialsOnly ? "Every trial order, with status, so stuck trials are easy to spot and recover." : "Search and filter every Streamline order by status, kind and customer.",
+    trialsOnly ? "Every trial order, with status, so stuck trials are easy to spot and recover." : "Search and filter every UKCTV order by status, kind and customer.",
   );
   const ready = useAdminReady();
   const search = useSearch();

@@ -82,7 +82,7 @@ class ResellerBot:
         member=self.r.member(uid)
         if not member or member['status']=='pending':
             text=('<b>🏪 BECOME A RESELLER</b>\n\n'
-                  'Sell Streamline subscriptions to your own customers and keep the margin. '
+                  'Sell '+self.bot.service.config['brand']+' subscriptions to your own customers and keep the margin. '
                   'No application, no waiting: <b>buy a credit pack and your reseller account is live.</b>\n\n'
                   +self.credit_guide()+
                   '\n\nCreate trials and subscriptions in seconds here or on the web dashboard, and track every customer, expiry and credit.')
@@ -112,7 +112,7 @@ class ResellerBot:
     def announce_status(self,target,status):
         """Tell a reseller their account was approved or suspended. Delivery problems never block the admin action."""
         if status=='active':
-            text=('🎉 You are approved as a Streamline reseller!\n\n'
+            text=('🎉 You are approved as a '+self.bot.service.config['brand']+' reseller!\n\n'
                   'Buy credits, then create trials and subscriptions for your customers from your dashboard.')
         else:
             text='⛔ Your reseller account has been suspended. '+self.bot.service.config['support']

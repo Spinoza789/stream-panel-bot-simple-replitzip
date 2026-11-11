@@ -66,7 +66,7 @@ function Unavailable() {
 }
 
 export function SignInPage() {
-  usePageMeta("Sign in", "Sign in to the Streamline owner desk.");
+  usePageMeta("Sign in", "Sign in to the UKCTV owner desk.");
   const { isAuthenticated, isLoading } = useAuth();
   const status = useStatus();
   const login = usePasswordLogin();
@@ -138,7 +138,7 @@ export function SignInPage() {
 }
 
 export function SetupPage() {
-  usePageMeta("Owner setup", "Create the single owner account for Streamline Admin.");
+  usePageMeta("Owner setup", "Create the single owner account for UKCTV Admin.");
   const { isAuthenticated, isLoading } = useAuth();
   const status = useStatus();
   const setup = useSetupPasswordOwner();

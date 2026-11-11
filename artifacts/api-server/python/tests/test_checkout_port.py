@@ -44,7 +44,7 @@ class CheckoutPortTests(unittest.TestCase):
         self.assertNotIn(b'Membership plans', home.data)
         response = self.client.get('/order/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Streamline', response.data)
+        self.assertIn(b'UKCTV', response.data)
         self.assertNotIn(b'__STREAMBOT_BASE__', response.data)
         self.assertEqual(response.headers['X-Frame-Options'], 'DENY')
         self.assertIn("frame-ancestors 'none'", response.headers['Content-Security-Policy'])

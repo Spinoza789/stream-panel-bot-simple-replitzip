@@ -28,7 +28,7 @@ function Row({ label, on, help, testid }: { label: string; on: boolean; help: st
 }
 
 function Settings() {
-  usePageMeta("Settings", "Configuration readiness and owner login settings for Streamline Admin.");
+  usePageMeta("Settings", "Configuration readiness and owner login settings for UKCTV Admin.");
   const ready = useAdminReady();
   const st = useGetAdminStatus({ query: { enabled: ready, queryKey: getGetAdminStatusQueryKey(), ...LIVE } });
   const acc = useGetAdminAccess({ query: { enabled: ready, queryKey: getGetAdminAccessQueryKey() } });
