@@ -15,7 +15,18 @@ import requests
 
 
 class PaymentPending(Exception):
-    """Transaction not yet visible, canonical, or sufficiently final."""
+    """Transaction not yet visible, canonical, or sufficiently final.
+
+    ``confirmations``/``required`` carry the live progress when the chain supplied it so
+    the customer can be shown "3 of 12 confirmations"; ``stage`` is ``'finality'`` once the
+    confirmation count is met and only the network's finality checkpoint is outstanding.
+    """
+
+    def __init__(self, message='', *, confirmations=None, required=None, stage=None):
+        super().__init__(message)
+        self.confirmations = confirmations
+        self.required = required
+        self.stage = stage
 
 
 class PaymentRejected(Exception):
@@ -203,8 +214,9 @@ class BlockchainVerifier:
             raise PaymentRejected('Ethereum transaction reverted')
         if status != 1:
             raise ChainUnavailable('Unrecognized Ethereum receipt status')
+        required = asset.get('confirmations', 12)
         if receipt.get('blockNumber') is None or receipt.get('blockHash') is None:
-            raise PaymentPending('Transaction is not mined yet')
+            raise PaymentPending('Transaction is not mined yet', confirmations=0, required=required)
         height = _quantity(receipt['blockNumber'], 'receipt blockNumber')
         block_hash = _hex(receipt['blockHash'], 32, 'receipt blockHash')
         tx = rpc('eth_getTransactionByHash', [txid])
@@ -213,7 +225,7 @@ class BlockchainVerifier:
         if _hex(tx['hash'], 32, 'transaction hash') != txid:
             raise PaymentRejected('Transaction hash does not match')
         if tx.get('blockNumber') is None or tx.get('blockHash') is None:
-            raise PaymentPending('Transaction is not mined yet')
+            raise PaymentPending('Transaction is not mined yet', confirmations=0, required=required)
         if _quantity(tx['blockNumber'], 'transaction blockNumber') != height or _hex(tx['blockHash'], 32, 'transaction blockHash') != block_hash:
             raise PaymentPending('Transaction and receipt no longer agree')
         block = rpc('eth_getBlockByNumber', [hex(height), False])
@@ -229,14 +241,14 @@ class BlockchainVerifier:
         if head is None:
             raise ChainUnavailable('Latest block unavailable')
         confirmations = _quantity(head['number'], 'latest block number') - height + 1
-        if confirmations < asset.get('confirmations', 12):
-            raise PaymentPending('Ethereum confirmations are insufficient')
+        if confirmations < required:
+            raise PaymentPending('Ethereum confirmations are insufficient', confirmations=max(confirmations, 0), required=required)
         if asset.get('require_finalized', True):
             finalized = rpc('eth_getBlockByNumber', ['finalized', False])
             if finalized is None:
                 raise ChainUnavailable('Finalized head unavailable')
             if _quantity(finalized['number'], 'finalized block number') < height:
-                raise PaymentPending('Ethereum transaction is not finalized')
+                raise PaymentPending('Ethereum transaction is not finalized', confirmations=confirmations, required=required, stage='finality')
         wallet = asset['wallet'].lower()
         if asset['symbol'] == 'ETH':
             if tx.get('to') is None or _hex(tx['to'], 20, 'transaction recipient') != wallet:
@@ -295,8 +307,9 @@ class BlockchainVerifier:
         tx = self._rpc(endpoint, 'getTransaction', [txid, {
             'commitment': 'finalized', 'encoding': 'jsonParsed',
             'maxSupportedTransactionVersion': 0}])
+        required = asset.get('confirmations', 1)
         if tx is None:
-            raise PaymentPending('Solana transaction not finalized or not found')
+            raise PaymentPending('Solana transaction not finalized or not found', confirmations=0, required=required)
         signatures = tx['transaction']['signatures']
         if not isinstance(signatures, list) or not signatures or signatures[0] != txid:
             raise PaymentRejected('Solana transaction signature does not match')
@@ -309,8 +322,8 @@ class BlockchainVerifier:
         slot = _integer(tx['slot'], 'transaction slot')
         head = _integer(self._rpc(endpoint, 'getSlot', [{'commitment': 'finalized'}]), 'finalized slot')
         confirmations = head - slot + 1
-        if confirmations < asset.get('confirmations', 1):
-            raise PaymentPending('Solana slot has not reached the required finality')
+        if confirmations < required:
+            raise PaymentPending('Solana slot has not reached the required finality', confirmations=max(confirmations, 0), required=required)
         keys = tx['transaction']['message']['accountKeys']
         if not isinstance(keys, list):
             raise ChainUnavailable('Missing Solana transaction accounts')
@@ -360,8 +373,9 @@ class BlockchainVerifier:
         status = tx['status']
         if type(status['confirmed']) is not bool:
             raise ChainUnavailable('Invalid Bitcoin confirmation status')
+        required = asset.get('confirmations', 3)
         if not status['confirmed']:
-            raise PaymentPending('Bitcoin transaction is unconfirmed')
+            raise PaymentPending('Bitcoin transaction is unconfirmed', confirmations=0, required=required)
         height = _integer(status['block_height'], 'Bitcoin block height')
         block_hash = _btc_hash(status['block_hash'])
         canonical_hash = _btc_hash(self._get(endpoint, '/block-height/' + str(height), text=True))
@@ -371,8 +385,8 @@ class BlockchainVerifier:
         if not re.fullmatch(r'(?:0|[1-9][0-9]*)', tip):
             raise ChainUnavailable('Invalid Bitcoin tip height')
         confirmations = int(tip) - height + 1
-        if confirmations < asset.get('confirmations', 3):
-            raise PaymentPending('Bitcoin confirmations are insufficient')
+        if confirmations < required:
+            raise PaymentPending('Bitcoin confirmations are insufficient', confirmations=max(confirmations, 0), required=required)
         timestamp = _integer(status['block_time'], 'Bitcoin block time')
         outputs = tx['vout']
         if not isinstance(outputs, list):

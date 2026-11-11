@@ -25,7 +25,7 @@ class CheckoutService:
         self.pricing=Pricing(self)
 
     def public(self, order, credentials=True):
-        allowed = ('id','kind','plan','asset','amount_units','created_at','expires_at','status','txid','message')
+        allowed = ('id','kind','plan','asset','amount_units','created_at','expires_at','status','txid','message','last_check')
         result = {key: order[key] for key in allowed}
         stored_credentials=order.get('credentials') or {}
         if (order['status']=='review' and stored_credentials.get('generation_mode')=='panel'
@@ -155,13 +155,53 @@ class CheckoutService:
             if not order['created_at'] <= proof['block_time'] <= order['expires_at']: raise PaymentRejected('The payment was made outside this quote’s time window. Contact support.')
             self.amount_check(order,proof)
             self.store.claim_payment(order['id'],proof)
-        except PaymentPending:
-            self.store.update_pending_verification(order['id'],order['txid'],message='Waiting for blockchain confirmation. No need to pay again.')
+        except PaymentPending as exc:
+            self.store.update_pending_verification(order['id'],order['txid'],message=self.pending_message(exc,asset))
         except PaymentRejected as exc:
             self.store.update_pending_verification(order['id'],order['txid'],message=str(exc),txid=None)
         except ChainUnavailable:
             self.store.update_pending_verification(order['id'],order['txid'],message='The blockchain provider is temporarily unavailable. We will retry automatically.')
         finally: self.store.update_pending_verification(order['id'],order['txid'],last_check=int(time.time()))
+
+    NETWORK_LABELS={'ethereum':'Ethereum','bitcoin':'Bitcoin','solana':'Solana'}
+    PROGRESS_WIDTH=12
+
+    @classmethod
+    def pending_message(cls,exc,asset):
+        """Customer-facing progress for a payment that is seen but not yet final.
+
+        Shows the live count the chain reported ("3 of 12 confirmations") with a progress
+        bar; without a count it falls back to the generic waiting message.
+        """
+        done,required=getattr(exc,'confirmations',None),getattr(exc,'required',None)
+        network=cls.NETWORK_LABELS.get(asset.get('network'),'the network')
+        if type(done) is not int or type(required) is not int or required<1:
+            return 'Waiting for blockchain confirmation. No need to pay again.'
+        shown=min(done,required)
+        filled=round(cls.PROGRESS_WIDTH*shown/required)
+        bar='▰'*filled+'▱'*(cls.PROGRESS_WIDTH-filled)
+        head='Waiting for blockchain confirmation · %d of %d confirmations on %s %s'%(shown,required,network,bar)
+        if getattr(exc,'stage',None)=='finality':
+            tail='All confirmations in; waiting for %s to mark the block final (usually under 15 minutes).'%network
+        elif done==0:
+            tail='Your transaction has been seen and is waiting to be included in a block.'
+        else:
+            tail='Each new block adds one confirmation.'
+        return head+'\n'+tail+' No need to pay again.'
+
+    CHECK_INTERVAL=15
+
+    def check_now(self,telegram_id,order_id):
+        """Re-check an order on the chain when the customer taps Check payment status.
+
+        Rate limited per order so repeated taps cannot hammer the RPC provider; the
+        background worker keeps checking regardless.
+        """
+        order=self.store.owned_order(telegram_id,order_id)
+        if not order: raise CheckoutError('Order not found.')
+        if order['status']=='pending' and order['txid'] and time.time()-order['last_check']>=self.CHECK_INTERVAL:
+            self.verify_order(order_id=order['id'])
+        return self.public(self.store.get(order['id']))
 
     @staticmethod
     def tolerance_range(order):

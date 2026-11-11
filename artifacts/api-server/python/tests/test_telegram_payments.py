@@ -83,6 +83,33 @@ class TelegramPaymentTests(unittest.TestCase):
         self.verifier.proof = proof
         self.verifier.error = None
 
+    def test_check_payment_status_rechecks_the_chain_and_shows_live_confirmations(self):
+        self.click('pay:quote:month-1:eth')
+        order = self.store.telegram_orders(42)[0]
+        self.click('pay:tx:' + order['id'])
+        self.bot.handle({'update_id': 1, 'message': {'message_id': 1, 'from': {'id': 42},
+                         'chat': {'id': 42, 'type': 'private'}, 'text': TXID}})
+        self.verifier.error = PaymentPending('Ethereum confirmations are insufficient', confirmations=3, required=12)
+        screen = self.click('pay:status:' + order['id'])  # the tap itself re-checks the chain
+        self.assertIn('3 of 12 confirmations on Ethereum ▰▰▰▱▱▱▱▱▱▱▱▱', screen['text'])
+        self.assertIn('Last checked ', screen['text'])
+        self.assertIn('No need to pay again', screen['text'])
+        # A second tap within the rate limit reuses the stored result rather than calling the provider again.
+        self.verifier.error = PaymentPending('x', confirmations=5, required=12)
+        self.assertIn('3 of 12', self.click('pay:status:' + order['id'])['text'])
+        self.store.update(order['id'], last_check=0)
+        self.assertIn('5 of 12', self.click('pay:status:' + order['id'])['text'])
+        self.verifier.error = PaymentPending('not final', confirmations=14, required=12, stage='finality')
+        self.store.update(order['id'], last_check=0)
+        text = self.click('pay:status:' + order['id'])['text']
+        self.assertIn('12 of 12 confirmations on Ethereum ▰▰▰▰▰▰▰▰▰▰▰▰', text)
+        self.assertIn('mark the block final', text)
+        self.verifier.error = PaymentPending('not mined', confirmations=0, required=12)
+        self.store.update(order['id'], last_check=0)
+        self.assertIn('0 of 12 confirmations on Ethereum ▱▱▱▱▱▱▱▱▱▱▱▱', self.click('pay:status:' + order['id'])['text'])
+        self.assertEqual(self.store.get(order['id'])['status'], 'pending')
+        self.assertEqual(len(self.panel.calls), 0)
+
     def test_entire_quote_txid_confirmation_and_credential_delivery(self):
         crypto = self.click('pay:choose:month-1')
         callbacks = [b['callback_data'] for row in crypto['reply_markup']['inline_keyboard'] for b in row]
@@ -468,6 +495,16 @@ class BitcoinVerificationTests(unittest.TestCase):
         self.tx['status']['confirmed'] = False
         with self.assertRaises(PaymentPending):
             self.verify()
+
+    def test_pending_errors_carry_live_confirmation_progress(self):
+        self.tip = '101'
+        with self.assertRaises(PaymentPending) as caught:
+            self.verify()
+        self.assertEqual((caught.exception.confirmations, caught.exception.required), (2, 3))
+        self.tx['status']['confirmed'] = False
+        with self.assertRaises(PaymentPending) as caught:
+            self.verify()
+        self.assertEqual((caught.exception.confirmations, caught.exception.required), (0, 3))
 
     def test_wrong_token_contract_cannot_pay_an_erc20_invoice(self):
         config = json.loads(CONFIG.read_text())

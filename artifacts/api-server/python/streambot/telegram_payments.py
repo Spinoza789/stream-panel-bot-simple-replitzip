@@ -114,7 +114,9 @@ class TelegramCheckout:
         if order['status'] == 'pending' and checking:
             lines = [banner + '<b>🔎 PAYMENT VERIFICATION</b>', item, '',
                      '<b>✅ TXID received — do not send another payment.</b>', '<code>' + e(order['txid']) + '</code>', '',
-                     'We are checking the blockchain. Tap <b>Check payment status</b> for updates.']
+                     'We are checking the blockchain. Tap <b>Check payment status</b> for a live update.']
+            if order.get('last_check'):
+                lines.append('Last checked ' + datetime.fromtimestamp(int(order['last_check']), timezone.utc).strftime('%H:%M:%S UTC') + '.')
         elif order['status'] == 'pending' and expired:
             lines = [banner + '<b>⌛ QUOTE EXPIRED — DO NOT PAY</b>', item, '',
                      'This quote expired at ' + e(self.expiry(order)) + '.',
@@ -232,6 +234,8 @@ class TelegramCheckout:
                     if parts[1] == 'demo':
                         self.service.demo_pay_telegram(uid, order['id'])
                         order = self.service.telegram_order(uid, order['id'])
+                    elif parts[1] == 'status':
+                        order = self.service.check_now(uid, order['id'])  # live re-check, rate limited per order
                     self.show_order(uid, order)
             else:
                 raise CheckoutError('Payment option unavailable. Open My orders or start again.')
