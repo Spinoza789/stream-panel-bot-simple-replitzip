@@ -2,6 +2,7 @@
 -- Run against the DEVELOPMENT database in Replit, then Publish so the schema reaches production.
 -- Covers: reseller web portal, Log in with Telegram, customer notes/conversion/delete, support tickets.
 BEGIN;
+SET LOCAL search_path = stream_panel_bot_live, pg_catalog;
 CREATE TABLE IF NOT EXISTS rs_logins (
  reseller_id TEXT PRIMARY KEY REFERENCES rs_resellers(id),
  email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, updated_at BIGINT NOT NULL
