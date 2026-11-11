@@ -257,7 +257,7 @@ class TelegramPaymentTests(unittest.TestCase):
         theirs = self.create(uid=43, request='theirs')
         # Their exact amount submitted against my order: it is theirs, not mine.
         self.service.submit_telegram_tx(42, mine['id'], TXID)
-        self.proof(mine, amount_units=int(theirs['amount_units']))
+        self.proof(mine, amount_units=int(theirs['amount_units']), block_time=theirs['created_at'])
         self.service.verify_order(order_id=mine['id'])
         checked = self.store.get(mine['id'])
         self.assertEqual(checked['status'], 'pending')
@@ -265,7 +265,7 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertIn('matches a different order', checked['message'])
         # An inexact amount both open quotes could claim is left for support.
         self.service.submit_telegram_tx(42, mine['id'], TXID)
-        self.proof(mine, amount_units=int(mine['amount_units']) - 500_000)
+        self.proof(mine, amount_units=int(mine['amount_units']) - 500_000, block_time=theirs['created_at'])
         self.service.verify_order(order_id=mine['id'])
         checked = self.store.get(mine['id'])
         self.assertEqual(checked['status'], 'pending')
@@ -273,7 +273,7 @@ class TelegramPaymentTests(unittest.TestCase):
         # Once the other quote is no longer open, the same payment is accepted.
         self.store.update(theirs['id'], status='fulfilled')
         self.service.submit_telegram_tx(42, mine['id'], TXID)
-        self.proof(mine, amount_units=int(mine['amount_units']) - 500_000)
+        self.proof(mine, amount_units=int(mine['amount_units']) - 500_000, block_time=theirs['created_at'])
         self.service.verify_order(order_id=mine['id'])
         self.assertEqual(self.store.get(mine['id'])['status'], 'paid')
         # Their own exact payment still clears normally.
@@ -283,6 +283,45 @@ class TelegramPaymentTests(unittest.TestCase):
         self.proof(theirs, txid='b' * 64)
         self.service.verify_order(order_id=theirs['id'])
         self.assertEqual(self.store.get(theirs['id'])['status'], 'paid')
+
+    def test_renewal_extends_the_existing_account_instead_of_creating_one(self):
+        original = self.create()
+        self.store.update(original['id'], status='fulfilled', credentials={'username': 'kept-user', 'password': 'kept-pass', 'panel_id': '555'})
+        screen = self.click('pay:renew:' + original['id'])
+        self.assertIn('RENEW YOUR MEMBERSHIP', screen['text'])
+        callbacks = [b['callback_data'] for row in screen['reply_markup']['inline_keyboard'] for b in row]
+        self.assertIn('pay:rquote:' + original['id'] + ':usdc-ethereum', callbacks)
+        invoice = self.click('pay:rquote:' + original['id'] + ':usdc-ethereum')
+        self.assertIn('renewal', invoice['text'])
+        order = [o for o in self.store.telegram_orders(42) if o['plan'].get('renew_of')][0]
+        self.assertEqual(order['plan']['renew_panel_id'], '555')
+        self.assertEqual(self.click('pay:renew:' + order['id'])['text'], 'Only a delivered membership can be renewed.')
+        self.service.submit_telegram_tx(42, order['id'], TXID)
+        self.proof(order)
+        self.service.verify_order(order_id=order['id'])
+        self.assertEqual(self.store.get(order['id'])['status'], 'paid')
+
+        class Provider:
+            calls = []
+            def read(self, pid): return dict(provider_id=pid, expires_at=order['created_at'] + 86400, status='active', connections=1)
+            def package(self, months, connections, adult): return '137'
+            def prepare(self, operation, record=None):
+                self.calls.append(('prepare', record['provider_id'], operation['package_id']))
+                return dict(mode='extend', provider_id=record['provider_id'], expected_expiry=record['expires_at'] + 30 * 86400)
+            def execute(self, operation, context):
+                self.calls.append(('execute', context['provider_id']))
+                return dict(provider_id=context['provider_id'], expires_at=context['expected_expiry'], status='active',
+                            credentials={'username': 'kept-user', 'password': 'kept-pass'})
+        self.service.resellers.ops.provider = Provider()
+        self.service.provision_pending()
+        renewed = self.store.get(order['id'])
+        self.assertEqual(renewed['status'], 'fulfilled')
+        self.assertEqual(self.panel.calls, [])  # no new panel account
+        self.assertEqual(Provider.calls, [('prepare', '555', '137'), ('execute', '555')])
+        self.assertEqual((renewed['credentials']['username'], renewed['credentials']['renewed_from']), ('kept-user', original['id']))
+        receipt = self.bot.checkout.order_text(self.service.public(renewed))
+        self.assertIn('Membership extended', receipt)
+        self.assertNotIn('kept-pass', receipt)
 
     def test_provider_outage_and_recipient_rejection_fail_closed(self):
         order = self.create()

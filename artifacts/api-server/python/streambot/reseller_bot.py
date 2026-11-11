@@ -93,7 +93,8 @@ class ResellerBot:
                   [button('💳 Buy credits','packages'),button('📊 My balance','balance')],
                   [button('📺 My subscriptions','list:active:0'),button('🧾 History','history:0')],
                   [button('🌐 Open web dashboard','web')],
-                  [button('💡 What credits buy','guide'),button('❓ Help','help')],
+                  [button('💡 What credits buy','guide'),button('📲 Setup guide','apps')],
+                  [button('❓ Help','help')],
                   [{'text':'🔔 Notifications','callback_data':'nt:settings'}]]
             if uid==self.bot.service.config.get('support_admin_id'):rows.append([button('🛠 Administration','admin')])
             rows.append([{'text':'⬅️ Main menu','callback_data':'menu'}])
@@ -125,6 +126,29 @@ class ResellerBot:
         text+='\n\nConfirmation reserves credits. A permanent deduction happens only after the provider confirms success.'
         rows=[[button('Confirm','confirm:'+state['nonce'])]] if preview['remaining']>=0 else [[button('Insufficient credits — Buy Credits','packages')]]
         self.send(uid,text,rows)
+
+    def install_url(self):
+        config=self.bot.service.config
+        return config['public_url']+config.get('base_path','')+'/install'
+
+    def apps_text(self):
+        return ('<b>📲 CUSTOMER SETUP GUIDE</b>\nSend customers this page together with their login:\n'+escape(self.install_url())+
+                '\n\nOr forward the codes below.\n\n'+APP_DOWNLOAD_GUIDE)
+
+    def onboard_if_due(self,uid):
+        """Three-step walkthrough, once, after the first credit pack activates the account."""
+        member=self.r.finance.member(uid)
+        if not member:return
+        key='rs_onboard:'+member['id']
+        if self.store.metadata(key)!='due':return
+        text=('<b>🎉 You are a reseller. Here is how it works:</b>\n\n'
+              '1️⃣ <b>Create a free 24-hour test</b> for a customer. It costs nothing and the login appears here.\n'
+              '2️⃣ <b>Send them the login and the setup guide</b> (Fire Stick, Apple, Android).\n'
+              '3️⃣ <b>When they like it, create a subscription.</b> 1 credit = 1 month on 1 device.\n\n'
+              'The web panel does all of this with a few clicks and keeps your customer list, expiry dates and credit history in one place.')
+        self.send(uid,text,[[button('🧪 Create your first test','trial')],[button('🌐 Open the web panel','web')],
+                            [button('📲 Customer setup guide','apps')]],keep=True,parse_mode='HTML')  # send() appends the dashboard button
+        self.store.metadata(key,'sent')
 
     def _durations(self,uid):
         self.send(uid,'How long should the subscription run?',[[button('1 month' if months==1 else str(months)+' months','duration:'+str(months))] for months in (1,3,6,9,12)])
@@ -213,6 +237,18 @@ class ResellerBot:
                               '\n\nBookmark the dashboard: '+portal+
                               '\nOnce signed in, open Account to add a recovery email and password so you can sign in there without Telegram.',
                               keyboard([],False),keep=True)
+            elif name=='extendnow':
+                # From an expiry reminder: straight to the confirmation for the chosen length (credits still need a Confirm tap).
+                self.r.finance.member(uid,active=True)
+                sid,months=parts[2],int(parts[3])
+                if months not in (1,3,6,9,12):raise CheckoutError('Invalid duration.')
+                record,warning,_=self.r.ops.refresh(uid,sid)
+                if warning:raise CheckoutError(warning)
+                state={'kind':'extend','nonce':secrets.token_hex(12),'target':record['id'],'connections':record['connections'],
+                       'adult':bool(record['adult']),'months':months,'customer_ref':record['customer_ref']}
+                self.state(uid,state);self._confirmation(uid,state)
+            elif name=='apps':
+                self.send(uid,self.apps_text(),[[button('⬅️ Reseller dashboard','home')]],keep=True,parse_mode='HTML')
             elif name=='balance':
                 member=self.r.finance.member(uid)
                 if not member:raise CheckoutError('Request reseller approval first.')

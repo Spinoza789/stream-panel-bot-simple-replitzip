@@ -150,3 +150,17 @@ production migration scripts, or add DDL to startup/build commands.
 There is no automatic conversion of existing retail customers into approved
 resellers, no transfer of existing customer accounts, and no automatic credit
 grant. New accounts start pending with zero balance.
+
+## Columns added later (apply by hand on PostgreSQL)
+
+SQLite databases upgrade themselves. On PostgreSQL the application never runs DDL, so
+run these on the development database before publishing a build that uses them:
+
+```sql
+ALTER TABLE rs_subscriptions ADD COLUMN IF NOT EXISTS contact TEXT NOT NULL DEFAULT '';
+ALTER TABLE rs_subscriptions ADD COLUMN IF NOT EXISTS converted_at BIGINT;
+```
+
+`contact` holds the reseller's private note of how to reach a customer; `converted_at`
+is set when a 24-hour test is extended into a paid subscription (used for conversion
+statistics). The list lives in `reseller_schema.MIGRATIONS`.

@@ -79,3 +79,11 @@ CREATE INDEX IF NOT EXISTS rs_operations_state ON rs_operations(status,created_a
 CREATE INDEX IF NOT EXISTS rs_subscriptions_owner ON rs_subscriptions(reseller_id,expires_at);
 CREATE INDEX IF NOT EXISTS rs_ledger_owner ON rs_ledger(reseller_id,created_at);
 """
+
+# Columns added after the first release. Each statement is applied on its own and a
+# "duplicate column" error is ignored, so SQLite databases upgrade in place. PostgreSQL
+# never receives DDL from the application: run these by hand on development, then Publish.
+MIGRATIONS = [
+    "ALTER TABLE rs_subscriptions ADD COLUMN contact TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE rs_subscriptions ADD COLUMN converted_at BIGINT",
+]

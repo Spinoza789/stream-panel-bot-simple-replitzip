@@ -38,7 +38,7 @@ class NotificationScenarios:
         f.account_status(9001,uid,'active','Notification test fixture')
         member=f.member(uid);expiry=self.clock+int(days*86400)
         with self.store.connection() as db:
-            db.execute('INSERT INTO rs_subscriptions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            db.execute('INSERT INTO rs_subscriptions(id,reseller_id,provider_id,customer_ref,kind,connections,adult,starts_at,expires_at,status,credentials,confirmed_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
                        ('sub-'+pid,member['id'],pid,'Test reference',kind,1,0,self.clock-86400,expiry,
                         'active',self.store.seal({'username':'test','password':'not-real'}),self.clock,self.clock))
         self.actual[pid]={'expires_at':expiry,'status':'active' if days>0 else 'expired'}
@@ -104,6 +104,23 @@ class NotificationScenarios:
             self.actual[pid]={'expires_at':self.clock+(-1 if kind=='trial' else 86400),'status':'active'}
         self.n.tick()
         self.assertEqual({m['chat_id'] for m in self.sent},{71,72})
+
+    def test_reminders_carry_extend_and_renew_buttons(self):
+        self.subscription()
+        with self.store.connection() as db:
+            db.execute("INSERT INTO orders(id,token_hash,kind,telegram_id,plan_json,asset_json,amount_units,created_at,expires_at,status,credentials) "
+                       "VALUES(?,?,?,?,?,?,'1',?,?,'fulfilled',?)",
+                       ('order-202','token-202','paid',None,'{}','{}',self.clock-1,self.clock+1,self.store.seal({'panel_id':'202','username':'test','password':'not-real'})))
+            db.execute('INSERT INTO account_links(telegram_id,order_id) VALUES(?,?)',(72,'order-202'))
+        self.actual['202']={'expires_at':self.clock+86400,'status':'active'}
+        self.n.tick()
+        by_chat={m['chat_id']:m for m in self.sent}
+        reseller=[b['callback_data'] for row in by_chat[42]['reply_markup']['inline_keyboard'] for b in row]
+        self.assertIn('rs:extendnow:sub-101:1',reseller)
+        self.assertIn('rs:detail:sub-101',reseller)
+        retail=[b['callback_data'] for row in by_chat[72]['reply_markup']['inline_keyboard'] for b in row]
+        self.assertIn('pay:renew:order-202',retail)
+        self.assertIn('Nothing has been renewed or charged yet.',by_chat[72]['text'])
 
     def test_marketing_requires_opt_in_and_administrator(self):
         self.n.contact(42)

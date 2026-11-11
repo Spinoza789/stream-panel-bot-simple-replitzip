@@ -30,14 +30,27 @@ class TelegramCheckout:
     def clear_session(self, uid):
         self.store.metadata(self.session_key(uid), '')
 
-    def crypto_keyboard(self, plan):
+    def crypto_keyboard(self, plan, renew_of=None):
         rows = []
         for asset in self.service.config['assets'].values():
             if asset.get('enabled', True):
                 label = asset['symbol'] + ' · ' + network_name(asset)
-                rows.append([{'text': label, 'callback_data': f"pay:quote:{plan['id']}:{asset['id']}"}])
-        rows.append([{'text': '⬅️ Back', 'callback_data': f"plan:duration:{plan['months']}"}])
+                data = f"pay:rquote:{renew_of}:{asset['id']}" if renew_of else f"pay:quote:{plan['id']}:{asset['id']}"
+                rows.append([{'text': label, 'callback_data': data}])
+        rows.append([{'text': '⬅️ Back', 'callback_data': 'pay:orders' if renew_of else f"plan:duration:{plan['months']}"}])
         return {'inline_keyboard': rows}
+
+    def renew(self, uid, order_id):
+        """Coin picker for renewing a delivered membership. The order is quoted only when a coin is tapped."""
+        order = self.service.telegram_order(uid, order_id)
+        if order['kind'] != 'paid' or order['status'] != 'fulfilled' or order['plan'].get('reseller_purchase'):
+            raise CheckoutError('Only a delivered membership can be renewed.')
+        plan = order['plan']
+        self.clear_session(uid)
+        self.bot.send(uid, '<b>🔁 RENEW YOUR MEMBERSHIP</b>\n\n' + escape(plan['name'] + ' · ' + plan.get('detail', '')) +
+                      '\n\nSame login, extended by ' + escape(str(plan['months'])) + (' month' if plan['months'] == 1 else ' months') +
+                      ' from its current expiry. Pick how you want to pay.',
+                      self.crypto_keyboard(plan, renew_of=order['id']), parse_mode='HTML')
 
     def choose(self, uid, plan):
         """Coin/network picker for a chosen plan; no order exists until a coin is tapped."""
@@ -84,6 +97,11 @@ class TelegramCheckout:
         if order['status']=='fulfilled' and plan.get('reseller_purchase'):
             purchase=plan['reseller_purchase']['package']
             return ('DEMO — simulated payment.\n\n' if demo else '')+'<b>'+escape(str(purchase['credits']))+' credits added to your reseller account.</b>\nYour reseller account is active: open the Reseller dashboard or /reseller to create trials and subscriptions.\nPurchase: '+escape(order['id'])
+        if order['status']=='fulfilled' and plan.get('renew_of'):
+            creds=order['credentials'] or {}
+            until=creds.get('expires_at')
+            when=datetime.fromtimestamp(int(until),timezone.utc).strftime('%d %b %Y') if isinstance(until,int) or (isinstance(until,str) and until.isdigit()) else None
+            return ('DEMO — simulated payment.\n\n' if demo else '')+'<b>✅ Membership extended.</b>\nYour existing login keeps working'+(' until <b>'+escape(when)+'</b>' if when else '')+'.\nOrder: '+escape(order['id'])
         if order['status']=='fulfilled':
             text=membership_ready_text(plan,order['credentials'])
             return ('DEMO — DO NOT SEND FUNDS.\n\n' if demo else '')+text
@@ -158,6 +176,10 @@ class TelegramCheckout:
         # Invoices and logins are kept as their own messages, never edited away by later navigation.
         self.bot.send(uid, self.order_text(order), self.order_keyboard(order), parse_mode='HTML', keep=True)
         self.store.metadata('tg_notice:' + order['id'], order['status'] + ':' + order.get('message', ''))
+        if order['status'] == 'fulfilled' and order['plan'].get('reseller_purchase'):
+            try: self.bot.reseller.onboard_if_due(uid)
+            except Exception as exc:
+                if getattr(exc, 'code', None) != 403: log.warning('Reseller onboarding deferred (%s).', type(exc).__name__)
 
     def show_orders(self, uid):
         orders = self.store.telegram_orders(uid, limit=10)
@@ -180,6 +202,12 @@ class TelegramCheckout:
                 if not plan:
                     raise CheckoutError('Membership not found. Please start again.')
                 self.choose(uid, plan)
+            elif len(parts) == 3 and parts[1] == 'renew':
+                self.renew(uid, parts[2])
+            elif len(parts) == 4 and parts[1] == 'rquote':
+                self.clear_session(uid)
+                result = self.service.renew_order(uid, parts[2], parts[3], request_key='tg_quote:' + digest(f'{uid}:{callback_id}'))
+                self.show_order(uid, result['order'])
             elif len(parts) == 4 and parts[1] == 'quote':
                 self.clear_session(uid)
                 result = self.service.create_order(parts[2], parts[3], owner_telegram_id=uid,

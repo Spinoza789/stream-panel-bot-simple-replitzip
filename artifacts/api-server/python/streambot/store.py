@@ -42,8 +42,12 @@ class Store:
                 CREATE INDEX IF NOT EXISTS limits_bucket ON limits(bucket,at);
                 CREATE INDEX IF NOT EXISTS orders_state ON orders(status,last_check);
             ''')
-            from .reseller_schema import SCHEMA
+            from .reseller_schema import SCHEMA, MIGRATIONS
             db.executescript(SCHEMA)
+            for statement in MIGRATIONS:
+                try: db.execute(statement)
+                except sqlite3.OperationalError as exc:
+                    if 'duplicate column' not in str(exc): raise
             from .notification_schema import SCHEMA as NOTIFICATION_SCHEMA
             db.executescript(NOTIFICATION_SCHEMA)
         os.chmod(self.path, 0o600)

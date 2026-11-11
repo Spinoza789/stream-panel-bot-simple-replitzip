@@ -57,9 +57,9 @@ class Notifications:
             try:credentials=self.store.unseal(row['credentials'])
             except Exception:continue
             pid=credentials.get('panel_id') if isinstance(credentials,dict) else None
-            if pid:records.append(dict(uid=row['uid'],provider_id=str(pid),kind=row['kind'],source='retail',reference=''))
+            if pid:records.append(dict(uid=row['uid'],provider_id=str(pid),kind=row['kind'],source='retail',reference='',order_id=row['id']))
         for row in rs:
-            records.append(dict(uid=row['uid'],provider_id=row['provider_id'],kind=row['kind'],source='reseller',reference=row['customer_ref']))
+            records.append(dict(uid=row['uid'],provider_id=row['provider_id'],kind=row['kind'],source='reseller',reference=row['customer_ref'],subscription_id=row['id']))
         return records
 
     def provider_status(self,records):
@@ -159,9 +159,17 @@ class Notifications:
         text=prefix+'\nExpiry: '+london(subject['expiry'])
         if subject['reference']:text+='\nCustomer reference: '+subject['reference']
         text+='\nAccount ID: '+subject['provider_id']
-        text+='\n\nReview your options below or contact support. No renewal or charge has been made.'
-        action={'text':'Reseller area','callback_data':'rs:home'} if subject['source']=='reseller' else {'text':'Membership plans','callback_data':'menu:plans'}
-        return text,{'inline_keyboard':[[action],[settings]]}
+        text+='\n\nNothing has been renewed or charged yet.'
+        if subject['source']=='reseller':
+            sid=owner.get('subscription_id')
+            rows=[[{'text':'➕ Extend 1 month','callback_data':'rs:extendnow:'+sid+':1'},{'text':'Other lengths','callback_data':'rs:extend:'+sid}],
+                  [{'text':'Open this customer','callback_data':'rs:detail:'+sid}]] if sid else [[{'text':'Reseller area','callback_data':'rs:home'}]]
+        elif subject['kind']=='trial':
+            rows=[[{'text':'Membership plans','callback_data':'menu:plans'}]]
+        else:
+            oid=owner.get('order_id')
+            rows=[[{'text':'🔁 Renew this subscription','callback_data':'pay:renew:'+oid}],[{'text':'Membership plans','callback_data':'menu:plans'}]] if oid else [[{'text':'Membership plans','callback_data':'menu:plans'}]]
+        return text,{'inline_keyboard':rows+[[settings]]}
 
     def tick(self):
         if not self.ready:return

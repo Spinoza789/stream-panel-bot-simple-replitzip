@@ -370,6 +370,54 @@ class Scenarios:
         with self.assertRaises(CheckoutError):self.preview(kind='extend',target=op['result_id'])
         self.assertEqual(self.f.member(42)['reserved'],0)
 
+    def test_reminder_extend_button_opens_confirmation_and_tracks_conversion(self):
+        self.fund(50)
+        trial=self.create(kind='trial')
+        sid=trial['result_id']
+        self.click(42,'rs:extendnow:'+sid+':1')
+        confirmation=self.sent_to(42)[-1]
+        self.assertIn('Confirm extend subscription',confirmation['text'])
+        self.assertIn('Duration: 1 month',confirmation['text'])
+        confirm=[b['callback_data'] for row in confirmation['reply_markup']['inline_keyboard'] for b in row if b['text']=='Confirm'][0]
+        self.click(42,confirm);self.o.process()
+        record=self.o.owned(42,sid)
+        self.assertEqual(record['kind'],'paid')
+        self.assertIsNotNone(record['converted_at'])
+        stats=self.f.stats(42)
+        self.assertEqual((stats['all_time']['tests_created'],stats['all_time']['tests_converted'],stats['all_time']['credits_used']),(1,1,1))
+        self.assertEqual(stats['this_month']['credits_bought'],50)
+        self.click(42,'rs:extendnow:'+sid+':2')
+        self.assertIn('Invalid duration',self.sent_to(42)[-1]['text'])
+
+    def test_first_credit_pack_sends_the_walkthrough_once(self):
+        self.f.register(77,'newbie')
+        quote=self.f.quote_purchase(77,'100','usdc-ethereum','onboard-request')
+        self.store.claim_payment(quote['id'],dict(network='ethereum',txid='0x'+'c'*64,amount_units=int(quote['amount_units']),block_time=now(),confirmations=12))
+        self.service.provision_pending()
+        self.assertEqual(self.f.member(77)['status'],'active')
+        self.assertEqual(self.store.metadata('rs_onboard:'+self.f.member(77)['id']),'due')
+        self.bot.checkout.show_order(77,self.service.public(self.store.get(quote['id'])))
+        walkthrough=self.sent_to(77)[-1]
+        self.assertIn('You are a reseller',walkthrough['text'])
+        buttons=[b['callback_data'] for row in walkthrough['reply_markup']['inline_keyboard'] for b in row]
+        self.assertEqual(buttons,['rs:trial','rs:web','rs:apps','rs:home'])
+        before=len(self.sent_to(77))
+        self.bot.checkout.show_order(77,self.service.public(self.store.get(quote['id'])))
+        self.assertEqual(len(self.sent_to(77)),before+1)  # the receipt again, but no second walkthrough
+        self.assertNotIn('You are a reseller',self.sent_to(77)[-1]['text'])
+
+    def test_setup_guide_button_and_customer_notes(self):
+        self.click(42,'rs:apps')
+        guide=self.sent_to(42)[-1]
+        self.assertIn('/install',guide['text'])
+        self.assertIn('APP DOWNLOAD CODES',guide['text'])
+        self.fund(5)
+        sid=self.create()['result_id']
+        self.o.update_notes(42,sid,'Jane Doe','@jane_tv')
+        self.assertEqual(len(self.o.records(42,'all',0,'jane_tv')),1)
+        with self.assertRaises(CheckoutError):self.o.update_notes(43,sid,'x','y')
+        with self.assertRaises(CheckoutError):self.o.update_notes(42,sid,'x'*101,'')
+
     def test_bot_trial_form_never_asks_about_adult_content(self):
         self.fund(1)
         self.click(42,'rs:trial')

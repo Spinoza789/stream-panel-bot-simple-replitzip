@@ -190,6 +190,38 @@ class ResellerWebTests(unittest.TestCase):
                     self.assertEqual(self.client.get('/reseller/static/' + step['picture']).status_code, 200)
         self.assertTrue(all(a['url'].startswith('https://') for a in guide['android']['apps']))
 
+    def test_stats_notes_and_csv_exports(self):
+        self.r.finance.adjust(9001, 42, 10, 'test funding', 'fund-42-stats')
+        self.sign_in()
+        body = self.post('/api/reseller/operations/preview', {'kind': 'trial', 'months': 0, 'connections': 1, 'adult': False, 'customer_ref': 'Sam'}).get_json()
+        self.post('/api/reseller/operations/confirm', {'nonce': body['nonce']})
+        self.r.process()
+        sid = self.client.get('/api/reseller/subscriptions?filter=trials').get_json()['items'][0]['id']
+        saved = self.post('/api/reseller/subscriptions/' + sid + '/notes', {'customer_ref': 'Sam Smith', 'contact': '+44 7700 900000'})
+        self.assertEqual(saved.status_code, 200, saved.get_json())
+        self.assertEqual((saved.get_json()['record']['customer_ref'], saved.get_json()['record']['contact']), ('Sam Smith', '+44 7700 900000'))
+        self.assertNotIn('credentials', saved.get_json()['record'])
+        stats = self.client.get('/api/reseller/stats').get_json()
+        self.assertEqual(stats['this_month']['tests_created'], 1)
+        self.assertEqual(stats['this_month']['credits_bought'], 10)
+        customers = self.client.get('/api/reseller/subscriptions.csv')
+        self.assertEqual(customers.mimetype, 'text/csv')
+        self.assertIn(b'Sam Smith,+44 7700 900000,test,1,', customers.data)
+        history = self.client.get('/api/reseller/history.csv')
+        self.assertIn(b'date,credits,reason,reference', history.data)
+        self.assertIn(b'10,test funding', history.data)
+        other = self.app.test_client()
+        other.post('/api/reseller/session/code', json={'code': self.web.issue_code(43)}, headers={'Origin': ORIGIN})
+        self.assertEqual(other.post('/api/reseller/subscriptions/' + sid + '/notes', json={'customer_ref': 'x', 'contact': ''}, headers={'Origin': ORIGIN}).status_code, 404)
+
+    def test_public_install_page_needs_no_login(self):
+        page = self.client.get('/install')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b'Downloader', page.data)
+        self.assertIn(b'BA896705', page.data)
+        self.assertIn(b'/reseller/static/img/fire-url.png', page.data)
+        self.assertNotIn(b'rs_session', str(page.headers).encode())
+
     def test_sign_out_everywhere_drops_every_session(self):
         self.sign_in()
         second = self.app.test_client()

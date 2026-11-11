@@ -132,13 +132,14 @@ class Operations:
                 sid=record['id']
                 db.execute('INSERT INTO rs_extensions VALUES(?,?,?,?,?,?,?,?,?)',
                            (identifier(),sid,op['reseller_id'],oid,op['months'],cost,previous,account['expires_at'],now()))
-                db.execute("UPDATE rs_subscriptions SET kind='paid',expires_at=?,status=?,credentials=?,confirmed_at=? WHERE id=?",
-                           (account['expires_at'],account['status'],self.store.seal(credentials),now(),sid))
+                db.execute("UPDATE rs_subscriptions SET kind='paid',expires_at=?,status=?,credentials=?,confirmed_at=?,"
+                           "converted_at=CASE WHEN kind='trial' THEN ? ELSE converted_at END WHERE id=?",
+                           (account['expires_at'],account['status'],self.store.seal(credentials),now(),now(),sid))
             else:
                 existing=db.execute('SELECT id FROM rs_subscriptions WHERE provider_id=?',(account['provider_id'],)).fetchone()
                 if existing:raise PanelError('Provider account already belongs to another completed operation')
                 sid=identifier()
-                db.execute('INSERT INTO rs_subscriptions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                db.execute('INSERT INTO rs_subscriptions(id,reseller_id,provider_id,customer_ref,kind,connections,adult,starts_at,expires_at,status,credentials,confirmed_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
                            (sid,op['reseller_id'],account['provider_id'],op['customer_ref'],'trial' if op['operation_type']=='trial' else 'paid',
                             op['connections'],op['adult'],account.get('starts_at') or now(),account['expires_at'],account['status'],
                             self.store.seal(credentials),now(),now()))
@@ -239,13 +240,23 @@ class Operations:
                 for raw in rows:
                     row=dict(raw)
                     credentials=self.store.unseal(row['credentials'])
-                    if search.casefold() not in (' '.join((row['customer_ref'],row['provider_id'],row['id'],credentials['username']))).casefold():continue
+                    if search.casefold() not in (' '.join((row['customer_ref'],row.get('contact') or '',row['provider_id'],row['id'],credentials['username']))).casefold():continue
                     if skip:skip-=1;continue
                     row.pop('credentials')
                     row['username']=credentials['username']
                     matches.append(row)
                     if len(matches)==11:return matches
         return matches
+
+    def update_notes(self,uid,sid,customer_ref,contact):
+        """Reseller-only labels: a customer name and a contact (phone, Telegram handle, email). Never sent to the provider."""
+        record=self.owned(uid,sid)
+        for value in (customer_ref,contact):
+            if not isinstance(value,str) or len(value)>100:raise CheckoutError('Notes must be at most 100 characters.')
+        with self.ledger.transaction() as db:
+            db.execute('UPDATE rs_subscriptions SET customer_ref=?,contact=? WHERE id=? AND reseller_id=?',
+                       (customer_ref.strip(),contact.strip(),record['id'],record['reseller_id']))
+        return self.owned(uid,sid)
 
     def counts(self,uid):
         """Dashboard numbers for one reseller: active paid, expiring within 7 days, running trials."""

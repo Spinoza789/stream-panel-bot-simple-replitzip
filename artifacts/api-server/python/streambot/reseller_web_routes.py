@@ -5,10 +5,13 @@ one Telegram ID and every ledger/operations call is scoped by it. POST bodies ar
 same-origin JSON (enforced globally in web.py); the session cookie is HttpOnly and
 scoped to the API path.
 """
+import csv
+import io
 import secrets
+from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, Response, jsonify, request, send_from_directory
 
 from .service import CheckoutError
 from .trial_message import APP_GUIDE
@@ -76,6 +79,11 @@ def register_reseller_web(app, service):
     @app.get('/reseller')
     def reseller_page_slash():
         return '', 302, {'Location': base + '/'}
+
+    @app.get('/install')
+    def install_page():
+        # Public, read-only setup guide: no login, no account data. Shares APP_GUIDE with the bot and the panel.
+        return install_html(config['brand'], base), 200, {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300'}
 
     @app.get('/reseller/static/<path:name>')
     def reseller_static(name):
@@ -149,6 +157,51 @@ def register_reseller_web(app, service):
         record.pop('reseller_id', None)
         return jsonify(record=record, warning=warning, extensions=extensions)
 
+    @routes.get('/stats')
+    def stats():
+        return jsonify(resellers.finance.stats(current_uid()))
+
+    @routes.post('/subscriptions/<sid>/notes')
+    def notes(sid):
+        uid = current_uid()
+        data = body()
+        record = resellers.ops.update_notes(uid, sid, str(data.get('customer_ref', '')), str(data.get('contact', '')))
+        record.pop('credentials', None); record.pop('reseller_id', None)
+        return jsonify(record=record)
+
+    def csv_response(name, header, rows):
+        out = io.StringIO(); writer = csv.writer(out); writer.writerow(header); writer.writerows(rows)
+        return Response(out.getvalue(), mimetype='text/csv',
+                        headers={'Content-Disposition': 'attachment; filename="' + name + '"', 'Cache-Control': 'no-store'})
+
+    def stamp(ts):
+        return datetime.fromtimestamp(ts, timezone.utc).strftime('%Y-%m-%d %H:%M') if ts else ''
+
+    @routes.get('/history.csv')
+    def history_csv():
+        uid = current_uid()
+        rows, page = [], 0
+        while page < 400:
+            chunk = resellers.finance.history(uid, page)
+            rows.extend(chunk[:10])
+            if len(chunk) <= 10: break
+            page += 1
+        return csv_response('credit-history.csv', ['date', 'credits', 'reason', 'reference'],
+                            [[stamp(r['created_at']), r['movement'], r['reason'], r['reference']] for r in rows])
+
+    @routes.get('/subscriptions.csv')
+    def subscriptions_csv():
+        uid = current_uid()
+        rows, page = [], 0
+        while page < 400:
+            chunk = resellers.ops.records(uid, 'all', page, '')
+            rows.extend(chunk[:10])
+            if len(chunk) <= 10: break
+            page += 1
+        return csv_response('customers.csv', ['customer', 'contact', 'type', 'devices', 'username', 'status', 'started', 'expires', 'subscription_id'],
+                            [[r['customer_ref'], r.get('contact') or '', 'test' if r['kind'] == 'trial' else 'subscription', r['connections'],
+                              r['username'], r['status'], stamp(r['starts_at']), stamp(r['expires_at']), r['provider_id']] for r in rows])
+
     @routes.get('/history')
     def history():
         uid = current_uid()
@@ -214,3 +267,35 @@ def register_reseller_web(app, service):
         return jsonify(operation=resellers.ops.operation(uid, oid))
 
     app.register_blueprint(routes, url_prefix='/api/reseller')
+
+
+def install_html(brand, base):
+    """Server-rendered install guide. Only static text from APP_GUIDE is interpolated, all HTML-escaped."""
+    from html import escape as e
+    g = APP_GUIDE
+    def steps(section):
+        items = []
+        for i, step in enumerate(section['steps']):
+            picture = ('<img src="' + e(base + '/reseller/static/' + step['picture']) + '" alt="" loading="lazy">') if step.get('picture') else ''
+            items.append('<li>' + picture + '<div><span class="n">' + str(i + 1) + '</span>' + e(step['text']) + '</div></li>')
+        return '<ol class="steps">' + ''.join(items) + '</ol>'
+    fire = g['firestick']; apple = g['apple']; android = g['android']
+    codes = ''.join('<tr><th>' + e(a['name']) + '</th><td>' + ' · '.join('<code>' + e(c) + '</code>' for c in a['codes']) + '</td></tr>' for a in fire['apps'])
+    links = ''.join('<tr><th>' + e(a['name']) + '</th><td><a href="' + e(a['url']) + '" rel="noopener">' + e(a['url']) + '</a></td></tr>' for a in android['apps'])
+    css = ('body{margin:0;background:#f1f1f1;color:#303030;font:14px/1.55 Inter,-apple-system,Segoe UI,Roboto,sans-serif}'
+           'main{max-width:960px;margin:0 auto;padding:24px 16px 48px}h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:0 0 12px}'
+           '.lead{color:#616161;margin:0 0 20px}section{background:#fff;border-radius:12px;box-shadow:0 1px 0 rgba(26,26,26,.07),0 0 0 1px rgba(0,0,0,.04);padding:16px;margin-bottom:16px}'
+           '.steps{list-style:none;margin:0 0 14px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:start}'
+           '.steps li{background:#f7f7f7;border:1px solid #e3e3e3;border-radius:12px;overflow:hidden}.steps img{display:block;width:100%;height:180px;object-fit:contain;background:#111}'
+           '.steps li div{display:flex;gap:10px;padding:10px 12px}.n{flex:none;width:22px;height:22px;border-radius:50%;background:#303030;color:#fff;font-size:12px;font-weight:650;display:grid;place-items:center}'
+           'table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-top:1px solid #e3e3e3;vertical-align:top}th{width:160px;font-weight:550}'
+           'code{font:13px ui-monospace,Menlo,Consolas,monospace;background:#f1f1f1;border:1px solid #e3e3e3;border-radius:6px;padding:2px 6px}a{color:#005bd3}'
+           '.note{color:#616161;font-size:12px;margin:10px 0 0}footer{color:#616161;font-size:12px;text-align:center;margin-top:12px}')
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>' + e(brand) + ' · How to install</title><style>' + css + '</style></head><body><main>'
+            '<h1>How to install ' + e(brand) + '</h1><p class="lead">Pick your device. You will need the username and password you were sent.</p>'
+            '<section><h2>' + e(fire['title']) + '</h2>' + steps(fire) + '<table>' + codes + '</table><p class="note">' + e(fire.get('note', '')) + '</p></section>'
+            '<section><h2>' + e(apple['title']) + '</h2>' + steps(apple) + '<table><tr><th>Download</th><td><a href="https://' + e(apple['site']) + '" rel="noopener">' + e(apple['site']) + '</a></td></tr>'
+            '<tr><th>URL code</th><td><code>' + e(apple['url_code']) + '</code></td></tr></table></section>'
+            '<section><h2>' + e(android['title']) + '</h2>' + steps(android) + '<table>' + links + '</table></section>'
+            '<footer>' + e(g.get('credits', '')) + '</footer></main></body></html>')

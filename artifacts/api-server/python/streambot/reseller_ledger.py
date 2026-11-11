@@ -1,10 +1,13 @@
 """Owned reseller accounts, immutable financial movements and administrator controls."""
 import contextlib
 import json
+import re
 import secrets
 import time
 
 from .service import CheckoutError
+
+WEB_ACTOR=r'(?:replit|local):[A-Za-z0-9_-]{1,128}:[a-f0-9]{64}'
 
 
 def now():
@@ -75,6 +78,9 @@ class Ledger:
             return self.member(uid,db)
 
     def admin(self, uid):
+        # Telegram administrator (numeric) or the website owner, whose actor string only
+        # ever arrives through the HMAC-authenticated bridge in admin_web.py.
+        if isinstance(uid,str) and re.fullmatch(WEB_ACTOR,uid):return
         expected=self.service.config.get('support_admin_id')
         if type(uid) is not int or not expected or uid!=expected:
             raise CheckoutError('Administrator access required.')
@@ -82,8 +88,10 @@ class Ledger:
     def audit(self, db, actor, action, subject, reason, details=None):
         if not isinstance(reason,str) or not 3<=len(reason.strip())<=500:
             raise CheckoutError('A reason of 3–500 characters is required.')
+        details=dict(details or {})
+        if isinstance(actor,str):details['web_actor']=actor;actor=0  # administrator column is numeric; 0 = website owner
         db.execute('INSERT INTO rs_audit VALUES(?,?,?,?,?,?,?)',
-                   (identifier(),actor,action,str(subject),reason.strip(),json.dumps(details or {}),now()))
+                   (identifier(),actor,action,str(subject),reason.strip(),json.dumps(details),now()))
 
     def account_status(self, actor, uid, status, reason):
         self.admin(actor)
@@ -110,7 +118,7 @@ class Ledger:
                 raise CheckoutError('Not enough unreserved credits. Reserved credits cannot be removed.')
             db.execute('UPDATE rs_accounts SET balance=balance+? WHERE reseller_id=?',(movement,member['id']))
             db.execute('INSERT INTO rs_ledger VALUES(?,?,?,?,?,?,?)',
-                       (identifier(),member['id'],movement,reason,reference,actor,now()))
+                       (identifier(),member['id'],movement,reason,reference,actor if isinstance(actor,int) else 0,now()))
             return self.member(uid,db)
 
     def packages(self):
@@ -189,7 +197,10 @@ class Ledger:
                        (identifier(),purchase['reseller_id'],purchase['credits'],reason,'purchase:'+order_id,actor,now()))
             db.execute("UPDATE orders SET status='fulfilled',message='Credits added to your reseller balance.' WHERE id=?",(order_id,))
             # Buying credits is how someone becomes a reseller: the first verified pack activates the account.
-            db.execute("UPDATE rs_resellers SET status='active',updated_at=? WHERE id=? AND status='pending'",(now(),purchase['reseller_id']))
+            activated=db.execute("UPDATE rs_resellers SET status='active',updated_at=? WHERE id=? AND status='pending'",(now(),purchase['reseller_id'])).rowcount
+            if activated:
+                # First pack: the bot sends a short getting-started walkthrough with the receipt.
+                db.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',('rs_onboard:'+purchase['reseller_id'],'due'))
 
     def history(self, uid, page=0):
         integer(page,0,100000)
@@ -207,3 +218,81 @@ class Ledger:
         if category not in queries:raise CheckoutError('Invalid list.')
         with self.store.connection() as db:
             return [dict(r) for r in db.execute(queries[category]+' LIMIT 11 OFFSET ?',(page*10,)).fetchall()]
+
+    # ---- reporting -------------------------------------------------------------------
+    @staticmethod
+    def month_start(clock=None):
+        from datetime import datetime, timezone
+        d=datetime.fromtimestamp(clock or now(),timezone.utc)
+        return int(datetime(d.year,d.month,1,tzinfo=timezone.utc).timestamp())
+
+    def stats(self, uid):
+        """Numbers for one reseller's dashboard: this month and all time."""
+        member=self.member(uid)
+        if not member:raise CheckoutError('Reseller account not found.')
+        since=self.month_start()
+        def window(db,start):
+            bought=db.execute('SELECT COALESCE(SUM(movement),0) FROM rs_ledger WHERE reseller_id=? AND movement>0 AND created_at>=?',(member['id'],start)).fetchone()[0]
+            used=db.execute('SELECT COALESCE(-SUM(movement),0) FROM rs_ledger WHERE reseller_id=? AND movement<0 AND created_at>=?',(member['id'],start)).fetchone()[0]
+            row=db.execute("SELECT SUM(CASE WHEN kind='trial' OR converted_at IS NOT NULL THEN 1 ELSE 0 END),"
+                           "SUM(CASE WHEN kind='paid' AND converted_at IS NULL THEN 1 ELSE 0 END),"
+                           "SUM(CASE WHEN converted_at IS NOT NULL AND converted_at>=? THEN 1 ELSE 0 END) "
+                           "FROM rs_subscriptions WHERE reseller_id=? AND created_at>=?",(start,member['id'],start)).fetchone()
+            tests=int(row[0] or 0);converted=int(row[2] or 0)
+            return dict(credits_bought=int(bought),credits_used=int(used),tests_created=tests,subscriptions_created=int(row[1] or 0),
+                        tests_converted=converted,conversion_rate=round(100*converted/tests) if tests else 0)
+        with self.store.connection() as db:
+            return dict(this_month=window(db,since),all_time=window(db,0))
+
+    def summary(self, actor, search='', page=0):
+        """Administrator list of resellers with balances, customer counts and last activity."""
+        self.admin(actor);self.seed();integer(page,0,100000)
+        if not isinstance(search,str) or len(search)>80:raise CheckoutError('Invalid search.')
+        with self.store.connection() as db:
+            rows=db.execute(
+                "SELECT r.id,r.telegram_id,r.username,r.status,r.created_at,a.balance,a.reserved,"
+                "(SELECT COUNT(*) FROM rs_subscriptions s WHERE s.reseller_id=r.id) AS customers,"
+                "(SELECT COUNT(*) FROM rs_subscriptions s WHERE s.reseller_id=r.id AND s.kind='paid' AND s.expires_at>?) AS active_customers,"
+                "(SELECT COALESCE(SUM(movement),0) FROM rs_ledger l WHERE l.reseller_id=r.id AND l.movement>0) AS credits_bought,"
+                "(SELECT MAX(created_at) FROM rs_ledger l WHERE l.reseller_id=r.id) AS last_ledger,"
+                "(SELECT MAX(created_at) FROM rs_subscriptions s WHERE s.reseller_id=r.id) AS last_customer "
+                "FROM rs_resellers r JOIN rs_accounts a ON a.reseller_id=r.id ORDER BY r.created_at DESC,r.id",(now(),)).fetchall()
+        items=[]
+        needle=search.casefold().lstrip('@')
+        for row in rows:
+            row=dict(row)
+            if needle and needle not in (str(row['telegram_id'])+' '+row['username']+' '+row['status']).casefold():continue
+            row['last_activity']=max(row.pop('last_ledger') or 0,row.pop('last_customer') or 0,row['created_at'])
+            row['available']=row['balance']-row['reserved']
+            items.append(row)
+        return items[page*25:page*25+26]
+
+    def report(self, actor, months=12):
+        """Revenue and credit movements per month, plus per-reseller totals. Counts come from verified payments only."""
+        self.admin(actor);self.seed();integer(months,1,36)
+        from datetime import datetime, timezone
+        with self.store.connection() as db:
+            retail=db.execute("SELECT o.created_at,o.plan_json FROM orders o JOIN payments p ON p.order_id=o.id "
+                              "WHERE o.kind='paid' AND o.status IN ('paid','provisioning','fulfilled')").fetchall()
+            purchases=db.execute("SELECT p.created_at,p.amount_pence,p.credits,r.telegram_id FROM rs_purchases p JOIN rs_resellers r ON r.id=p.reseller_id WHERE p.status='granted'").fetchall()
+            used=db.execute("SELECT created_at,-movement AS credits FROM rs_ledger WHERE movement<0").fetchall()
+            converted=db.execute("SELECT converted_at FROM rs_subscriptions WHERE converted_at IS NOT NULL").fetchall()
+            tests=db.execute("SELECT created_at FROM rs_subscriptions WHERE kind='trial' OR converted_at IS NOT NULL").fetchall()
+        def key(ts):
+            d=datetime.fromtimestamp(ts,timezone.utc);return f'{d.year:04d}-{d.month:02d}'
+        buckets={}
+        def bucket(ts):
+            return buckets.setdefault(key(ts),dict(month=key(ts),retail_orders=0,retail_gbp=0.0,credit_packs=0,credit_gbp=0.0,credits_sold=0,credits_used=0,tests=0,tests_converted=0))
+        for row in retail:
+            plan=json.loads(row['plan_json'])
+            if plan.get('reseller_purchase'):continue
+            b=bucket(row['created_at']);b['retail_orders']+=1;b['retail_gbp']+=float(plan.get('gbp_price') or 0)
+        for row in purchases:
+            b=bucket(row['created_at']);b['credit_packs']+=1;b['credit_gbp']+=row['amount_pence']/100;b['credits_sold']+=row['credits']
+        for row in used:bucket(row['created_at'])['credits_used']+=row['credits']
+        for row in tests:bucket(row['created_at'])['tests']+=1
+        for row in converted:bucket(row['converted_at'])['tests_converted']+=1
+        rows=sorted(buckets.values(),key=lambda b:b['month'],reverse=True)[:months]
+        for b in rows:
+            b['retail_gbp']=round(b['retail_gbp'],2);b['credit_gbp']=round(b['credit_gbp'],2);b['total_gbp']=round(b['retail_gbp']+b['credit_gbp'],2)
+        return dict(months=rows,resellers=self.summary(actor))

@@ -77,6 +77,38 @@ class CheckoutService:
         except ValueError as exc: raise CheckoutError(str(exc)) from None
         return {'token':token,'order':self.public(order)}
 
+    def renew_order(self,telegram_id,order_id,asset_id,request_key):
+        """Quote a renewal of a fulfilled retail membership: same plan, same panel account, extended on payment."""
+        self.resellers.guard(telegram_id)
+        original=self.store.owned_order(telegram_id,order_id)
+        if not original or original['kind']!='paid' or original['status']!='fulfilled':raise CheckoutError('Only a delivered membership can be renewed.')
+        credentials=original.get('credentials') or {}
+        panel_id=str(credentials.get('panel_id') or '')
+        if not panel_id.isdigit():raise CheckoutError('This account cannot be renewed automatically. Contact support.')
+        base=original['plan']
+        if base.get('reseller_purchase') or base.get('renew_of'):
+            raise CheckoutError('Renew from your original membership order in My orders.')
+        plan=next((p for p in self.config['plans'] if p['id']==base.get('id')),None) or base
+        renewal=dict(plan,name=plan['name']+' renewal',detail='Extends your current login by '+str(plan['months'])+(' month' if plan['months']==1 else ' months'),
+                     renew_of=order_id,renew_panel_id=panel_id)
+        renewal.pop('reseller_purchase',None)
+        return self.quote_plan(renewal,asset_id,owner_telegram_id=telegram_id,request_key=request_key)
+
+    def _provision_renewal(self,order):
+        """Extend the original panel account instead of creating a new one. Uses the reseller provider's verified renewal path."""
+        plan=order['plan'];provider=self.resellers.ops.provider
+        original=self.store.get(plan['renew_of'])
+        credentials=dict((original or {}).get('credentials') or {})
+        panel_id=str(credentials.get('panel_id') or '')
+        if not original or panel_id!=str(plan.get('renew_panel_id')):raise PanelError('Renewal target does not match the original order')
+        current=provider.read(panel_id)
+        record=dict(provider_id=panel_id,connections=int(plan['connections']),adult=False,expires_at=current['expires_at'])
+        operation=dict(operation_type='extend',package_id=provider.package(int(plan['months']),int(plan['connections']),False),connections=int(plan['connections']))
+        context=provider.prepare(operation,record)
+        account=provider.execute(operation,context)
+        credentials.update(expires_at=account['expires_at'],renewed_at=int(time.time()),renewed_from=plan['renew_of'])
+        self.store.update(order['id'],status='fulfilled',credentials=credentials,message='Your membership has been extended. Same login, new expiry.')
+
     def get_order(self, token):
         order = self.store.by_token(token)
         if not order: raise CheckoutError('Order not found. Use the private recovery link from checkout.')
@@ -177,6 +209,9 @@ class CheckoutService:
             if not self.store.claim_provision(order['id']): continue
             generation = None
             try:
+                if order['plan'].get('renew_of'):
+                    self._provision_renewal(order)
+                    continue
                 credentials = order['credentials']
                 if credentials and credentials.get('generation_mode')=='panel':
                     raise ProvisioningUncertain('Previous generation requires manual reconciliation')
