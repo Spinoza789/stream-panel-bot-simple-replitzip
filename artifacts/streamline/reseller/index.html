@@ -2,17 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="streambot-base-path" content="__STREAMBOT_BASE__"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light"><meta name="robots" content="noindex">
+  <meta name="color-scheme" content="light dark"><meta name="robots" content="noindex">
   <title>Streamline · Reseller login</title>
   <link rel="stylesheet" href="__STREAMBOT_BASE__/reseller/static/reseller.css">
   <script src="__STREAMBOT_BASE__/reseller/static/reseller.js" defer></script>
 </head>
 <body>
   <div class="demo-banner" id="demo-banner" hidden>LOCAL DEMO <span>Simulated accounts and payments. Do not send funds.</span></div>
-  <div class="flash">
-    <div id="error" class="notice error" role="alert" hidden></div>
-    <div id="loading" class="notice" role="status">Loading…</div>
-  </div>
+  <div id="loading" class="notice flash" role="status">Loading…</div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <!-- Sign in: the whole home page -->
   <section id="view-signin" class="auth" hidden>
@@ -20,6 +18,7 @@
       <a class="wordmark" href="__STREAMBOT_BASE__/" aria-label="Home"><span class="logo" aria-hidden="true">S</span><span data-brand>Streamline</span></a>
       <h1>Log in to the reseller panel</h1>
       <p class="muted">Manage customer subscriptions, tests and credits.</p>
+      <div id="signin-error" class="notice error" role="alert" hidden></div>
       <article class="card">
         <h2>Log in with Telegram</h2>
         <ol class="steps">
@@ -35,6 +34,7 @@
           <label class="select-label" for="login-email">Email</label><input id="login-email" type="email" autocomplete="username" required>
           <label class="select-label" for="login-password">Password</label><input id="login-password" type="password" autocomplete="current-password" required minlength="10">
           <button class="primary" type="submit">Log in</button>
+          <p class="inline-error" hidden></p>
         </form>
         <p class="fineprint">Set this up under <strong>Account</strong> after signing in with Telegram.</p>
       </article>
@@ -45,13 +45,16 @@
   <div id="shell" class="app" hidden>
     <header class="topbar">
       <a class="wordmark" href="#/dashboard" aria-label="Home"><span class="logo" aria-hidden="true">S</span><span data-brand>Streamline</span></a>
-      <form class="global-search" id="global-search" role="search"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 3a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm5.1 8.3 3.3 3.3-1.1 1.1-3.3-3.3 1.1-1.1z"/></svg><input id="global-search-input" placeholder="Search subscriptions" maxlength="100" aria-label="Search subscriptions"></form>
-      <div class="topbar-user"><span class="avatar" id="avatar" aria-hidden="true">R</span><span class="who" id="who" hidden></span><button class="text-button" id="signout" hidden>Log out</button></div>
+      <form class="global-search" id="global-search" role="search"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 3a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm5.1 8.3 3.3 3.3-1.1 1.1-3.3-3.3 1.1-1.1z"/></svg><input id="global-search-input" placeholder="Search customers" maxlength="100" aria-label="Search customers"></form>
+      <div class="topbar-user">
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch between light and dark" title="Light / dark"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 0 14V3z"/><path d="M10 1a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 1.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15z"/></svg></button>
+        <span class="avatar" id="avatar" aria-hidden="true">R</span><span class="who" id="who" hidden></span><button class="text-button" id="signout" hidden>Log out</button>
+      </div>
     </header>
     <aside class="sidenav">
       <nav id="tabs" aria-label="Sections">
         <a href="#/dashboard" data-tab="dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 2.5 8.6V17a1 1 0 0 0 1 1H8v-5h4v5h4.5a1 1 0 0 0 1-1V8.6L10 2.5z"/></svg>Home</a>
-        <a href="#/subscriptions" data-tab="subscriptions"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14v2H3V4zm0 5h14v2H3V9zm0 5h9v2H3v-2z"/></svg>Subscriptions</a>
+        <a href="#/subscriptions" data-tab="subscriptions"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14v2H3V4zm0 5h14v2H3V9zm0 5h9v2H3v-2z"/></svg>Customers</a>
         <a href="#/create" data-tab="create"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 7H6v2h3v3h2v-3h3V9h-3V6H9v3z"/></svg>Create</a>
         <a href="#/credits" data-tab="credits"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm2 3v7h10V8H5zm0-3v1h10V5H5z"/></svg>Credits</a>
         <a href="#/apps" data-tab="apps"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 0h6v6h-6v-6z"/></svg>Apps &amp; setup</a>
@@ -61,46 +64,74 @@
       <div class="side-foot"><button class="text-button" id="support-button">Contact support</button></div>
     </aside>
     <main class="page">
+      <div id="error" class="notice error" role="alert" hidden></div>
       <div id="status-note" class="notice" hidden></div>
 
       <section id="view-dashboard" hidden>
-        <div class="page-head"><h1>Home</h1><a class="primary" href="#/create">Create a test or subscription</a></div>
+        <div class="page-head"><h1 id="greeting">Home</h1><a class="primary" href="#/create">Create a test or subscription</a></div>
         <div class="tiles">
           <div class="tile accent"><span>Available credits</span><strong id="t-available">0</strong><small id="t-reserved"></small></div>
           <div class="tile"><span>Active subscriptions</span><strong id="t-active">0</strong></div>
           <div class="tile"><span>Expiring in 7 days</span><strong id="t-expiring">0</strong></div>
           <div class="tile"><span>Tests running</span><strong id="t-trials">0</strong></div>
         </div>
-        <div class="quick">
-          <a class="secondary" href="#/subscriptions?filter=expiring">Expiring soon</a>
-          <a class="secondary" href="#/credits">Order credits</a>
-          <a class="secondary" href="#/subscriptions">All subscriptions</a>
-        </div>
-        <article class="card how">
-          <h2>How it works</h2>
-          <ol class="how-steps">
-            <li><strong>Buy credits.</strong> 1 credit = 1 month on 1 device. <a href="#/credits">Order credits</a></li>
-            <li><strong>Create a test or subscription.</strong> It takes under a minute and the login appears straight away. <a href="#/create">Create</a></li>
-            <li><strong>Send the customer their login and the setup guide.</strong> Open the account and press <em>Copy login + setup guide</em>. <a href="#/apps">See the guide</a></li>
-          </ol>
+        <article class="card empty-state" id="home-empty" hidden>
+          <h2>No customers yet</h2>
+          <p class="muted">Create a free 24-hour test for your first customer. The login appears straight away and you can copy it with the setup guide in one click.</p>
+          <div class="quick"><a class="primary" href="#/create">Create your first test</a><a class="secondary" href="#/apps">See the setup guide</a><a class="secondary" href="#/credits">Order credits</a></div>
         </article>
-        <article class="card index"><div class="card-head"><h2>Expiring in the next 7 days</h2><a class="text-button" href="#/subscriptions?filter=expiring">View all</a></div><div id="home-expiring" class="list"></div></article>
-        <article class="card index"><div class="card-head"><h2>Recent accounts</h2><a class="text-button" href="#/subscriptions?filter=all">View all</a></div><div id="home-recent" class="list"></div></article>
+        <div id="home-full">
+          <div class="two-col">
+            <article class="card stats-card">
+              <div class="card-head"><h2>This month</h2><span class="muted" id="stats-month"></span></div>
+              <dl class="stats"><div><dt>Credits used</dt><dd id="s-used">–</dd></div><div><dt>Credits bought</dt><dd id="s-bought">–</dd></div><div><dt>Tests created</dt><dd id="s-tests">–</dd></div><div><dt>Tests converted</dt><dd id="s-converted">–</dd></div></dl>
+              <p class="fineprint" id="s-alltime"></p>
+            </article>
+            <article class="card how">
+              <h2>How it works</h2>
+              <ol class="how-steps">
+                <li><strong>Buy credits.</strong> 1 credit = 1 month on 1 device. <a href="#/credits">Order credits</a></li>
+                <li><strong>Create a test or subscription.</strong> The login appears straight away. <a href="#/create">Create</a></li>
+                <li><strong>Send the login and setup guide.</strong> Open a customer and press <em>Copy login + setup guide</em>. <a href="#/apps">See the guide</a></li>
+              </ol>
+            </article>
+          </div>
+          <article class="card index"><div class="card-head"><h2>Expiring in the next 7 days</h2><a class="text-button" href="#/subscriptions?filter=expiring">View all</a></div><div id="home-expiring" class="list"></div></article>
+          <article class="card index"><div class="card-head"><h2>Recent customers</h2><a class="text-button" href="#/subscriptions?filter=all">View all</a></div><div id="home-recent" class="list"></div></article>
+        </div>
       </section>
 
       <section id="view-subscriptions" hidden>
-        <div class="page-head"><h1>Subscriptions</h1><a class="primary" href="#/create">Create</a></div>
+        <div class="page-head"><h1>Customers</h1><div class="head-actions"><a class="secondary" id="export-customers" href="#" download>Export CSV</a><a class="primary" href="#/create">Create</a></div></div>
         <article class="card index">
           <div class="toolbar">
             <div class="filters" id="filters">
               <button data-filter="active" class="chip">Active</button><button data-filter="expiring" class="chip">Expiring soon</button><button data-filter="expired" class="chip">Expired</button><button data-filter="trials" class="chip">Tests</button><button data-filter="all" class="chip">All</button>
             </div>
-            <form id="search-form" class="search"><input id="search" placeholder="Search by customer, username or ID" maxlength="100"><button class="secondary" type="submit">Search</button></form>
+            <form id="search-form" class="search"><input id="search" placeholder="Search by customer, contact, username or ID" maxlength="100"><button class="secondary" type="submit">Search</button></form>
           </div>
-          <div id="sub-list" class="list"></div>
+          <div class="bulk-bar" id="bulk-bar" hidden>
+            <span id="bulk-count">0 selected</span>
+            <label>Extend by <select id="bulk-months"><option value="1">1 month</option><option value="3">3 months</option><option value="6">6 months</option><option value="9">9 months</option><option value="12">12 months</option></select></label>
+            <button class="primary" id="bulk-extend" type="button">Extend selected</button>
+            <button class="text-button" id="bulk-clear" type="button">Clear</button>
+            <span class="muted" id="bulk-status"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="index-table" id="sub-table">
+              <thead><tr>
+                <th class="check"><input type="checkbox" id="select-all" aria-label="Select all on this page"></th>
+                <th><button type="button" data-sort="customer_ref">Customer</button></th>
+                <th><button type="button" data-sort="kind">Type</button></th>
+                <th class="hide-sm"><button type="button" data-sort="starts_at">Started</button></th>
+                <th><button type="button" data-sort="expires_at">Expires</button></th>
+                <th>Status</th>
+              </tr></thead>
+              <tbody id="sub-list"></tbody>
+            </table>
+          </div>
           <div class="pager"><button class="secondary" id="sub-prev">Previous</button><span id="sub-page"></span><button class="secondary" id="sub-next">Next</button></div>
         </article>
-        <article id="sub-detail" class="card detail" hidden></article>
       </section>
 
       <section id="view-create" hidden>
@@ -113,7 +144,9 @@
             <fieldset id="connections-field"><legend>Devices watching at the same time</legend><div class="connection-options" id="connections-options"></div><p class="fineprint">All devices must be in the same household.</p></fieldset>
             <fieldset id="content-field"><legend>Content</legend><div class="connection-options"><button type="button" class="choice" data-adult="0" aria-pressed="true">No adult</button><button type="button" class="choice" data-adult="1" aria-pressed="false">With adult</button></div></fieldset>
             <label class="select-label" for="customer-ref">Customer name or note (optional, only you see it)</label><input id="customer-ref" maxlength="100" placeholder="e.g. John – living room TV">
+            <label class="select-label" for="customer-contact">Contact (optional, only you see it)</label><input id="customer-contact" maxlength="100" placeholder="Phone, Telegram handle or email">
             <button class="primary" type="submit">Check cost</button>
+            <p class="inline-error" hidden></p>
           </form>
           <aside class="summary card" id="create-summary">
             <span class="eyebrow">Summary</span>
@@ -133,32 +166,40 @@
           <div class="tile accent"><span>Available credits</span><strong id="c-available">0</strong><small id="c-reserved"></small></div>
           <div class="tile"><span>What a credit buys</span><strong class="small-strong">1 month on 1 device</strong><small>Longer subscriptions and extra devices cost fewer credits per month. Extra devices must be in the same household.</small></div>
         </div>
-        <article class="card" id="invoice-card" hidden>
-          <div class="invoice-title"><div><span class="eyebrow" id="inv-label">Credit order</span><h2 id="inv-heading">Pay to add credits</h2><p id="inv-plan"></p></div><span class="status-chip" id="inv-status">AWAITING PAYMENT</span></div>
-          <div class="invoice-grid">
-            <div>
-              <div class="network-tag" id="inv-network"></div>
-              <p class="select-label">Send this amount</p><div class="crypto-amount" id="inv-amount"></div>
-              <p class="fineprint" id="inv-quote"></p>
-              <button class="text-button" id="inv-copy-amount" type="button">Copy amount</button>
-              <div class="address-box"><img id="inv-qr" alt="Receiving wallet QR code" width="112" height="112"><div><p class="select-label">Receiving address</p><code id="inv-wallet"></code><button class="text-button" id="inv-copy-wallet" type="button">Copy address</button></div></div>
-              <p class="network-note" id="inv-warning">Send the amount shown. Up to $1 short or $5 over is still accepted; the exact figure matches the payment to your order fastest.</p>
-            </div>
-            <div class="verification">
-              <div class="expiry"><span>Quote valid for</span><strong id="inv-countdown">--:--</strong></div>
-              <form id="inv-verify-form"><label class="select-label" for="inv-txid">Transaction hash (TXID)</label><input id="inv-txid" placeholder="Paste the TXID after sending" autocomplete="off" required><button class="primary" id="inv-verify" type="submit">I've paid, check now</button></form>
-              <button class="secondary" id="inv-demo" type="button" hidden>Simulate payment (demo)</button>
-              <p class="fineprint" id="inv-message"></p>
-              <button class="text-button" id="inv-dismiss" type="button">Start a different order</button>
+        <article class="card">
+          <ol class="wizard" id="wizard"><li data-step="1"><span>1</span>Choose a pack</li><li data-step="2"><span>2</span>Choose a coin</li><li data-step="3"><span>3</span>Pay</li></ol>
+          <div id="step-pack">
+            <h2>Order credits</h2>
+            <p class="muted">Pick a pack. Credits are added as soon as the payment is confirmed on the blockchain.</p>
+            <div class="packs" id="packs"></div>
+          </div>
+          <div id="step-coin" hidden>
+            <h2>Pay with</h2>
+            <p class="muted" id="coin-summary"></p>
+            <div class="coin-list" id="coin-list"></div>
+            <div class="actions"><button class="primary" id="buy" type="button">Continue to payment</button><button class="text-button" id="coin-back" type="button">Back to packs</button></div>
+            <p class="inline-error" hidden></p>
+          </div>
+          <div id="invoice-card" hidden>
+            <div class="invoice-title"><div><span class="eyebrow" id="inv-label">Credit order</span><h2 id="inv-heading">Pay to add credits</h2><p id="inv-plan"></p></div><span class="status-chip" id="inv-status">Awaiting payment</span></div>
+            <div class="invoice-grid">
+              <div>
+                <div class="network-tag" id="inv-network"></div>
+                <p class="select-label">Send this amount</p><div class="crypto-amount" id="inv-amount"></div>
+                <p class="fineprint" id="inv-quote"></p>
+                <button class="text-button" id="inv-copy-amount" type="button">Copy amount</button>
+                <div class="address-box"><img id="inv-qr" alt="Receiving wallet QR code" width="112" height="112"><div><p class="select-label">Receiving address</p><code id="inv-wallet"></code><button class="text-button" id="inv-copy-wallet" type="button">Copy address</button></div></div>
+                <p class="network-note" id="inv-warning">Send the amount shown. Up to $1 short or $5 over is still accepted; the exact figure matches the payment to your order fastest.</p>
+              </div>
+              <div class="verification">
+                <div class="expiry"><span>Quote valid for</span><strong id="inv-countdown">--:--</strong></div>
+                <form id="inv-verify-form"><label class="select-label" for="inv-txid">Transaction hash (TXID)</label><input id="inv-txid" placeholder="Paste the TXID after sending" autocomplete="off" required><button class="primary" id="inv-verify" type="submit">I've paid, check now</button><p class="inline-error" hidden></p></form>
+                <button class="secondary" id="inv-demo" type="button" hidden>Simulate payment (demo)</button>
+                <p class="fineprint" id="inv-message"></p>
+                <button class="text-button" id="inv-dismiss" type="button">Start a different order</button>
+              </div>
             </div>
           </div>
-        </article>
-        <article class="card" id="order-form">
-          <h2>Order credits</h2>
-          <p class="muted">Choose a pack and a coin. Credits are added as soon as the payment is confirmed on the blockchain.</p>
-          <div class="packs" id="packs"></div>
-          <label class="select-label" for="pay-asset">Pay with</label><select id="pay-asset"></select>
-          <button class="primary" id="buy">Continue to payment</button>
         </article>
         <article class="card">
           <h2>What subscriptions cost</h2>
@@ -167,15 +208,15 @@
       </section>
 
       <section id="view-apps" hidden>
-        <div class="page-head"><h1>Apps &amp; setup</h1><button class="primary" id="copy-guide" type="button">Copy setup guide</button></div>
-        <p class="muted lead">Send this to customers with their username and password. The quickest way is the <strong>Copy login + setup guide</strong> button on any account.</p>
+        <div class="page-head"><h1>Apps &amp; setup</h1><div class="head-actions"><a class="secondary" id="install-link" href="#" target="_blank" rel="noopener">Open public page</a><button class="primary" id="copy-guide" type="button">Copy setup guide</button></div></div>
+        <p class="muted lead">Send this to customers with their username and password. The quickest way is the <strong>Copy login + setup guide</strong> button on any customer. The public page needs no login, so you can also send the link.</p>
         <div id="apps-content"></div>
       </section>
 
       <section id="view-history" hidden>
-        <div class="page-head"><h1>Credit history</h1></div>
+        <div class="page-head"><h1>Credit history</h1><a class="secondary" id="export-history" href="#" download>Export CSV</a></div>
         <article class="card index">
-          <div id="history-list" class="list"></div>
+          <div class="table-wrap"><table class="index-table"><thead><tr><th>Date</th><th>Credits</th><th>Reason</th><th class="hide-sm">Reference</th></tr></thead><tbody id="history-list"></tbody></table></div>
           <div class="pager"><button class="secondary" id="hist-prev">Previous</button><span id="hist-page"></span><button class="secondary" id="hist-next">Next</button></div>
         </article>
       </section>
@@ -195,11 +236,30 @@
             <label class="select-label" for="acc-new-password">New password (10+ characters)</label><input id="acc-new-password" type="password" autocomplete="new-password" required minlength="10">
             <div id="current-wrap" hidden><label class="select-label" for="acc-current">Current password</label><input id="acc-current" type="password" autocomplete="current-password"></div>
             <button class="primary" type="submit">Save</button>
-            <p class="notice ok" id="acc-saved" hidden>Saved. You can now log in with this email and password.</p>
+            <p class="inline-error" hidden></p>
           </form>
         </div>
       </section>
     </main>
+
+    <nav class="tabbar" aria-label="Sections">
+      <a href="#/dashboard" data-tab="dashboard"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 2.5 8.6V17a1 1 0 0 0 1 1H8v-5h4v5h4.5a1 1 0 0 0 1-1V8.6L10 2.5z"/></svg>Home</a>
+      <a href="#/subscriptions" data-tab="subscriptions"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14v2H3V4zm0 5h14v2H3V9zm0 5h9v2H3v-2z"/></svg>Customers</a>
+      <a href="#/create" data-tab="create"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 7H6v2h3v3h2v-3h3V9h-3V6H9v3z"/></svg>Create</a>
+      <a href="#/credits" data-tab="credits"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm2 3v7h10V8H5zm0-3v1h10V5H5z"/></svg>Credits</a>
+      <button type="button" id="more-tab"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="2"/><circle cx="10" cy="10" r="2"/><circle cx="16" cy="10" r="2"/></svg>More</button>
+    </nav>
+    <div class="sheet" id="more-sheet" hidden>
+      <div class="sheet-body">
+        <a href="#/apps">Apps &amp; setup</a><a href="#/history">Credit history</a><a href="#/account">Account</a><button type="button" id="sheet-support">Contact support</button><button type="button" id="sheet-close">Close</button>
+      </div>
+    </div>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="drawer" id="drawer" hidden aria-label="Customer details">
+      <div class="drawer-head"><h2 id="drawer-title">Customer</h2><button class="icon-button" id="drawer-close" type="button" aria-label="Close">✕</button></div>
+      <div class="drawer-body" id="sub-detail"></div>
+    </aside>
   </div>
 </body>
 </html>
