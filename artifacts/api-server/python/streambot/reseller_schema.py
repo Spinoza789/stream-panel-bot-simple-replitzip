@@ -86,4 +86,5 @@ CREATE INDEX IF NOT EXISTS rs_ledger_owner ON rs_ledger(reseller_id,created_at);
 MIGRATIONS = [
     "ALTER TABLE rs_subscriptions ADD COLUMN contact TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE rs_subscriptions ADD COLUMN converted_at BIGINT",
+    "ALTER TABLE rs_subscriptions ADD COLUMN deleted_at BIGINT",
 ]

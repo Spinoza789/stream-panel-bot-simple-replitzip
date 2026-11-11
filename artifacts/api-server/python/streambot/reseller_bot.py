@@ -203,6 +203,8 @@ class ResellerBot:
         rows=[]
         if not warning and member['status']=='active' and record['status'] in ('active','expired'):
             rows.append([button('Convert trial / Extend Subscription' if record['kind']=='trial' else 'Extend Subscription','extend:'+sid)])
+        if self.r.ops.deletable(record):
+            rows.append([button('🗑 Delete from my list','delete:'+sid)])
         rows.append([button('Refresh details','detail:'+sid),button('My Subscriptions','filters')])
         self.send(uid,text,rows,keep=True,parse_mode='HTML')  # customer login details stay in the chat
 
@@ -240,6 +242,9 @@ class ResellerBot:
         if nav:actions.append(nav)
         actions.append([button('Search','search'),button('Clear search','clearsearch')])
         actions.append([button('Change filter','filters')])
+        if filter_name in ('expired','trials','all'):
+            expired=self.r.ops.counts(uid)['expired']
+            if expired:actions.append([button('🗑 Delete all expired ('+str(expired)+')','deleteexpired')])
         self.send(uid,text,actions)
 
     def callback(self,uid,action,sender):
@@ -338,6 +343,25 @@ class ResellerBot:
                 if nav:actions.append(nav)
                 self.send(uid,text,actions)
             elif name=='detail':self._details(uid,parts[2])
+            elif name=='delete':
+                record=self.r.ops.owned(uid,parts[2])
+                if not self.r.ops.deletable(record):raise CheckoutError('Only expired subscriptions and tests can be deleted.')
+                self.send(uid,'Delete '+('this test' if record['kind']=='trial' else 'this subscription')+' for '+(record['customer_ref'] or record['provider_id'])+
+                          ' from your list?\n\nIt is already expired. Deleting only removes it from My Subscriptions; your credit history and reports keep it.',
+                          [[button('Yes, delete it','deleteyes:'+parts[2]),button('Keep it','detail:'+parts[2])]])
+            elif name=='deleteyes':
+                record=self.r.ops.delete(uid,parts[2])
+                self.bot.send(uid,'🗑 Deleted '+(record['customer_ref'] or record['provider_id'])+' from your list.',keyboard([],False),keep=True)
+                self._records(uid,'all',0)
+            elif name=='deleteexpired':
+                expired=self.r.ops.counts(uid)['expired']
+                if not expired:raise CheckoutError('There is nothing expired to delete.')
+                self.send(uid,'Delete all '+str(expired)+' expired subscriptions and tests from your list?\n\nThis only tidies My Subscriptions; credit history and reports are not affected.',
+                          [[button('Yes, delete '+str(expired),'deleteexpiredyes'),button('Keep them','filters')]])
+            elif name=='deleteexpiredyes':
+                removed=self.r.ops.delete_expired(uid)
+                self.bot.send(uid,'🗑 Deleted '+str(removed)+' expired record'+('' if removed==1 else 's')+' from your list.',keyboard([],False),keep=True)
+                self._records(uid,'all',0)
             elif name=='history':self._history(uid,int(parts[2]))
             elif name=='adminhistory':
                 self.r.finance.admin(uid);self._history(int(parts[2]),int(parts[3]),uid)
@@ -402,7 +426,7 @@ class ResellerBot:
         uid=message['from']['id']
         member=self.r.member(uid)
         try:
-            if command=='/reseller' or command in ('/start','/help') and member and member['status']!='pending':
+            if command=='/reseller':
                 self.home(uid);return True
             if command.startswith('/rs'):
                 self.r.require_ready();self.r.finance.admin(uid)

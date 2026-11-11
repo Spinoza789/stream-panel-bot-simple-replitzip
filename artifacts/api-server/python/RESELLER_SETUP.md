@@ -159,8 +159,11 @@ run these on the development database before publishing a build that uses them:
 ```sql
 ALTER TABLE rs_subscriptions ADD COLUMN IF NOT EXISTS contact TEXT NOT NULL DEFAULT '';
 ALTER TABLE rs_subscriptions ADD COLUMN IF NOT EXISTS converted_at BIGINT;
+ALTER TABLE rs_subscriptions ADD COLUMN IF NOT EXISTS deleted_at BIGINT;
 ```
 
 `contact` holds the reseller's private note of how to reach a customer; `converted_at`
 is set when a 24-hour test is extended into a paid subscription (used for conversion
-statistics). The list lives in `reseller_schema.MIGRATIONS`.
+statistics); `deleted_at` marks an expired subscription or test the reseller removed
+from their list (the row is kept for reports and history). The list lives in
+`reseller_schema.MIGRATIONS`.

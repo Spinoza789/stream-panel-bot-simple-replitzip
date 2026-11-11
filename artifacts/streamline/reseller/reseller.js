@@ -92,6 +92,8 @@ function expiryInfo(r){
   if(r.expires_at<now+7*86400)return {pill:['Expiring soon','warn'],days:[left,'warn']};
   return {pill:[r.status[0].toUpperCase()+r.status.slice(1),r.status==='active'?'ok':''],days:[left,'ok']};
 }
+function deletable(r){return r.expires_at<=Date.now()/1000||['expired','disabled'].includes(r.status);}
+async function deleteOne(id){await api('/subscriptions/'+encodeURIComponent(id)+'/delete',{method:'POST',data:{}});}
 function sorted(items){
   const {key,dir}=sub.sort;const sign=dir==='asc'?1:-1;
   return [...items].sort((a,b)=>{const x=key==='customer_ref'?(a.customer_ref||a.username).toLowerCase():a[key];const y=key==='customer_ref'?(b.customer_ref||b.username).toLowerCase():b[key];return (x>y?1:x<y?-1:0)*sign;});
@@ -122,7 +124,7 @@ async function loadSubs(){
   document.querySelectorAll('#filters .chip').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.filter===sub.filter)));
   $('search').value=sub.search;skeleton($('sub-list'),5,6);
   const data=await api('/subscriptions?filter='+encodeURIComponent(sub.filter)+'&page='+sub.page+'&search='+encodeURIComponent(sub.search));
-  sub.items=data.items;renderTable();
+  sub.items=data.items;renderTable();renderExpiredBar();
   $('sub-prev').disabled=!sub.page;$('sub-next').disabled=!data.more;$('sub-page').textContent='Page '+(sub.page+1);
 }
 function renderMiniList(container,items,empty){
@@ -218,6 +220,13 @@ async function openDetail(id){
       ok.onclick=()=>busy(ok,async()=>{const c=await api('/operations/confirm',{method:'POST',data:{nonce:p.nonce}});await watch(c.operation.id,status,()=>{toast('Extended');loadSubs().catch(()=>{});return openDetail(id);});});status.append(ok);
     });
     ext.append(opts,go,status);box.append(ext);
+  }
+  if(deletable(r)){
+    const zone=el('div','drawer-danger');zone.append(el('h3','sub','Finished with this '+(r.kind==='trial'?'test':'subscription')+'?'));
+    zone.append(el('p',null,'It has expired. Deleting removes it from your customer list only; your credit history and reports keep it.'));
+    const del=el('button','secondary danger','Delete from my list');del.type='button';
+    del.onclick=()=>{if(!confirm('Delete '+(r.customer_ref||r.credentials.username)+' from your list?'))return;busy(del,async()=>{await deleteOne(id);toast('Deleted');closeDrawer(false);await refreshMe();await loadSubs();});};
+    zone.append(del);box.append(zone);
   }
 }
 async function watch(oid,node,done){
@@ -377,6 +386,22 @@ document.querySelectorAll('#filters .chip').forEach(b=>b.onclick=()=>{sub.filter
 document.querySelectorAll('#sub-table th button').forEach(b=>b.onclick=()=>{const key=b.dataset.sort;sub.sort=sub.sort.key===key?{key,dir:sub.sort.dir==='asc'?'desc':'asc'}:{key,dir:'asc'};renderTable();});
 $('select-all').onclick=()=>{const on=$('select-all').checked;for(const r of sub.items){if(on)sub.selected.add(r.id);else sub.selected.delete(r.id);}renderTable();};
 $('bulk-clear').onclick=()=>{sub.selected.clear();renderTable();};
+function renderExpiredBar(){
+  const n=me?me.counts.expired||0:0;const show=sub.filter==='expired'&&n>0;
+  $('expired-bar').hidden=!show;if(show)$('expired-note').textContent=plural(n,'expired record')+'. Deleting only tidies your list; reports and credit history are kept.';
+}
+$('delete-expired').onclick=()=>busy($('delete-expired'),async()=>{
+  const n=me.counts.expired||0;if(!confirm('Delete all '+n+' expired subscriptions and tests from your list?'))return;
+  const r=await api('/subscriptions/delete-expired',{method:'POST',data:{}});sub.selected.clear();await refreshMe();await loadSubs();toast(plural(r.deleted,'record')+' deleted');
+});
+$('bulk-delete').onclick=()=>busy($('bulk-delete'),async()=>{
+  const ids=[...sub.selected].filter(id=>{const r=sub.items.find(x=>x.id===id);return r&&deletable(r);});
+  if(!ids.length)throw new Error('None of the selected customers has expired. Only expired subscriptions and tests can be deleted.');
+  const skipped=sub.selected.size-ids.length;
+  if(!confirm('Delete '+plural(ids.length,'expired record')+' from your list?'+(skipped?' '+plural(skipped,'active customer')+' will be kept.':'')))return;
+  let done=0;for(const id of ids){try{await deleteOne(id);done++;}catch(e){if(e instanceof SignedOut)throw e;}}
+  sub.selected.clear();await refreshMe();await loadSubs();toast(plural(done,'record')+' deleted');
+});
 $('bulk-extend').onclick=()=>busy($('bulk-extend'),bulkExtend);
 $('search-form').onsubmit=e=>{e.preventDefault();sub.search=$('search').value.trim();sub.page=0;loadSubs().catch(fail);};
 $('global-search').onsubmit=e=>{e.preventDefault();sub.search=$('global-search-input').value.trim();sub.page=0;sub.filter='all';if(location.hash.startsWith('#/subscriptions'))loadSubs().catch(fail);else location.hash='#/subscriptions';};

@@ -89,10 +89,12 @@ class TelegramBot:
         return uid is not None and uid==self.service.config.get('support_admin_id')
 
     def menu_keyboard(self,uid=None):
+        member=self.service.resellers.member(uid) if uid else None
+        reseller='🏪 Reseller dashboard' if member and member['status']!='pending' else '🏪 Become A Reseller'
         return {'inline_keyboard':[
             [{'text':'🎁 Click For 24 hour Trial','callback_data':'menu:trial'}],
             [{'text':'🌐 Subscription Plans','callback_data':'menu:plans'}],
-            [{'text':'🏪 Become A Reseller','callback_data':'rs:home'}],
+            [{'text':reseller,'callback_data':'rs:home'}],
             [{'text':'🔔 Notifications','callback_data':'nt:settings'}],
             [{'text':'📋 My account','callback_data':'menu:account'},
              {'text':'💬 Contact support','callback_data':'menu:contact'}],
@@ -252,8 +254,6 @@ class TelegramBot:
             if self.notifications.callback(uid,action):return
             if self.reseller.callback(uid,action,sender):return
             member=self.service.resellers.member(uid)
-            if action=='menu' and member and member['status']!='pending':
-                self.reseller.home(uid);return
             if member and member['status']=='suspended' and action.startswith(('pay:','plan:','menu:trial','menu:retrytrial')):
                 raise CheckoutError('Your reseller account is suspended. Contact support for help.')
             if action.startswith('pay:'):

@@ -169,6 +169,15 @@ def register_reseller_web(app, service):
         record.pop('credentials', None); record.pop('reseller_id', None)
         return jsonify(record=record)
 
+    @routes.post('/subscriptions/<sid>/delete')
+    def delete_subscription(sid):
+        record = resellers.ops.delete(current_uid(), sid)
+        return jsonify(deleted=record['id'])
+
+    @routes.post('/subscriptions/delete-expired')
+    def delete_expired():
+        return jsonify(deleted=resellers.ops.delete_expired(current_uid()))
+
     def csv_response(name, header, rows):
         out = io.StringIO(); writer = csv.writer(out); writer.writerow(header); writer.writerows(rows)
         return Response(out.getvalue(), mimetype='text/csv',

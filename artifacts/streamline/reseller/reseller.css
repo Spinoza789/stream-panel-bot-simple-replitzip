@@ -114,7 +114,12 @@ form .primary{margin-top:4px}
 .search input{width:300px;margin:0;min-height:32px;padding:6px 10px}
 .bulk-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 16px;background:var(--info-bg);border-bottom:1px solid var(--info-line);font-weight:550}
 .bulk-bar select{width:auto;margin:0 0 0 6px;min-height:28px;padding:2px 8px}
-.bulk-bar .primary{min-height:28px}
+.bulk-bar .primary,.bulk-bar .secondary{min-height:28px}
+.secondary.danger{color:var(--red-text);border-color:var(--red-bg)}
+.secondary.danger:hover{background:var(--red-bg)}
+.expired-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);color:var(--muted)}
+.drawer-danger{margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+.drawer-danger p{color:var(--muted);font-size:12px}
 .table-wrap{overflow-x:auto}
 .index-table{width:100%;border-collapse:collapse}
 .index-table th{text-align:left;font-weight:550;font-size:12px;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}

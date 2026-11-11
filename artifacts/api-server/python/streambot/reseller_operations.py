@@ -14,7 +14,7 @@ class Operations:
         if db is None:
             with self.store.connection() as connection:return self.owned(uid,sid,connection)
         member=self.ledger.member(uid,db)
-        row=db.execute('SELECT * FROM rs_subscriptions WHERE id=? AND reseller_id=?',(sid,member['id'])).fetchone() if member else None
+        row=db.execute('SELECT * FROM rs_subscriptions WHERE id=? AND reseller_id=? AND deleted_at IS NULL',(sid,member['id'])).fetchone() if member else None
         if not row:raise CheckoutError('Subscription not found.')
         return dict(row)
 
@@ -233,7 +233,7 @@ class Operations:
         suffix,params=filters[filter_name]
         matches=[];skip=page*10
         with self.store.connection() as db:
-            cursor=db.execute('SELECT * FROM rs_subscriptions WHERE reseller_id=?'+suffix+' ORDER BY created_at DESC,id DESC',(member['id'],*params))
+            cursor=db.execute('SELECT * FROM rs_subscriptions WHERE reseller_id=? AND deleted_at IS NULL'+suffix+' ORDER BY created_at DESC,id DESC',(member['id'],*params))
             while True:
                 rows=cursor.fetchmany(100)
                 if not rows:break
@@ -266,15 +266,38 @@ class Operations:
             row=db.execute(
                 "SELECT SUM(CASE WHEN kind='paid' AND status='active' AND expires_at>? THEN 1 ELSE 0 END),"
                 "SUM(CASE WHEN kind='paid' AND expires_at>? AND expires_at<=? THEN 1 ELSE 0 END),"
-                "SUM(CASE WHEN kind='trial' AND expires_at>? THEN 1 ELSE 0 END),COUNT(*) "
-                "FROM rs_subscriptions WHERE reseller_id=?",(now(),now(),now()+7*86400,now(),member['id'])).fetchone()
-        return {'active':int(row[0] or 0),'expiring':int(row[1] or 0),'trials':int(row[2] or 0),'total':int(row[3] or 0)}
+                "SUM(CASE WHEN kind='trial' AND expires_at>? THEN 1 ELSE 0 END),COUNT(*),"
+                "SUM(CASE WHEN expires_at<=? OR status IN ('expired','disabled') THEN 1 ELSE 0 END) "
+                "FROM rs_subscriptions WHERE reseller_id=? AND deleted_at IS NULL",(now(),now(),now()+7*86400,now(),now(),member['id'])).fetchone()
+        return {'active':int(row[0] or 0),'expiring':int(row[1] or 0),'trials':int(row[2] or 0),'total':int(row[3] or 0),'expired':int(row[4] or 0)}
+
+    @staticmethod
+    def deletable(record):
+        """Only finished accounts can be removed from a reseller's list: past their expiry, or expired/disabled on the provider."""
+        return int(record['expires_at'])<=now() or record['status'] in ('expired','disabled')
+
+    def delete(self,uid,sid):
+        """Hide an expired subscription or test from the reseller's list. The row stays for reports and history; nothing is sent to the provider."""
+        record=self.owned(uid,sid)
+        if not self.deletable(record):raise CheckoutError('Only expired subscriptions and tests can be deleted. Extend it instead if the customer is staying.')
+        with self.ledger.transaction() as db:
+            db.execute('UPDATE rs_subscriptions SET deleted_at=? WHERE id=? AND reseller_id=? AND deleted_at IS NULL',(now(),record['id'],record['reseller_id']))
+        return record
+
+    def delete_expired(self,uid):
+        """Remove every expired subscription and test from the list in one go. Returns how many were removed."""
+        member=self.ledger.member(uid)
+        if not member:raise CheckoutError('Reseller account not found.')
+        with self.ledger.transaction() as db:
+            cursor=db.execute("UPDATE rs_subscriptions SET deleted_at=? WHERE reseller_id=? AND deleted_at IS NULL AND (expires_at<=? OR status IN ('expired','disabled'))",
+                              (now(),member['id'],now()))
+            return int(cursor.rowcount or 0)
 
     def refresh_listing(self,uid):
         member=self.ledger.member(uid)
         if not member:raise CheckoutError('Reseller account not found.')
         with self.store.connection() as db:
-            rows=[dict(r) for r in db.execute('SELECT id,provider_id FROM rs_subscriptions WHERE reseller_id=?',(member['id'],)).fetchall()]
+            rows=[dict(r) for r in db.execute('SELECT id,provider_id FROM rs_subscriptions WHERE reseller_id=? AND deleted_at IS NULL',(member['id'],)).fetchall()]
         if not rows:return None
         try:
             summary=self.provider.summary() if hasattr(self.provider,'summary') else {r['provider_id']:self.provider.read(r['provider_id']) for r in rows}

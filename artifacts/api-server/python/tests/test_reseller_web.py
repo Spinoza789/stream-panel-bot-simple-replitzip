@@ -190,6 +190,26 @@ class ResellerWebTests(unittest.TestCase):
                     self.assertEqual(self.client.get('/reseller/static/' + step['picture']).status_code, 200)
         self.assertTrue(all(a['url'].startswith('https://') for a in guide['android']['apps']))
 
+    def test_delete_expired_routes(self):
+        self.r.finance.adjust(9001, 42, 10, 'test funding', 'fund-42-delete')
+        self.sign_in()
+        body = self.post('/api/reseller/operations/preview', {'kind': 'trial', 'months': 0, 'connections': 1, 'adult': False, 'customer_ref': 'Sam'}).get_json()
+        self.post('/api/reseller/operations/confirm', {'nonce': body['nonce']})
+        self.r.process()
+        sid = self.client.get('/api/reseller/subscriptions?filter=trials').get_json()['items'][0]['id']
+        self.assertEqual(self.post('/api/reseller/subscriptions/' + sid + '/delete', {}).status_code, 400)
+        with self.store.connection() as db:
+            db.execute('UPDATE rs_subscriptions SET expires_at=? WHERE id=?', (int(time.time()) - 60, sid))
+        other = self.app.test_client()
+        other.post('/api/reseller/session/code', json={'code': self.web.issue_code(43)}, headers={'Origin': ORIGIN})
+        self.assertIn(other.post('/api/reseller/subscriptions/' + sid + '/delete', json={}, headers={'Origin': ORIGIN}).status_code, (400, 404))
+        self.assertEqual(self.client.get('/api/reseller/me').get_json()['counts']['expired'], 1)
+        deleted = self.post('/api/reseller/subscriptions/' + sid + '/delete', {})
+        self.assertEqual(deleted.status_code, 200, deleted.get_json())
+        self.assertEqual(self.client.get('/api/reseller/subscriptions?filter=all').get_json()['items'], [])
+        self.assertEqual(self.client.get('/api/reseller/subscriptions/' + sid).status_code, 404)
+        self.assertEqual(self.post('/api/reseller/subscriptions/delete-expired', {}).get_json()['deleted'], 0)
+
     def test_stats_notes_and_csv_exports(self):
         self.r.finance.adjust(9001, 42, 10, 'test funding', 'fund-42-stats')
         self.sign_in()

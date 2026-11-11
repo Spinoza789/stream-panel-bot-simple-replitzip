@@ -51,7 +51,7 @@ class Notifications:
                             "AND (o.telegram_id IS NOT NULL OR a.telegram_id IS NOT NULL)").fetchall()
             rs=[]
             if self.service.resellers.ready:
-                rs=db.execute("SELECT s.*,r.telegram_id AS uid FROM rs_subscriptions s JOIN rs_resellers r ON r.id=s.reseller_id").fetchall()
+                rs=db.execute("SELECT s.*,r.telegram_id AS uid FROM rs_subscriptions s JOIN rs_resellers r ON r.id=s.reseller_id WHERE s.deleted_at IS NULL").fetchall()
         records=[]
         for row in rows:
             try:credentials=self.store.unseal(row['credentials'])

@@ -110,10 +110,12 @@
             </div>
             <form id="search-form" class="search"><input id="search" placeholder="Search by customer, contact, username or ID" maxlength="100"><button class="secondary" type="submit">Search</button></form>
           </div>
+          <div class="expired-bar" id="expired-bar" hidden><span id="expired-note"></span><button class="secondary danger" id="delete-expired" type="button">Delete all expired</button></div>
           <div class="bulk-bar" id="bulk-bar" hidden>
             <span id="bulk-count">0 selected</span>
             <label>Extend by <select id="bulk-months"><option value="1">1 month</option><option value="3">3 months</option><option value="6">6 months</option><option value="9">9 months</option><option value="12">12 months</option></select></label>
             <button class="primary" id="bulk-extend" type="button">Extend selected</button>
+            <button class="secondary danger" id="bulk-delete" type="button">Delete expired</button>
             <button class="text-button" id="bulk-clear" type="button">Clear</button>
             <span class="muted" id="bulk-status"></span>
           </div>

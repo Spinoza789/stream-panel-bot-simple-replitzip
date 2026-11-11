@@ -418,6 +418,54 @@ class Scenarios:
         with self.assertRaises(CheckoutError):self.o.update_notes(43,sid,'x','y')
         with self.assertRaises(CheckoutError):self.o.update_notes(42,sid,'x'*101,'')
 
+    def test_expired_records_can_be_deleted_from_the_list(self):
+        self.fund(5)
+        sid=self.create()['result_id']
+        with self.assertRaises(CheckoutError):self.o.delete(42,sid)  # still active
+        self.click(42,'rs:detail:'+sid)
+        self.assertNotIn('Delete from my list',str(self.calls[-1][1]['reply_markup']))
+        for account in self.provider.accounts.values():account['expires_at']=now()-60
+        with self.store.connection() as db:
+            db.execute('UPDATE rs_subscriptions SET expires_at=? WHERE id=?',(now()-60,sid))
+        self.click(42,'rs:detail:'+sid)
+        self.assertIn('rs:delete:'+sid,str(self.calls[-1][1]['reply_markup']))
+        self.click(42,'rs:delete:'+sid)
+        self.assertIn('from your list?',self.calls[-1][1]['text'])
+        with self.assertRaises(CheckoutError):self.o.delete(43,sid)  # someone else's record
+        self.click(42,'rs:deleteyes:'+sid)
+        self.assertEqual(self.o.records(42,'all',0),[])
+        self.assertEqual(self.o.counts(42)['total'],0)
+        with self.assertRaises(CheckoutError):self.o.owned(42,sid)
+        with self.store.connection() as db:
+            self.assertIsNotNone(db.execute('SELECT deleted_at FROM rs_subscriptions WHERE id=?',(sid,)).fetchone()[0])
+        # bulk: two expired, one active; the list offers "Delete all expired"
+        a=self.create('request-0002')['result_id'];b=self.create('request-0003')['result_id'];self.create('request-0004')
+        with self.store.connection() as db:
+            for pid, in db.execute('SELECT provider_id FROM rs_subscriptions WHERE id IN (?,?)',(a,b)).fetchall():
+                self.provider.accounts[pid]['expires_at']=now()-60
+            db.execute('UPDATE rs_subscriptions SET expires_at=? WHERE id IN (?,?)',(now()-60,a,b))
+        self.click(42,'rs:list:all:0')
+        self.assertIn('Delete all expired (2)',str(self.calls[-1][1]['reply_markup']))
+        self.click(42,'rs:deleteexpired')
+        self.assertIn('Delete all 2 expired',self.calls[-1][1]['text'])
+        self.click(42,'rs:deleteexpiredyes')
+        self.assertEqual(len(self.o.records(42,'all',0)),1)
+        self.assertEqual(self.o.counts(42)['expired'],0)
+
+    def test_start_shows_the_main_menu_with_a_reseller_dashboard_button(self):
+        self.fund(1)
+        self.message(42,'/start')
+        sent=self.sent_to(42)[-1]
+        self.assertIn('Welcome to',sent['text'])
+        self.assertIn('Reseller dashboard',str(sent['reply_markup']))
+        self.assertNotIn('Become A Reseller',str(sent['reply_markup']))
+        self.click(42,'menu')
+        self.assertIn('Welcome to',self.sent_to(42)[-1]['text'])
+        self.message(42,'/reseller')
+        self.assertIn('RESELLER DASHBOARD',self.sent_to(42)[-1]['text'])
+        self.message(44,'/start')  # not a reseller
+        self.assertIn('Become A Reseller',str(self.sent_to(44)[-1]['reply_markup']))
+
     def test_bot_trial_form_never_asks_about_adult_content(self):
         self.fund(1)
         self.click(42,'rs:trial')
