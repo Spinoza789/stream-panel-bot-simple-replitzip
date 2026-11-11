@@ -39,7 +39,7 @@ class Ledger:
     def seed(self):
         if self._seeded:return
         with self.transaction() as db:
-            for pounds,credits in ((100,34),(200,75),(300,129),(400,192)):
+            for pounds,credits in ((10,3),(100,34),(200,75),(300,129),(400,192)):  # £10 is the small live-test pack; switch it off in Settings → Rate card when not needed
                 db.execute('INSERT INTO rs_packages VALUES(?,?,?,?,?) ON CONFLICT(id) DO NOTHING',
                            (str(pounds),pounds*100,credits,1,now()))
             for months,costs in ((1,(1,2,3)),(3,(3,4,5)),(6,(6,7,8)),(9,(9,10,11)),(12,(12,15,20))):

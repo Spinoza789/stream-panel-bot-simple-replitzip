@@ -103,7 +103,7 @@ class Scenarios:
         self.assertEqual(self.f.member(77)['status'],'pending')
         packs=self.sent_to(77)[-1]
         self.assertIn('goes live',packs['text'])
-        self.assertEqual(packs['reply_markup']['inline_keyboard'][0][0]['callback_data'],'rs:package:100')
+        self.assertEqual([b[0]['callback_data'] for b in packs['reply_markup']['inline_keyboard'][:2]],['rs:package:10','rs:package:100'])  # £10 test pack first
         self.assertEqual(len(self.sent_to(9001)),0)  # nobody has to approve anything
         # an unpaid "reseller" is still an ordinary customer: retail trial and plans stay open
         self.assertEqual(self.service.create_trial(77)['status'],'paid')
@@ -142,7 +142,7 @@ class Scenarios:
         self.assertIn('1 trial running',self.sent_to(42)[-1]['text'])
 
     def test_initial_packages_and_complete_cost_matrix(self):
-        self.assertEqual([(p['price_pence'],p['credits']) for p in self.f.packages()],[(10000,34),(20000,75),(30000,129),(40000,192)])
+        self.assertEqual([(p['price_pence'],p['credits']) for p in self.f.packages()],[(1000,3),(10000,34),(20000,75),(30000,129),(40000,192)])
         for months,costs in ((1,(1,2,3)),(3,(3,4,5)),(6,(6,7,8)),(9,(9,10,11)),(12,(12,15,20))):
             for n,cost in enumerate(costs,1):
                 for adult in (False,True):self.assertEqual(self.preview(months=months,connections=n,adult=adult)['cost'],cost)

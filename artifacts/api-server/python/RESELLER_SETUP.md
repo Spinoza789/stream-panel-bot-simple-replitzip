@@ -35,6 +35,7 @@ not a separate website or payment service.
 
 | Price | Credits |
 | --- | --- |
+| £10 | 3 (small pack for live testing; deactivate in Settings → Rate card when not wanted) |
 | £100 | 34 |
 | £200 | 75 |
 | £300 | 129 |

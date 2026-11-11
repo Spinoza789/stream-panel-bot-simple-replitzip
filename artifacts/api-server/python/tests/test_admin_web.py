@@ -85,9 +85,9 @@ class AdminWebTests(unittest.TestCase):
         self.assertIn('months', reports)
         self.assertEqual(len(reports['resellers']), 2)
         card = self.call('/ratecard').json
-        self.assertEqual(card['packages'][0]['id'], '100')
+        self.assertEqual([p['id'] for p in card['packages']][:2], ['10', '100'])
         updated = self.call('/ratecard', {'category': 'package', 'values': ['100', 12000, 40, True], 'reason': 'Price test'}).json
-        self.assertEqual((updated['packages'][0]['pricePence'], updated['packages'][0]['credits']), (12000, 40))
+        self.assertEqual((updated['packages'][1]['pricePence'], updated['packages'][1]['credits']), (12000, 40))
         updated = self.call('/ratecard', {'category': 'cost', 'values': [1, 1, 2], 'reason': 'Cost test'}).json
         self.assertEqual([c for c in updated['costs'] if c['months'] == 1 and c['connections'] == 1][0]['credits'], 2)
         self.assertEqual(self.call('/ratecard', {'category': 'cost', 'values': [2, 1, 2], 'reason': 'bad months'}).status_code, 400)

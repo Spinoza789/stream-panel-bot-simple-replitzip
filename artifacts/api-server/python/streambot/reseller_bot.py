@@ -70,11 +70,11 @@ class ResellerBot:
             width=max(len(str(p['credits'])) for p in packages)
             rows=[f"£{p['price_pence']//100:<4}→ {str(p['credits']).rjust(width)} credits  (£{p['price_pence']/p['credits']/100:.2f} each)" for p in packages]
             lines+=['','<b>💰 CREDIT PACKS</b>','<pre>'+'\n'.join(rows)+'</pre>']
-            cheapest=min(packages,key=lambda p:p['price_pence'])
             year=by_month.get(12,{}).get(1)
-            if year:
-                lines.append('<i>Example: £'+str(cheapest['price_pence']//100)+' = '+str(cheapest['credits'])+' credits = '
-                             +str(cheapest['credits']//year)+' full-year subscriptions + '+str(cheapest['credits']%year)+' months spare.</i>')
+            example=min((p for p in packages if year and p['credits']>=year),key=lambda p:p['price_pence'],default=None)  # smallest pack worth a full year
+            if example:
+                lines.append('<i>Example: £'+str(example['price_pence']//100)+' = '+str(example['credits'])+' credits = '
+                             +str(example['credits']//year)+' full-year subscriptions + '+str(example['credits']%year)+' months spare.</i>')
         return '\n'.join(lines)
 
     def home(self,uid):
