@@ -110,6 +110,32 @@ class TelegramPaymentTests(unittest.TestCase):
         self.assertEqual(self.store.get(order['id'])['status'], 'pending')
         self.assertEqual(len(self.panel.calls), 0)
 
+    def test_progress_changes_do_not_resend_the_invoice_but_payment_received_does(self):
+        self.click('pay:quote:month-1:eth')
+        order = self.store.telegram_orders(42)[0]
+        self.click('pay:tx:' + order['id'])
+        self.bot.handle({'update_id': 1, 'message': {'message_id': 1, 'from': {'id': 42},
+                         'chat': {'id': 42, 'type': 'private'}, 'text': TXID}})
+        self.verifier.error = PaymentPending('x', confirmations=1, required=12)
+        self.service.verify_order(order_id=order['id'])
+        self.calls.clear(); self.bot.checkout.notify()
+        self.assertIn('1 of 12 confirmations', self.calls[-1][1]['text'])  # told once that the payment is being watched
+        for done in (2, 3, 11):
+            self.verifier.error = PaymentPending('x', confirmations=done, required=12)
+            self.store.update(order['id'], last_check=0)
+            self.service.verify_order(order_id=order['id'])
+            self.calls.clear(); self.bot.checkout.notify()
+            self.assertEqual([m for m, _ in self.calls if m == 'sendMessage'], [])  # no new message per block
+        self.assertIn('11 of 12', self.click('pay:status:' + order['id'])['text'])  # the live figure is still one tap away
+        self.proof(order)
+        self.store.update(order['id'], last_check=0)
+        self.service.verify_order(order_id=order['id'])
+        self.calls.clear(); self.bot.checkout.notify()
+        text = self.calls[-1][1]['text']
+        self.assertIn('PAYMENT RECEIVED', text)
+        self.assertIn(self.service.public(order)['amount'] + ' ETH', text)
+        self.assertIn('confirmed on Ethereum', text)
+
     def test_entire_quote_txid_confirmation_and_credential_delivery(self):
         crypto = self.click('pay:choose:month-1')
         callbacks = [b['callback_data'] for row in crypto['reply_markup']['inline_keyboard'] for b in row]
@@ -452,7 +478,7 @@ class RateTests(unittest.TestCase):
 class BitcoinVerificationTests(unittest.TestCase):
     def setUp(self):
         config = json.loads(CONFIG.read_text())
-        self.asset = dict(config['assets']['btc'], rpc_url='https://node.example/api')
+        self.asset = dict(config['assets']['btc'], rpc_url='https://node.example/api', confirmations=3)  # policy under test, independent of the live setting
         self.txid = 'a' * 64
         self.block = 'b' * 64
         self.now = int(time.time())

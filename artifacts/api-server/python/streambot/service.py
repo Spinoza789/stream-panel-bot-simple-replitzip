@@ -164,6 +164,7 @@ class CheckoutService:
         finally: self.store.update_pending_verification(order['id'],order['txid'],last_check=int(time.time()))
 
     NETWORK_LABELS={'ethereum':'Ethereum','bitcoin':'Bitcoin','solana':'Solana'}
+    PENDING_PREFIX='Waiting for blockchain confirmation'
     PROGRESS_WIDTH=12
 
     @classmethod
@@ -176,11 +177,11 @@ class CheckoutService:
         done,required=getattr(exc,'confirmations',None),getattr(exc,'required',None)
         network=cls.NETWORK_LABELS.get(asset.get('network'),'the network')
         if type(done) is not int or type(required) is not int or required<1:
-            return 'Waiting for blockchain confirmation. No need to pay again.'
+            return cls.PENDING_PREFIX+'. No need to pay again.'
         shown=min(done,required)
         filled=round(cls.PROGRESS_WIDTH*shown/required)
         bar='▰'*filled+'▱'*(cls.PROGRESS_WIDTH-filled)
-        head='Waiting for blockchain confirmation · %d of %d confirmations on %s %s'%(shown,required,network,bar)
+        head=cls.PENDING_PREFIX+' · %d of %d confirmations on %s %s'%(shown,required,network,bar)
         if getattr(exc,'stage',None)=='finality':
             tail='All confirmations in; waiting for %s to mark the block final (usually under 15 minutes).'%network
         elif done==0:

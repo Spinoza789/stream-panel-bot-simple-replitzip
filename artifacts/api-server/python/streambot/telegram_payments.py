@@ -130,7 +130,9 @@ class TelegramCheckout:
                      '', 'Sent it? Tap <b>I\'ve paid</b> and paste your TXID.', '',
                      '⏰ Expires ' + e(self.expiry(order))]
         elif order['status'] in ('paid', 'provisioning'):
-            lines = [banner + '<b>✅ PAYMENT CONFIRMED</b>', item, '', 'Preparing your account. Do not pay again.']
+            lines = [banner + '<b>✅ PAYMENT RECEIVED</b>', item, '',
+                     'Your <b>' + e(order['amount']) + ' ' + e(asset['symbol']) + '</b> payment is confirmed on ' + e(network_name(asset)) + '.',
+                     'Preparing your account now — your login arrives in this chat in a moment. Do not pay again.']
         else:
             lines = [banner + '<b>🛟 MANUAL REVIEW NEEDED</b>', item, '',
                      'Do not pay again. Contact support with your order ID.']
@@ -286,6 +288,14 @@ class TelegramCheckout:
         for order in self.store.telegram_orders(limit=20):
             retry_key = 'tg_notice_retry:' + order['id']
             if int(self.store.metadata(retry_key) or '0') > time.time():
+                continue
+            notice_key = 'tg_notice:' + order['id']
+            previous = self.store.metadata(notice_key) or ''
+            prefix = 'pending:' + self.service.PENDING_PREFIX
+            if order['status'] == 'pending' and previous.startswith(prefix) and (order['status'] + ':' + order['message']).startswith(prefix):
+                # Only the confirmation count moved. The customer was already told we are
+                # watching; the live figure is one tap away. Record it instead of sending again.
+                self.store.metadata(notice_key, order['status'] + ':' + order['message'])
                 continue
             try:
                 self.show_order(order['owner_id'], self.service.public(order))

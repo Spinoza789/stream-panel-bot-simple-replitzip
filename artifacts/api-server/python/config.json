@@ -16,7 +16,7 @@
       "rpc_env": "ETHEREUM_RPC_URL",
       "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
       "confirmations": 12,
-      "require_finalized": true
+      "require_finalized": false
     },
     "usdt-ethereum": {
       "network": "ethereum",
@@ -26,7 +26,7 @@
       "rpc_env": "ETHEREUM_RPC_URL",
       "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
       "confirmations": 12,
-      "require_finalized": true
+      "require_finalized": false
     },
     "eth": {
       "network": "ethereum",
@@ -36,7 +36,7 @@
       "rpc_env": "ETHEREUM_RPC_URL",
       "token": null,
       "confirmations": 12,
-      "require_finalized": true
+      "require_finalized": false
     },
     "usdc-solana": {
       "network": "solana",
@@ -61,7 +61,7 @@
       "wallet": "bc1q8spul0e3qcj5hzg049fp80aj6g408xpk9d0tz4",
       "rpc_env": "BITCOIN_ESPLORA_URL",
       "token": null,
-      "confirmations": 3
+      "confirmations": 1
     }
   },
   "plans": [

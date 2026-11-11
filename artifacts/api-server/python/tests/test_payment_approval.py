@@ -53,7 +53,7 @@ class PaymentApprovalTests(unittest.TestCase):
         self.approval.confirm(900, nonce)
         self.assertEqual(self.verifier.verify.call_count, 2)
         for call in self.verifier.verify.call_args_list:
-            self.assertIs(call.args[0]['require_finalized'], True)
+            self.assertIs(call.args[0]['require_finalized'], True)  # manual approval always insists on finality, whatever the asset's everyday policy
             self.assertEqual(call.args[0]['wallet'], self.order['asset']['wallet'])
             self.assertEqual(call.args[2:], (self.order['created_at'], self.order['expires_at']))
         saved = self.store.get(self.order['id'])

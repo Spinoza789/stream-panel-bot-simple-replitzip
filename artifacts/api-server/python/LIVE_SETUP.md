@@ -48,7 +48,7 @@ never connection strings or provider error text.
 | STREAMBOT_CREDENTIAL_KEY | Stable encryption key generated below |
 | STREAMBOT_DATABASE_SOURCE | managed for Replit's database; external for your own connection |
 | STREAMBOT_DATABASE_URL | Direct/session PostgreSQL URL when using external mode |
-| STREAMBOT_ETHEREUM_RPC_URL | Ethereum mainnet RPC supporting finalized blocks |
+| STREAMBOT_ETHEREUM_RPC_URL | Ethereum mainnet RPC (`finalized` block tag only needed if `require_finalized` is turned back on) |
 | STREAMBOT_SOLANA_RPC_URL | Solana mainnet RPC supporting finalized transaction history |
 | STREAMBOT_BITCOIN_ESPLORA_URL | https://blockstream.info/api or your mainnet Esplora service |
 | STREAMBOT_PANEL_WRITE_ENABLED | false initially; true for real account creation |
@@ -122,7 +122,9 @@ Legacy named accounts can still use `reconcile` and, after a verified absence,
 `retry ORDER_ID --confirm-absent`. An uncertain panel-generated account must be
 identified manually through support; the CLI refuses to guess or recreate it.
 
-The custom Telegram checkout now continues from membership selection to coin/network buttons. It freezes a rate snapshot, displays the USD equivalent and exact crypto amount, then accepts a TXID through the order's button or `/txid ORDER_ID HASH`. The backend verifies chain, recipient, token, amount, time window and confirmations before marking an order paid. Used transactions cannot pay another order. While a submitted TXID is waiting, the order shows live progress ("3 of 12 confirmations on Ethereum" with a bar, then "waiting for finality" on Ethereum); **Check payment status** re-reads the chain on the spot (at most once every 15 seconds per order) and the background worker keeps checking every 20 seconds. Account delivery and payment status are sent privately to the order owner; `/orders` returns to invoices.
+The custom Telegram checkout now continues from membership selection to coin/network buttons. It freezes a rate snapshot, displays the USD equivalent and exact crypto amount, then accepts a TXID through the order's button or `/txid ORDER_ID HASH`. The backend verifies chain, recipient, token, amount, time window and confirmations before marking an order paid. Used transactions cannot pay another order. While a submitted TXID is waiting, the order shows live progress ("3 of 12 confirmations on Ethereum" with a bar); **Check payment status** re-reads the chain on the spot (at most once every 15 seconds per order) and the background worker keeps checking every 20 seconds. The customer is told once that the payment is being watched, and again with "PAYMENT RECEIVED" the moment it verifies; the count moving between those two does not send extra messages.
+
+Confirmation policy (per asset in `config.json`): Ethereum, USDC and USDT on Ethereum wait for **12 confirmations, about 2.5 minutes** (`require_finalized` is off; turning it on adds the 13–20 minute finality wait), Bitcoin waits for **1 confirmation, about 10 minutes on average**, and Solana uses the network's own finalized commitment, about 15 seconds. Raise `confirmations` for an asset to be stricter. Account delivery and payment status are sent privately to the order owner; `/orders` returns to invoices.
 
 Demo mode uses simulated rates, nonpayable wallets and an explicit simulation button. It does not perform real-chain verification. Live verification requires the read-only RPC endpoints above and a controlled real-payment test. Notification retries are persistent; a crash after sending but before recording a delivery receipt can repeat a notification.
 
