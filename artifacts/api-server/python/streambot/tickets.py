@@ -158,8 +158,8 @@ class Tickets:
     def counts(self, uid):
         if not self.ready: return {'open': 0, 'answered': 0}
         with self.store.connection() as db:
-            row = db.execute("SELECT SUM(CASE WHEN status='open' THEN 1 ELSE 0 END),SUM(CASE WHEN status='answered' THEN 1 ELSE 0 END) FROM tk_tickets WHERE telegram_id=?", (uid,)).fetchone()
-        return {'open': int(row[0] or 0), 'answered': int(row[1] or 0)}
+            row = db.execute("SELECT SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open_count,SUM(CASE WHEN status='answered' THEN 1 ELSE 0 END) AS answered_count FROM tk_tickets WHERE telegram_id=?", (uid,)).fetchone()
+        return {'open': int(row['open_count'] or 0), 'answered': int(row['answered_count'] or 0)}
 
     # ---------- support side ----------
     def admin_list(self, actor, status='open', q='', page=0):

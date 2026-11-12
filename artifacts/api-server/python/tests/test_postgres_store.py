@@ -194,6 +194,42 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.assertIsInstance(row['credits_bought'], int)
         self.assertEqual(finance.summary(actor, prefix, 2), [])
 
+    def test_reseller_ticket_list_counts_on_postgres(self):
+        from streambot.web import create_app
+
+        finance = self.service.resellers.finance
+        actor = 'replit:ticket_test:' + '1' * 64
+        finance.register(self.owner, 'ticket_test')
+        finance.account_status(actor, self.owner, 'active', 'Ticket regression')
+        client = create_app(self.service).test_client()
+        response = client.post('/api/reseller/session/code',
+                               json={'code': self.service.resellers.web.issue_code(self.owner)},
+                               headers={'Origin': self.config['public_url']})
+        self.assertEqual(response.status_code, 200)
+        empty = client.get('/api/reseller/tickets')
+        self.assertEqual(empty.status_code, 200)
+        self.assertEqual(empty.get_json()['counts'], {'open': 0, 'answered': 0})
+        self.assertEqual(empty.get_json()['items'], [])
+
+        tickets = self.service.tickets
+        with self.store.connection() as db:
+            for uid, status in [(self.owner, 'open'), (self.owner, 'open'),
+                                (self.owner, 'answered'), (self.owner, 'closed'),
+                                (self.owner + 1, 'answered')]:
+                tid = tickets._new_id(db)
+                db.execute('INSERT INTO tk_tickets(id,telegram_id,username,topic,status,channel,reseller,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',
+                           (tid, uid, 'ticket_test', 'other', status, 'web', 1, int(time.time()), int(time.time())))
+                tickets._add(db, tid, 'customer', 'Ticket regression')
+        listing = client.get('/api/reseller/tickets')
+        self.assertEqual(listing.status_code, 200)
+        data = listing.get_json()
+        self.assertEqual(data['counts'], {'open': 2, 'answered': 1})
+        self.assertEqual(len(data['items']), 4)
+        self.assertEqual({item['status'] for item in data['items']}, {'open', 'answered', 'closed'})
+        self.assertTrue(all(item['messages'] == 1 for item in data['items']))
+        self.assertFalse(data['more'])
+        self.assertEqual(tickets.counts(self.owner + 1), {'open': 0, 'answered': 1})
+
     def test_admin_trial_recovery_queues_original_and_audits_atomically(self):
         self.config.update(support_admin_id=900, panel_writes=True)
         order = self.service.create_trial(self.owner)
