@@ -899,6 +899,94 @@ export const DeleteAdminSubscriptionResponse = zod.object({
   deleted: zod.boolean(),
 });
 
+export const listAdminActivityLogQueryQMax = 80;
+
+export const listAdminActivityLogQueryPageDefault = 1;
+
+export const ListAdminActivityLogQueryParams = zod.object({
+  q: zod.coerce.string().max(listAdminActivityLogQueryQMax).optional(),
+  source: zod.enum(["retail", "reseller"]).optional(),
+  reseller: zod.coerce.number().int().min(1).optional(),
+  page: zod.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(listAdminActivityLogQueryPageDefault),
+});
+
+export const ListAdminActivityLogResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      date: zod.number().int(),
+      source: zod.enum(["retail", "reseller"]),
+      resellerTelegramId: zod.number().int(),
+      resellerUsername: zod.string(),
+      customer: zod.string(),
+      action: zod.string(),
+      status: zod.string(),
+      package: zod.string(),
+      accountUsername: zod.string(),
+      accountPassword: zod.string(),
+      creditCost: zod.number().int(),
+      creditsBefore: zod.number().int().nullable(),
+      creditsAfter: zod.number().int().nullable(),
+    }),
+  ),
+  page: zod.number().int(),
+  pageSize: zod.number().int(),
+  total: zod.number().int(),
+  resellers: zod.array(
+    zod.object({
+      telegramId: zod.number().int(),
+      username: zod.string(),
+    }),
+  ),
+});
+
+export const listAdminCreditLogQueryQMax = 80;
+
+export const listAdminCreditLogQueryPageDefault = 1;
+
+export const ListAdminCreditLogQueryParams = zod.object({
+  q: zod.coerce.string().max(listAdminCreditLogQueryQMax).optional(),
+  scope: zod.enum(["usage", "all"]).optional(),
+  reseller: zod.coerce.number().int().min(1).optional(),
+  page: zod.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(listAdminCreditLogQueryPageDefault),
+});
+
+export const ListAdminCreditLogResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      date: zod.number().int(),
+      resellerTelegramId: zod.number().int(),
+      resellerUsername: zod.string(),
+      admin: zod.string(),
+      kind: zod.string(),
+      movement: zod.number().int(),
+      reason: zod.string(),
+      balanceBefore: zod.number().int(),
+      balanceAfter: zod.number().int(),
+    }),
+  ),
+  page: zod.number().int(),
+  pageSize: zod.number().int(),
+  total: zod.number().int(),
+  resellers: zod.array(
+    zod.object({
+      telegramId: zod.number().int(),
+      username: zod.string(),
+    }),
+  ),
+  added: zod.number().int(),
+  removed: zod.number().int(),
+});
+
 export const getAdminReportsQueryMonthsDefault = 12;
 export const getAdminReportsQueryMonthsMax = 36;
 

@@ -27,6 +27,8 @@ class CheckoutService:
         self.faq=Faq(self)
         from .admin_subscriptions import AdminSubscriptions
         self.accounts=AdminSubscriptions(self)
+        from .admin_logs import AdminLogs
+        self.logs=AdminLogs(self)
 
     def public(self, order, credentials=True):
         allowed = ('id','kind','plan','asset','amount_units','created_at','expires_at','status','txid','message','last_check')

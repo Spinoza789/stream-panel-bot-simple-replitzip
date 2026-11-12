@@ -334,6 +334,34 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SubscriptionDeleteResult" }
+  /admin/logs/activity:
+    get:
+      operationId: listAdminActivityLog
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: source, in: query, schema: { type: string, enum: [retail, reseller] } }
+        - { name: reseller, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Accounts created and extended, newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActivityLogPage" }
+  /admin/logs/credits:
+    get:
+      operationId: listAdminCreditLog
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: scope, in: query, schema: { type: string, enum: [usage, all] } }
+        - { name: reseller, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Reseller credit movements, newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreditLogPage" }
   /admin/reports:
     get:
       operationId: getAdminReports
@@ -679,6 +707,64 @@ components:
         monthly: { type: [integer, "null"], minimum: -1, maximum: 100000 }
         active: { type: [integer, "null"], minimum: -1, maximum: 100000 }
         reason: { type: string, minLength: 3, maxLength: 500 }
+    LogReseller:
+      type: object
+      required: [telegramId, username]
+      properties:
+        telegramId: { type: integer }
+        username: { type: string }
+    ActivityLogEntry:
+      type: object
+      required: [id, date, source, resellerTelegramId, resellerUsername, customer, action, status, package, accountUsername, accountPassword, creditCost, creditsBefore, creditsAfter]
+      properties:
+        id: { type: string }
+        date: { type: integer }
+        source: { type: string, enum: [retail, reseller] }
+        resellerTelegramId: { type: integer }
+        resellerUsername: { type: string }
+        customer: { type: string }
+        action: { type: string }
+        status: { type: string }
+        package: { type: string }
+        accountUsername: { type: string }
+        accountPassword: { type: string }
+        creditCost: { type: integer }
+        creditsBefore: { type: [integer, "null"] }
+        creditsAfter: { type: [integer, "null"] }
+    ActivityLogPage:
+      type: object
+      required: [items, page, pageSize, total, resellers]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ActivityLogEntry" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        resellers: { type: array, items: { $ref: "#/components/schemas/LogReseller" } }
+    CreditLogEntry:
+      type: object
+      required: [id, date, resellerTelegramId, resellerUsername, admin, kind, movement, reason, balanceBefore, balanceAfter]
+      properties:
+        id: { type: string }
+        date: { type: integer }
+        resellerTelegramId: { type: integer }
+        resellerUsername: { type: string }
+        admin: { type: string }
+        kind: { type: string }
+        movement: { type: integer }
+        reason: { type: string }
+        balanceBefore: { type: integer }
+        balanceAfter: { type: integer }
+    CreditLogPage:
+      type: object
+      required: [items, page, pageSize, total, resellers, added, removed]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/CreditLogEntry" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        resellers: { type: array, items: { $ref: "#/components/schemas/LogReseller" } }
+        added: { type: integer }
+        removed: { type: integer }
     AdminSubscription:
       type: object
       required: [id, source, kind, status, customer, telegramId, telegramUsername, resellerTelegramId, resellerUsername, customerRef, accountUsername, accountPassword, serverUrl, plan, connections, createdAt, expiresAt]

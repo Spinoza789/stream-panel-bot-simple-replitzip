@@ -318,6 +318,22 @@ def register_admin(app, service):
         accounts.delete(request.admin_actor, source, sid, str(data.get('reason', '')))
         return jsonify(deleted=True)
 
+    # ---- logs from our own records: accounts created/extended, and reseller credit movements ----
+    def log_filters():
+        try:
+            page = int(request.args.get('page', '1'))
+            reseller = int(request.args['reseller']) if request.args.get('reseller') else None
+        except ValueError: raise CheckoutError('Invalid log filter.') from None
+        return dict(reseller=reseller, search=request.args.get('q', ''), page=page)
+
+    @routes.get('/logs/activity')
+    def activity_log():
+        return jsonify(service.logs.activity(request.admin_actor, source=request.args.get('source', ''), **log_filters()))
+
+    @routes.get('/logs/credits')
+    def credit_log():
+        return jsonify(service.logs.credits(request.admin_actor, scope=request.args.get('scope', ''), **log_filters()))
+
     @routes.get('/reports')
     def reports():
         try: months = int(request.args.get('months', '12'))

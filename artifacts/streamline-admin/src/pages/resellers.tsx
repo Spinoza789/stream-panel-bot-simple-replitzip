@@ -207,7 +207,7 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
       <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{r ? (r.username ? "@" + r.username : "Reseller " + r.telegramId) : "Reseller"}</DialogTitle>
-          <DialogDescription>Telegram ID <CopyId value={String(id)} label="Telegram ID" /></DialogDescription>
+          <DialogDescription>Telegram ID <CopyId value={String(id)} label="Telegram ID" /> · <Link href={`/logs?reseller=${id}`} className="font-medium text-primary hover:underline" data-testid="link-reseller-activity">Activity log</Link> · <Link href={`/logs?tab=credits&reseller=${id}`} className="font-medium text-primary hover:underline" data-testid="link-reseller-credits">Credit log</Link></DialogDescription>
         </DialogHeader>
         {q.isError && <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />}
         {!d ? <div className="space-y-2"><Bar className="h-4" /><Bar className="h-4 w-2/3" /></div> : (

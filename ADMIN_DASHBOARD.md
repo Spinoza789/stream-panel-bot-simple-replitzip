@@ -154,6 +154,15 @@ goes into the audit log, and changes apply to new orders only.
 - **Resellers → open a reseller** shows that reseller's subscriptions and trials, how
   many trials they have used in each window, and lets the owner give that one reseller
   its own limits (or leave any window on the default).
+- **Logs** has two tabs, both built from this system's own records (nothing is read
+  from the IPTV panel) and both filterable by reseller:
+  - *Activity log*: every line created or extended, by a reseller or as a direct sale,
+    with the account username and password, the package, and the reseller's credits
+    before and after.
+  - *Credit log*: every change to a reseller's balance. It opens on top-ups and manual
+    adjustments (who made them and why); "Credits used" and "Everything" add the
+    deductions. Balances are replayed from the reseller ledger.
+  Each reseller's page links straight to their activity and credit logs.
 - None of this adds tables or columns: usernames, deletions and per-reseller limits
   live in the existing `metadata` and `rs_settings` tables, so Publish has no schema
   change to apply.

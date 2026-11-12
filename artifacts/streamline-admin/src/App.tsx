@@ -12,6 +12,7 @@ import OrderDetailPage from '@/pages/order-detail';
 import SettingsPage from '@/pages/settings';
 import ResellersPage from '@/pages/resellers';
 import SubscriptionsPage from '@/pages/subscriptions';
+import LogsPage from '@/pages/logs';
 import ReportsPage from '@/pages/reports';
 import TicketsPage from '@/pages/tickets';
 import { SetupPage, SignInPage, SignUpRedirect } from '@/pages/auth';
@@ -71,6 +72,7 @@ function Routes() {
         <Route path="/subscriptions"><Protected><SubscriptionsPage /></Protected></Route>
         <Route path="/resellers"><Protected><ResellersPage /></Protected></Route>
         <Route path="/reports"><Protected><ReportsPage /></Protected></Route>
+        <Route path="/logs"><Protected><LogsPage /></Protected></Route>
         <Route path="/tickets"><Protected><TicketsPage /></Protected></Route>
         <Route path="/settings"><Protected><SettingsPage /></Protected></Route>
         <Route component={NotFound} />

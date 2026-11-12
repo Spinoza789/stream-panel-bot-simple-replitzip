@@ -22,6 +22,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActivityLogPage,
   AdminAccess,
   AdminFaq,
   AdminOrderDetail,
@@ -36,8 +37,11 @@ import type {
   AdminTicketDetail,
   AdminTicketPage,
   AuthUserEnvelope,
+  CreditLogPage,
   GetAdminReportsParams,
   HealthStatus,
+  ListAdminActivityLogParams,
+  ListAdminCreditLogParams,
   ListAdminOrdersParams,
   ListAdminResellersParams,
   ListAdminSubscriptionsParams,
@@ -3383,6 +3387,353 @@ export const useDeleteAdminSubscription = <
     queryClient,
   );
 };
+
+export const getListAdminActivityLogUrl = (
+  params?: ListAdminActivityLogParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/logs/activity?${stringifiedParams}`
+    : `/api/admin/logs/activity`;
+};
+
+export const listAdminActivityLog = async (
+  params?: ListAdminActivityLogParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<ActivityLogPage> => {
+  return customFetch<ActivityLogPage>(getListAdminActivityLogUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminActivityLogQueryKey = (
+  params?: ListAdminActivityLogParams,
+) => {
+  return [`/api/admin/logs/activity`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminActivityLogQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminActivityLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminActivityLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminActivityLog>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminActivityLogQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminActivityLog>>
+  > = ({ signal }) =>
+    listAdminActivityLog(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminActivityLog>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListAdminActivityLogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminActivityLog>>
+>;
+export type ListAdminActivityLogQueryError = ErrorType<unknown>;
+
+export function useListAdminActivityLog<
+  TData = Awaited<ReturnType<typeof listAdminActivityLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params: undefined | ListAdminActivityLogParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminActivityLog>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminActivityLog>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminActivityLog>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminActivityLog<
+  TData = Awaited<ReturnType<typeof listAdminActivityLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminActivityLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminActivityLog>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminActivityLog>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminActivityLog>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminActivityLog<
+  TData = Awaited<ReturnType<typeof listAdminActivityLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminActivityLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminActivityLog>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useListAdminActivityLog<
+  TData = Awaited<ReturnType<typeof listAdminActivityLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminActivityLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminActivityLog>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListAdminActivityLogQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getListAdminCreditLogUrl = (params?: ListAdminCreditLogParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/logs/credits?${stringifiedParams}`
+    : `/api/admin/logs/credits`;
+};
+
+export const listAdminCreditLog = async (
+  params?: ListAdminCreditLogParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<CreditLogPage> => {
+  return customFetch<CreditLogPage>(getListAdminCreditLogUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminCreditLogQueryKey = (
+  params?: ListAdminCreditLogParams,
+) => {
+  return [`/api/admin/logs/credits`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminCreditLogQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminCreditLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCreditLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminCreditLog>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminCreditLogQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminCreditLog>>
+  > = ({ signal }) => listAdminCreditLog(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditLog>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListAdminCreditLogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminCreditLog>>
+>;
+export type ListAdminCreditLogQueryError = ErrorType<unknown>;
+
+export function useListAdminCreditLog<
+  TData = Awaited<ReturnType<typeof listAdminCreditLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params: undefined | ListAdminCreditLogParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminCreditLog>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminCreditLog>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminCreditLog>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminCreditLog<
+  TData = Awaited<ReturnType<typeof listAdminCreditLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCreditLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminCreditLog>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminCreditLog>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminCreditLog>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminCreditLog<
+  TData = Awaited<ReturnType<typeof listAdminCreditLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCreditLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminCreditLog>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useListAdminCreditLog<
+  TData = Awaited<ReturnType<typeof listAdminCreditLog>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCreditLogParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminCreditLog>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListAdminCreditLogQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getGetAdminReportsUrl = (params?: GetAdminReportsParams) => {
   const normalizedParams = new URLSearchParams();

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth, displayName } from "@/lib/auth";
 import { useGetAdminOverview, getGetAdminOverviewQueryKey } from "@workspace/api-client-react";
-import { BarChart3, Home, Hourglass, LifeBuoy, LogOut, Menu, Moon, Package, Search, Settings2, Sun, Tv, Users, X } from "lucide-react";
+import { BarChart3, Home, Hourglass, LifeBuoy, LogOut, Menu, Moon, Package, ScrollText, Search, Settings2, Sun, Tv, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./bits";
 import { AccessGate, LIVE, useAdminReady } from "./access";
@@ -106,6 +106,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
     { href: "/resellers", label: "Resellers", icon: Users, count: ov.data?.activeResellers, hot: false },
     { href: "/tickets", label: "Tickets", icon: LifeBuoy, count: ov.data?.openTickets, hot: true },
     { href: "/reports", label: "Reports", icon: BarChart3, count: undefined, hot: false },
+    { href: "/logs", label: "Logs", icon: ScrollText, count: undefined, hot: false },
     { href: "/settings", label: "Settings", icon: Settings2, count: undefined, hot: false },
   ];
   return (

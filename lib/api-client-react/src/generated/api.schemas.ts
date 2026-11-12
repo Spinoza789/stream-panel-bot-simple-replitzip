@@ -295,6 +295,69 @@ export interface ResellerTrialLimitsInput {
   reason: string;
 }
 
+export interface LogReseller {
+  telegramId: number;
+  username: string;
+}
+
+export type ActivityLogEntrySource =
+  (typeof ActivityLogEntrySource)[keyof typeof ActivityLogEntrySource];
+
+export const ActivityLogEntrySource = {
+  retail: "retail",
+  reseller: "reseller",
+} as const;
+
+export interface ActivityLogEntry {
+  id: string;
+  date: number;
+  source: ActivityLogEntrySource;
+  resellerTelegramId: number;
+  resellerUsername: string;
+  customer: string;
+  action: string;
+  status: string;
+  package: string;
+  accountUsername: string;
+  accountPassword: string;
+  creditCost: number;
+  /** @nullable */
+  creditsBefore: number | null;
+  /** @nullable */
+  creditsAfter: number | null;
+}
+
+export interface ActivityLogPage {
+  items: ActivityLogEntry[];
+  page: number;
+  pageSize: number;
+  total: number;
+  resellers: LogReseller[];
+}
+
+export interface CreditLogEntry {
+  id: string;
+  date: number;
+  resellerTelegramId: number;
+  resellerUsername: string;
+  admin: string;
+  kind: string;
+  movement: number;
+  reason: string;
+  balanceBefore: number;
+  balanceAfter: number;
+}
+
+export interface CreditLogPage {
+  items: CreditLogEntry[];
+  page: number;
+  pageSize: number;
+  total: number;
+  resellers: LogReseller[];
+  added: number;
+  removed: number;
+}
+
 export type AdminSubscriptionSource =
   (typeof AdminSubscriptionSource)[keyof typeof AdminSubscriptionSource];
 
@@ -689,6 +752,54 @@ export type ListAdminSubscriptionsStatus =
 export const ListAdminSubscriptionsStatus = {
   active: "active",
   expired: "expired",
+} as const;
+
+export type ListAdminActivityLogParams = {
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  source?: ListAdminActivityLogSource;
+  /**
+   * @minimum 1
+   */
+  reseller?: number;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type ListAdminActivityLogSource =
+  (typeof ListAdminActivityLogSource)[keyof typeof ListAdminActivityLogSource];
+
+export const ListAdminActivityLogSource = {
+  retail: "retail",
+  reseller: "reseller",
+} as const;
+
+export type ListAdminCreditLogParams = {
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  scope?: ListAdminCreditLogScope;
+  /**
+   * @minimum 1
+   */
+  reseller?: number;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type ListAdminCreditLogScope =
+  (typeof ListAdminCreditLogScope)[keyof typeof ListAdminCreditLogScope];
+
+export const ListAdminCreditLogScope = {
+  usage: "usage",
+  all: "all",
 } as const;
 
 export type GetAdminReportsParams = {

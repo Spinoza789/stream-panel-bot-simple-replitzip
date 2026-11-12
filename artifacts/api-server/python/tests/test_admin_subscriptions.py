@@ -263,6 +263,51 @@ class Scenarios:
         with self.store.connection() as db:
             self.assertEqual(self.finance.trial_limits(db)[0], {'daily': 2, 'weekly': -1, 'monthly': -1, 'active': 2})
 
+    # ---- activity and credit logs ----
+    def test_activity_log_shows_who_created_what_with_credits_before_and_after(self):
+        self.finance.adjust(ADMIN, 42, 20, 'Bank transfer REF1', 'fund-42-a')
+        self.reseller_trial(42, 'first')
+        op = self.ops.reserve(42, 'request-paid', self.ops.preview(42, 'create', 3, 2, False, 'Bar on King St')); self.ops.process()
+        self.trial(700); self.message(700, 'alice_tv')
+        log = self.call('/logs/activity').json
+        self.assertEqual(log['total'], 3)
+        self.assertEqual({r['telegramId'] for r in log['resellers']}, {42, 43})
+        paid = next(i for i in log['items'] if i['id'] == op['id'])
+        cost = paid['creditCost']
+        self.assertGreater(cost, 0)
+        self.assertEqual((paid['action'], paid['status'], paid['resellerUsername'], paid['customer'], paid['package']),
+                         ('create', 'succeeded', 'reseller_one', 'Bar on King St', '3 months · 2 devices'))
+        self.assertEqual((paid['creditsBefore'], paid['creditsAfter']), (20, 20 - cost))
+        self.assertTrue(paid['accountUsername'].startswith('test-user-')); self.assertTrue(paid['accountPassword'])
+        trial = next(i for i in log['items'] if i['action'] == 'trial' and i['source'] == 'reseller')
+        self.assertEqual((trial['package'], trial['creditCost'], trial['creditsBefore'], trial['creditsAfter']), ('24-hour trial', 0, 20, 20))
+        direct = next(i for i in log['items'] if i['source'] == 'retail')
+        self.assertEqual((direct['customer'], direct['accountUsername'], direct['creditsBefore']), ('@alice_tv · 700', 'line1', None))
+        # by reseller, by source, by search
+        self.assertEqual(self.call('/logs/activity?reseller=42').json['total'], 2)
+        self.assertEqual(self.call('/logs/activity?reseller=43').json['total'], 0)
+        self.assertEqual(self.call('/logs/activity?source=retail').json['total'], 1)
+        self.assertEqual(self.call('/logs/activity?q=king').json['total'], 1)
+        self.assertEqual(self.call('/logs/activity?source=panel').status_code, 400)
+
+    def test_credit_log_lists_top_ups_and_adjustments_per_reseller(self):
+        self.finance.adjust(ADMIN, 42, 20, 'Bank transfer REF1', 'fund-42-a')
+        self.call('/resellers/42/credits', {'movement': -5, 'reason': 'Correction', 'requestKey': 'correct-42-a'})
+        self.finance.adjust(ADMIN, 43, 7, 'Goodwill', 'fund-43-a')
+        self.ops.reserve(42, 'request-paid', self.ops.preview(42, 'create', 1, 1, False, 'Sam')); self.ops.process()
+        log = self.call('/logs/credits').json
+        self.assertEqual((log['total'], log['added'], log['removed']), (3, 27, 5))   # usage is not a top-up
+        newest = log['items'][0]
+        self.assertEqual((newest['resellerTelegramId'], newest['movement'], newest['reason'], newest['kind']), (43, 7, 'Goodwill', 'adjustment'))
+        mine = self.call('/logs/credits?reseller=42').json
+        self.assertEqual([(i['movement'], i['balanceBefore'], i['balanceAfter'], i['admin']) for i in mine['items']],
+                         [(-5, 20, 15, 'Owner (website)'), (20, 0, 20, 'Admin 9001')])
+        usage = self.call('/logs/credits?reseller=42&scope=usage').json
+        self.assertEqual((usage['total'], usage['items'][0]['kind'], usage['items'][0]['balanceBefore']), (1, 'usage', 15))
+        self.assertEqual(self.call('/logs/credits?scope=all').json['total'], 4)
+        self.assertEqual(self.call('/logs/credits?q=goodwill').json['total'], 1)
+        self.assertEqual(self.call('/logs/credits?reseller=abc').status_code, 400)
+
 
 class AdminSubscriptionTests(Scenarios, unittest.TestCase):
     def setUp(self):

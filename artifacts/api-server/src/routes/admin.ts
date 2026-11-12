@@ -9,6 +9,7 @@ import {
   ListAdminTicketsQueryParams, ListAdminTicketsResponse, GetAdminTicketResponse, ReplyAdminTicketBody, SetAdminTicketStatusBody,
   SetAdminResellerTrialLimitsBody, ListAdminSubscriptionsQueryParams, ListAdminSubscriptionsResponse,
   AddAdminSubscriptionBody, AddAdminSubscriptionResponse, DeleteAdminSubscriptionBody, DeleteAdminSubscriptionResponse,
+  ListAdminActivityLogQueryParams, ListAdminActivityLogResponse, ListAdminCreditLogQueryParams, ListAdminCreditLogResponse,
 } from "@workspace/api-zod";
 import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
 import { adminRequest } from "../lib/python-bridge";
@@ -107,6 +108,13 @@ router.use(async (req, res) => {
       const parsed = DeleteAdminSubscriptionBody.safeParse(req.body);
       if (!parsed.success) { res.status(400).json({ error: "Confirm the deletion and give a reason." }); return; }
       target = req.path; schema = DeleteAdminSubscriptionResponse; body = parsed.data;
+    } else if (req.method === "GET" && (req.path === "/logs/activity" || req.path === "/logs/credits")) {
+      const activity = req.path === "/logs/activity";
+      const parsed = (activity ? ListAdminActivityLogQueryParams : ListAdminCreditLogQueryParams).safeParse(req.query);
+      if (!parsed.success) { res.status(400).json({ error: "Invalid log filters." }); return; }
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(parsed.data)) if (value !== undefined) params.set(key, String(value));
+      target = req.path + "?" + params.toString(); schema = activity ? ListAdminActivityLogResponse : ListAdminCreditLogResponse;
     } else if (req.method === "GET" && req.path === "/reports") {
       const parsed = GetAdminReportsQueryParams.safeParse(req.query);
       if (!parsed.success) { res.status(400).json({ error: "Invalid report range." }); return; }
