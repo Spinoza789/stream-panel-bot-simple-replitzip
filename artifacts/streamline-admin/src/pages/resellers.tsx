@@ -9,7 +9,8 @@ import {
 import { Link } from "wouter";
 import { LimitField, UNLIMITED } from "@/components/admin/subscriptions";
 import { SubscriptionDialog, SubscriptionsTable } from "@/pages/subscriptions";
-import { ChevronLeft, ChevronRight, Search, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, Users, X } from "lucide-react";
+import { CreateResellerDialog, NewTicketDialog } from "@/components/admin/create";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
 import { Bar, CopyId, EmptyState, ErrorState, PageHeader, Panel, StatusBadge } from "@/components/admin/bits";
@@ -28,6 +29,7 @@ function ResellersList() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     clearTimeout(timer.current);
@@ -40,7 +42,8 @@ function ResellersList() {
   const d = list.data;
   return (
     <>
-      <PageHeader title="Resellers" description="Who sells for you, what they hold in credits and how many customers they look after. Actions are logged in the audit trail." />
+      <PageHeader title="Resellers" description="Who sells for you, what they hold in credits and how many customers they look after. Actions are logged in the audit trail."
+        actions={<Button onClick={() => setCreating(true)} data-testid="button-add-reseller"><Plus className="mr-1.5 h-4 w-4" /> Add reseller</Button>} />
       <Panel flush>
         <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
           <p className="text-sm text-muted-foreground">{d ? `${d.items.length}${d.more ? "+" : ""} on this page` : ""}</p>
@@ -98,6 +101,7 @@ function ResellersList() {
         )}
       </Panel>
       {open !== null && <ResellerDialog id={open} onClose={() => setOpen(null)} />}
+      <CreateResellerDialog open={creating} onClose={() => setCreating(false)} onCreated={(r) => setOpen(r.reseller.telegramId)} />
     </>
   );
 }
@@ -180,6 +184,7 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const [movement, setMovement] = useState("");
   const [creditReason, setCreditReason] = useState("");
   const [requestKey] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
+  const [messaging, setMessaging] = useState(false);
   const refresh = () => {
     qc.invalidateQueries({ queryKey: getGetAdminResellerQueryKey(String(id)) });
     qc.invalidateQueries({ queryKey: getListAdminResellersQueryKey() });
@@ -207,7 +212,7 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
       <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{r ? (r.username ? "@" + r.username : "Reseller " + r.telegramId) : "Reseller"}</DialogTitle>
-          <DialogDescription>Telegram ID <CopyId value={String(id)} label="Telegram ID" /> · <Link href={`/logs?reseller=${id}`} className="font-medium text-primary hover:underline" data-testid="link-reseller-activity">Activity log</Link> · <Link href={`/logs?tab=credits&reseller=${id}`} className="font-medium text-primary hover:underline" data-testid="link-reseller-credits">Credit log</Link></DialogDescription>
+          <DialogDescription>Telegram ID <CopyId value={String(id)} label="Telegram ID" /> · <Link href={`/logs?reseller=${id}`} className="font-medium text-primary hover:underline" data-testid="link-reseller-activity">Activity log</Link> · <Link href={`/logs?tab=credits&reseller=${id}`} className="font-medium text-primary hover:underline" data-testid="link-reseller-credits">Credit log</Link> · <button type="button" className="font-medium text-primary hover:underline" onClick={() => setMessaging(true)} data-testid="button-reseller-ticket">New ticket</button></DialogDescription>
         </DialogHeader>
         {q.isError && <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />}
         {!d ? <div className="space-y-2"><Bar className="h-4" /><Bar className="h-4 w-2/3" /></div> : (
@@ -266,6 +271,7 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
             <ResellerAccounts id={id} />
           </div>
         )}
+        <NewTicketDialog open={messaging} onClose={() => setMessaging(false)} telegramId={String(id)} recipient={r?.username ? "@" + r.username : undefined} />
       </DialogContent>
     </Dialog>
   );

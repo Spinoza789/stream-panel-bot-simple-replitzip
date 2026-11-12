@@ -139,9 +139,11 @@ goes into the audit log, and changes apply to new orders only.
   reseller's customer note. Renewals and trial upgrades are shown once, as the login
   they extend.
 - **Telegram usernames**: the bot records a customer's current @username whenever they
-  message it or tap a button (`tg_username:<id>` in metadata). Customers who have not
-  used the bot since this release show "Not seen yet" until they next do; the numeric
-  Telegram ID remains the identity.
+  message it or tap a button (`tg_username:<id>` in metadata). For customers who have
+  not used the bot since, it asks Telegram (`getChat`) in small background batches, so
+  existing customers fill in within minutes of the bot starting. "No username set"
+  means the person has no @username on Telegram or never started the bot; those are
+  re-checked weekly. The numeric Telegram ID remains the identity.
 - **Add subscription** gives a Telegram user a membership without payment: pick the
   plan and give a reason. The normal worker creates a real panel line and the bot
   sends the login. It is not counted as revenue, and the customer can renew it later
@@ -163,6 +165,18 @@ goes into the audit log, and changes apply to new orders only.
     adjustments (who made them and why); "Credits used" and "Everything" add the
     deductions. Balances are replayed from the reseller ledger.
   Each reseller's page links straight to their activity and credit logs.
+- **Creating things as the owner** (each needs a reason where money or accounts are
+  involved, and is audited):
+  - *Resellers → Add reseller*: makes a Telegram user an active reseller without a
+    pack purchase, optionally with starting credits (recorded as a manual adjustment).
+    Refused if they are already active or suspended.
+  - *Subscriptions → Add trial or subscription*: besides paid plans, the owner can
+    start a customer's 24-hour trial. The one-trial-per-Telegram-user rule still
+    applies; the public daily trial allowance does not.
+  - *Tickets → New ticket* (also on a reseller's page and on an order): opens a ticket
+    addressed to a customer or reseller and sends the message in Telegram. Their reply
+    lands on the same ticket. Telegram only delivers to people who have started the
+    bot; the dashboard says when delivery failed.
 - None of this adds tables or columns: usernames, deletions and per-reseller limits
   live in the existing `metadata` and `rs_settings` tables, so Publish has no schema
   change to apply.

@@ -156,12 +156,13 @@ export function AddSubscriptionDialog({ open, onClose, telegramId, onAdded }: { 
   useEffect(() => { if (open) { setTid(telegramId ?? ""); setPlan(""); setReason(""); add.reset(); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [open, telegramId]);
   const plans = card.data?.plans ?? [];
   const chosen = plans.find((p) => p.id === plan);
-  const valid = /^[1-9][0-9]{0,15}$/.test(tid.trim()) && !!chosen && reason.trim().length >= 3;
+  const trial = plan === "trial";
+  const valid = /^[1-9][0-9]{0,15}$/.test(tid.trim()) && (trial || !!chosen) && reason.trim().length >= 3;
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!valid) return;
     add.mutate({ data: { telegramId: Number(tid.trim()), planId: plan, reason: reason.trim() } }, {
-      onSuccess: (r) => { toast({ title: "Subscription added", description: r.message }); refresh(); onAdded?.(r); onClose(); },
+      onSuccess: (r) => { toast({ title: trial ? "Trial added" : "Subscription added", description: r.message }); refresh(); onAdded?.(r); onClose(); },
     });
   };
   return (
@@ -169,7 +170,7 @@ export function AddSubscriptionDialog({ open, onClose, telegramId, onAdded }: { 
       <DialogContent className="max-w-md">
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>Add a subscription</DialogTitle>
+            <DialogTitle>Add a trial or subscription</DialogTitle>
             <DialogDescription>Creates a new account for this Telegram user without payment. The bot sends them the login when it is ready.</DialogDescription>
           </DialogHeader>
           <div className="my-4 space-y-3 text-sm">
@@ -181,7 +182,8 @@ export function AddSubscriptionDialog({ open, onClose, telegramId, onAdded }: { 
             <div>
               <label className="text-xs font-medium text-muted-foreground" htmlFor="add-plan">Plan</label>
               <select id="add-plan" value={plan} onChange={(e) => setPlan(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-2 text-[13px]" data-testid="select-add-plan">
-                <option value="">{card.isLoading ? "Loading plans…" : "Choose a plan"}</option>
+                <option value="">{card.isLoading ? "Loading plans…" : "Choose a trial or plan"}</option>
+                <option value="trial">24-hour free trial · 1 device</option>
                 {plans.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.connections} device{p.connections > 1 ? "s" : ""} (normally {gbp(parseFloat(p.gbpPrice) || 0)})</option>)}
               </select>
               {card.isError && <p className="mt-1 text-xs text-destructive">{errorMessage(card.error)}</p>}
@@ -190,12 +192,14 @@ export function AddSubscriptionDialog({ open, onClose, telegramId, onAdded }: { 
               <label className="text-xs font-medium text-muted-foreground" htmlFor="add-reason">Reason (kept in the audit log)</label>
               <Input id="add-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} placeholder="e.g. Paid by bank transfer" className="mt-1 h-9" data-testid="input-add-reason" />
             </div>
-            <p className="rounded-lg bg-muted/60 p-2.5 text-xs text-muted-foreground">This creates a real line on the IPTV panel and uses panel credit. It is not counted as revenue.</p>
+            <p className="rounded-lg bg-muted/60 p-2.5 text-xs text-muted-foreground">{trial
+              ? "This creates a real trial line on the IPTV panel. Each Telegram user gets one free trial ever, so this uses theirs."
+              : "This creates a real line on the IPTV panel and uses panel credit. It is not counted as revenue."}</p>
             {add.isError && <p className="text-xs text-destructive">{errorMessage(add.error)}</p>}
           </div>
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={add.isPending || !valid} data-testid="button-confirm-add">{add.isPending ? "Adding…" : "Add subscription"}</Button>
+            <Button type="submit" disabled={add.isPending || !valid} data-testid="button-confirm-add">{add.isPending ? "Adding…" : trial ? "Add trial" : "Add subscription"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

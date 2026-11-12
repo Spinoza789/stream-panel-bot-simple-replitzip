@@ -57,6 +57,7 @@ import type {
   RecoveryDraft,
   RecoveryPreviewInput,
   RecoveryResult,
+  ResellerCreateInput,
   ResellerCreditsInput,
   ResellerStatusInput,
   ResellerTrialLimitsInput,
@@ -64,6 +65,7 @@ import type {
   SubscriptionAddResult,
   SubscriptionDeleteInput,
   SubscriptionDeleteResult,
+  TicketCreateInput,
   TicketReplyInput,
   TicketStatusInput,
   TotpCodeInput,
@@ -2443,6 +2445,122 @@ export function useListAdminResellers<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getCreateAdminResellerUrl = () => {
+  return `/api/admin/resellers`;
+};
+
+export const createAdminReseller = async (
+  resellerCreateInput: ResellerCreateInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminResellerDetail> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AdminResellerDetail>(getCreateAdminResellerUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(resellerCreateInput),
+  });
+};
+
+export const getCreateAdminResellerMutationKey = () =>
+  ["createAdminReseller"] as const;
+
+export const getCreateAdminResellerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminReseller>>,
+    TError,
+    CreateAdminResellerMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminReseller>>,
+  TError,
+  CreateAdminResellerMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCreateAdminResellerMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminReseller>>,
+    CreateAdminResellerMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAdminReseller(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminResellerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminReseller>>
+>;
+export type CreateAdminResellerMutationBody = BodyType<ResellerCreateInput>;
+export type CreateAdminResellerMutationError = ErrorType<unknown>;
+export type CreateAdminResellerMutationVariables = {
+  data: BodyType<ResellerCreateInput>;
+};
+
+export const useCreateAdminReseller = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createAdminReseller>>,
+      TError,
+      CreateAdminResellerMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminReseller>>,
+  TError,
+  CreateAdminResellerMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getCreateAdminResellerMutationOptions(options),
+    queryClient,
+  );
+};
+
 export const getGetAdminResellerUrl = (id: string) => {
   return `/api/admin/resellers/${id}`;
 };
@@ -4075,6 +4193,118 @@ export function useListAdminTickets<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getOpenAdminTicketUrl = () => {
+  return `/api/admin/tickets`;
+};
+
+export const openAdminTicket = async (
+  ticketCreateInput: TicketCreateInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminTicketDetail> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AdminTicketDetail>(getOpenAdminTicketUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(ticketCreateInput),
+  });
+};
+
+export const getOpenAdminTicketMutationKey = () => ["openAdminTicket"] as const;
+
+export const getOpenAdminTicketMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof openAdminTicket>>,
+    TError,
+    OpenAdminTicketMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof openAdminTicket>>,
+  TError,
+  OpenAdminTicketMutationVariables,
+  TContext
+> => {
+  const mutationKey = getOpenAdminTicketMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof openAdminTicket>>,
+    OpenAdminTicketMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return openAdminTicket(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type OpenAdminTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof openAdminTicket>>
+>;
+export type OpenAdminTicketMutationBody = BodyType<TicketCreateInput>;
+export type OpenAdminTicketMutationError = ErrorType<unknown>;
+export type OpenAdminTicketMutationVariables = {
+  data: BodyType<TicketCreateInput>;
+};
+
+export const useOpenAdminTicket = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof openAdminTicket>>,
+      TError,
+      OpenAdminTicketMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof openAdminTicket>>,
+  TError,
+  OpenAdminTicketMutationVariables,
+  TContext
+> => {
+  return useMutation(getOpenAdminTicketMutationOptions(options), queryClient);
+};
 
 export const getGetAdminTicketUrl = (id: string) => {
   return `/api/admin/tickets/${id}`;

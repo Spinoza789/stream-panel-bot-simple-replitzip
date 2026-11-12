@@ -399,6 +399,118 @@ export const ListAdminResellersResponse = zod.object({
   more: zod.boolean(),
 });
 
+export const createAdminResellerBodyUsernameMax = 65;
+
+export const createAdminResellerBodyCreditsMin = 0;
+export const createAdminResellerBodyCreditsMax = 100000;
+
+export const createAdminResellerBodyReasonMin = 3;
+export const createAdminResellerBodyReasonMax = 500;
+
+export const createAdminResellerBodyRequestKeyMin = 8;
+export const createAdminResellerBodyRequestKeyMax = 64;
+
+export const createAdminResellerBodyRequestKeyRegExp = new RegExp(
+  "^[A-Za-z0-9_-]+$",
+);
+
+export const CreateAdminResellerBody = zod.object({
+  telegramId: zod.number().int().min(1),
+  username: zod.string().max(createAdminResellerBodyUsernameMax).optional(),
+  credits: zod
+    .number()
+    .int()
+    .min(createAdminResellerBodyCreditsMin)
+    .max(createAdminResellerBodyCreditsMax),
+  reason: zod
+    .string()
+    .min(createAdminResellerBodyReasonMin)
+    .max(createAdminResellerBodyReasonMax),
+  requestKey: zod
+    .string()
+    .min(createAdminResellerBodyRequestKeyMin)
+    .max(createAdminResellerBodyRequestKeyMax)
+    .regex(createAdminResellerBodyRequestKeyRegExp),
+});
+
+export const CreateAdminResellerResponse = zod.object({
+  reseller: zod.object({
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    status: zod.string(),
+    createdAt: zod.number().int(),
+    balance: zod.number().int(),
+    reserved: zod.number().int(),
+    available: zod.number().int(),
+    customers: zod.number().int(),
+    activeCustomers: zod.number().int(),
+    creditsBought: zod.number().int(),
+    lastActivity: zod.number().int(),
+  }),
+  stats: zod.object({
+    this_month: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+    all_time: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+  }),
+  trials: zod.object({
+    limits: zod
+      .object({
+        daily: zod.number().int().nullable(),
+        weekly: zod.number().int().nullable(),
+        monthly: zod.number().int().nullable(),
+        active: zod.number().int().nullable(),
+      })
+      .describe(
+        "One reseller's own allowances. null follows the default for all resellers.",
+      ),
+    effective: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    default: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    usage: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+  }),
+  history: zod.array(
+    zod.object({
+      createdAt: zod.number().int(),
+      movement: zod.number().int(),
+      reason: zod.string(),
+      reference: zod.string(),
+    }),
+  ),
+});
+
 export const GetAdminResellerParams = zod.object({
   id: zod.coerce.string(),
 });
@@ -1074,6 +1186,42 @@ export const ListAdminTicketsResponse = zod.object({
     answered: zod.number().int(),
     closed: zod.number().int(),
   }),
+});
+
+export const openAdminTicketBodyBodyMax = 2000;
+
+export const OpenAdminTicketBody = zod.object({
+  telegramId: zod.number().int().min(1),
+  topic: zod.enum(["payment", "login", "playback", "reseller", "other"]),
+  body: zod.string().min(1).max(openAdminTicketBodyBodyMax),
+});
+
+export const OpenAdminTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.string(),
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    topic: zod.string(),
+    topicLabel: zod.string(),
+    status: zod.enum(["open", "answered", "closed"]),
+    channel: zod.string(),
+    reseller: zod.boolean(),
+    createdAt: zod.number().int(),
+    updatedAt: zod.number().int(),
+    messages: zod.number().int(),
+    lastSender: zod.string(),
+    preview: zod.string(),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.string(),
+      sender: zod.enum(["customer", "support"]),
+      body: zod.string(),
+      actor: zod.string(),
+      createdAt: zod.number().int(),
+    }),
+  ),
+  delivered: zod.boolean().optional(),
 });
 
 export const GetAdminTicketParams = zod.object({

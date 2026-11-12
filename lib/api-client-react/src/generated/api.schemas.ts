@@ -184,6 +184,51 @@ export interface AdminTicketDetail {
   delivered?: boolean;
 }
 
+export type TicketCreateInputTopic =
+  (typeof TicketCreateInputTopic)[keyof typeof TicketCreateInputTopic];
+
+export const TicketCreateInputTopic = {
+  payment: "payment",
+  login: "login",
+  playback: "playback",
+  reseller: "reseller",
+  other: "other",
+} as const;
+
+export interface TicketCreateInput {
+  /** @minimum 1 */
+  telegramId: number;
+  topic: TicketCreateInputTopic;
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  body: string;
+}
+
+export interface ResellerCreateInput {
+  /** @minimum 1 */
+  telegramId: number;
+  /** @maxLength 65 */
+  username?: string;
+  /**
+   * @minimum 0
+   * @maximum 100000
+   */
+  credits: number;
+  /**
+   * @minLength 3
+   * @maxLength 500
+   */
+  reason: string;
+  /**
+   * @minLength 8
+   * @maxLength 64
+   * @pattern ^[A-Za-z0-9_-]+$
+   */
+  requestKey: string;
+}
+
 export interface TicketReplyInput {
   /**
    * @minLength 1

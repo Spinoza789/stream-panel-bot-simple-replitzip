@@ -51,6 +51,42 @@ class TelegramBot:
         from .admin_subscriptions import remember_username
         remember_username(self.store,self._usernames,sender)
 
+    USERNAME_BACKFILL_EVERY=30   # seconds between rounds
+    USERNAME_BACKFILL_BATCH=20   # customers asked about per round
+    USERNAME_RECHECK=7*86400     # ask again after this long when Telegram had no username to give
+
+    def backfill_usernames(self):
+        """Look up @usernames for customers who have not messaged since usernames started being recorded.
+
+        Telegram answers getChat for anyone who has started the bot. A few customers are checked per
+        round so the dashboard fills in within minutes of a deploy without bursting the API. Failures
+        are recorded and never interrupt the polling loop.
+        """
+        now=int(time.time())
+        if now<getattr(self,'_username_backfill_at',0):return 0
+        self._username_backfill_at=now+self.USERNAME_BACKFILL_EVERY
+        found=0
+        try:
+            with self.store.connection() as db:
+                ids={int(r[0]) for r in db.execute('SELECT telegram_id FROM orders WHERE telegram_id IS NOT NULL').fetchall()}
+                ids|={int(r[0]) for r in db.execute('SELECT telegram_id FROM account_links').fetchall()}
+                known={r[0] for r in db.execute('SELECT key FROM metadata WHERE key LIKE ?',('tg_username:%',)).fetchall()}
+                checked={r[0]:r[1] for r in db.execute('SELECT key,value FROM metadata WHERE key LIKE ?',('tg_username_checked:%',)).fetchall()}
+            due=[uid for uid in sorted(ids) if 'tg_username:'+str(uid) not in known
+                 and int(checked.get('tg_username_checked:'+str(uid)) or 0)+self.USERNAME_RECHECK<=now]
+            for uid in due[:self.USERNAME_BACKFILL_BATCH]:
+                try:chat=self.api('getChat',{'chat_id':uid})
+                except TelegramError as exc:
+                    if exc.code==429:break       # rate limited: try again next round
+                    chat=None                    # never started the bot, blocked it, or deleted their account
+                self.store.metadata('tg_username_checked:'+str(uid),now)
+                if isinstance(chat,dict) and isinstance(chat.get('username'),str):
+                    self.remember({'id':uid,'username':chat['username']})
+                    found+=1 if self._usernames.get(uid)==chat['username'] else 0
+        except Exception as exc:
+            log.warning('Username lookup skipped (%s).',type(exc).__name__)
+        return found
+
     @property
     def editing(self):return getattr(self._local,'editing',None)
 
@@ -458,6 +494,7 @@ class TelegramBot:
                     offset=next_offset
                 stage='trial_notifications'
                 self.notify_trials()
+                self.backfill_usernames()
                 stage='payment_notifications'
                 self.checkout.notify()
                 stage='reseller_notifications'

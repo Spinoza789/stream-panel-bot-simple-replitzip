@@ -161,13 +161,13 @@ class TicketBot:
         mid = result.get('message_id') if isinstance(result, dict) else None
         if type(mid) is int and mid > 0: self.store.metadata(self.route_key(mid), ticket['id'])
 
-    def ticket_to_customer(self, ticket, body):
+    def ticket_to_customer(self, ticket, body, first=False):
         from .bot import TelegramError
         if body is None:
             text = '⚪️ Ticket ' + ticket['id'] + ' was closed by support. Reply on it any time to reopen it.'
             rows = [[button('📄 View ticket', 'view:' + ticket['id'])]]
         else:
-            text = '🛟 <b>Support replied on ticket ' + ticket['id'] + '</b>\n\n' + escape(body)
+            text = ('🛟 <b>Message from support · ticket ' + ticket['id'] + '</b>\n\n' if first else '🛟 <b>Support replied on ticket ' + ticket['id'] + '</b>\n\n') + escape(body)
             rows = [[button('✍️ Reply', 'reply:' + ticket['id']), button('✅ Close ticket', 'close:' + ticket['id'])], [button('📄 View ticket', 'view:' + ticket['id'])]]
         try:
             self.bot.send(ticket['telegram_id'], text, {'inline_keyboard': rows}, parse_mode='HTML', keep=True); return True

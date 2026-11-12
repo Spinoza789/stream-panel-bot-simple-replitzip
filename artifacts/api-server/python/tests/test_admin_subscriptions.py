@@ -98,6 +98,38 @@ class Scenarios:
         self.assertEqual(self.call('/orders?q=700').json['total'], 1)
         self.assertEqual(self.call('/orders?q=nobody_here').json['total'], 0)
 
+    def test_bot_looks_up_usernames_for_customers_it_has_not_heard_from(self):
+        from streambot.bot import TelegramError
+        trial = self.trial(700)
+        paid = self.call('/subscriptions', {'telegramId': 800, 'planId': 'month-1', 'reason': 'Existing customer'}).json['orderId']
+        self.service.create_trial(701); self.service.create_trial(702)
+        asked = []
+        def api(method, payload):
+            if method != 'getChat': return {'message_id': 1}
+            asked.append(payload['chat_id'])
+            if payload['chat_id'] == 701: raise TelegramError(400, 'getChat')        # never started the bot
+            return {'id': payload['chat_id'], 'username': {700: 'alice_tv', 800: 'bob_h'}.get(payload['chat_id'])}
+        self.bot.api = api
+        self.assertEqual(self.bot.backfill_usernames(), 2)
+        self.assertEqual(sorted(asked), [700, 701, 702, 800])
+        self.assertEqual(self.call('/orders/' + trial['id']).json['order']['username'], 'alice_tv')
+        self.assertEqual(self.call('/orders/' + paid).json['order']['username'], 'bob_h')
+        # Nothing is asked twice: found names are kept, and misses wait a week before the next try.
+        self.bot._username_backfill_at = 0
+        self.assertEqual(self.bot.backfill_usernames(), 0)
+        self.assertEqual(len(asked), 4)
+        with self.store.connection() as db:
+            db.execute("UPDATE metadata SET value='0' WHERE key='tg_username_checked:702'")
+        self.bot._username_backfill_at = 0; self.bot.backfill_usernames()
+        self.assertEqual(asked[4:], [702])
+        # A broken API never stops the bot's loop.
+        def broken(method, payload): raise RuntimeError('network down')
+        self.bot.api = broken
+        with self.store.connection() as db:
+            db.execute("UPDATE metadata SET value='0' WHERE key='tg_username_checked:702'")
+        self.bot._username_backfill_at = 0
+        self.assertEqual(self.bot.backfill_usernames(), 0)
+
     def test_order_without_an_account_has_no_login_and_cannot_be_deleted(self):
         order = self.service.create_trial(701)
         detail = self.call('/orders/' + order['id']).json
@@ -262,6 +294,56 @@ class Scenarios:
         self.finance.configure(ADMIN, 'trials', (2, 2), 'From /rstrials')
         with self.store.connection() as db:
             self.assertEqual(self.finance.trial_limits(db)[0], {'daily': 2, 'weekly': -1, 'monthly': -1, 'active': 2})
+
+    # ---- owner creates resellers, trials and tickets ----
+    def test_owner_creates_an_active_reseller_with_starting_credits(self):
+        body = {'telegramId': 900, 'username': '@new_partner', 'credits': 25, 'reason': 'Agreed by phone', 'requestKey': 'create-900-a'}
+        made = self.call('/resellers', body).json
+        self.assertEqual((made['reseller']['status'], made['reseller']['username'], made['reseller']['available']), ('active', 'new_partner', 25))
+        self.assertEqual(self.call('/resellers', body).status_code, 400)                        # already active; no second grant
+        self.assertEqual(self.finance.member(900)['balance'], 25)
+        self.reseller_trial(900, 'first')                                                       # can use the account straight away
+        log = self.call('/logs/credits?reseller=900').json
+        self.assertEqual((log['total'], log['items'][0]['movement'], log['items'][0]['reason']), (1, 25, 'Agreed by phone'))
+        zero = self.call('/resellers', {'telegramId': 901, 'credits': 0, 'reason': 'No credits yet', 'requestKey': 'create-901-a'}).json
+        self.assertEqual((zero['reseller']['status'], zero['reseller']['available']), ('active', 0))
+        for bad in ({'telegramId': 0, 'credits': 0, 'reason': 'Bad ID', 'requestKey': 'create-bad-1'},
+                    {'telegramId': 902, 'credits': -1, 'reason': 'Negative', 'requestKey': 'create-bad-2'},
+                    {'telegramId': 902, 'credits': 1, 'reason': '', 'requestKey': 'create-bad-3'},
+                    {'telegramId': 902, 'username': 'bad name', 'credits': 1, 'reason': 'Bad name', 'requestKey': 'create-bad-4'}):
+            self.assertEqual(self.call('/resellers', bad).status_code, 400)
+        self.assertIsNone(self.finance.member(902))
+        self.finance.account_status(ADMIN, 900, 'suspended', 'Test suspension')
+        self.assertEqual(self.call('/resellers', dict(body, requestKey='create-900-b')).status_code, 400)
+
+    def test_owner_starts_a_customers_trial_once(self):
+        result = self.call('/subscriptions', {'telegramId': 810, 'planId': 'trial', 'reason': 'Asked on the phone'})
+        self.assertEqual(result.status_code, 200); self.assertIn('Trial queued', result.json['message'])
+        self.service.provision_pending()
+        order = self.store.get(result.json['orderId'])
+        self.assertEqual((order['kind'], order['status'], order['telegram_id']), ('trial', 'fulfilled', 810))
+        self.bot.notify_trials()
+        self.assertTrue(any(payload.get('chat_id') == 810 and 'line1' in payload.get('text', '') for _, payload in self.sent))
+        again = self.call('/subscriptions', {'telegramId': 810, 'planId': 'trial', 'reason': 'Second go'})
+        self.assertEqual(again.status_code, 400); self.assertIn('already had', again.json['error'])
+        self.assertEqual(self.panel.create_account.call_count, 1)
+        self.assertEqual(self.call('/subscriptions?kind=trial').json['total'], 1)
+
+    def test_owner_opens_a_ticket_to_a_customer_and_a_reseller(self):
+        self.message(700, 'alice_tv')
+        made = self.call('/tickets', {'telegramId': 700, 'topic': 'payment', 'body': 'Your payment arrived, thank you.'}).json
+        ticket = made['ticket']
+        self.assertEqual((ticket['telegramId'], ticket['username'], ticket['status'], ticket['reseller'], made['delivered']), (700, 'alice_tv', 'answered', False, True))
+        self.assertEqual([(m['sender'], m['body']) for m in made['messages']], [('support', 'Your payment arrived, thank you.')])
+        sent = [payload for _, payload in self.sent if payload.get('chat_id') == 700 and 'Message from support' in payload.get('text', '')]
+        self.assertEqual(len(sent), 1); self.assertIn('Your payment arrived', sent[0]['text'])
+        # The customer can answer it like any ticket, which puts it back in the owner's queue.
+        self.service.tickets.reply(700, ticket['id'], 'Thanks!')
+        self.assertEqual(self.call('/tickets/' + ticket['id']).json['ticket']['status'], 'open')
+        reseller = self.call('/tickets', {'telegramId': 42, 'topic': 'reseller', 'body': 'New credit packs are available.'}).json['ticket']
+        self.assertEqual((reseller['reseller'], reseller['username']), (True, 'reseller_one'))
+        for bad in ({'telegramId': 0, 'topic': 'other', 'body': 'x'}, {'telegramId': 700, 'topic': 'nope', 'body': 'x'}, {'telegramId': 700, 'topic': 'other', 'body': '  '}):
+            self.assertEqual(self.call('/tickets', bad).status_code, 400)
 
     # ---- activity and credit logs ----
     def test_activity_log_shows_who_created_what_with_credits_before_and_after(self):

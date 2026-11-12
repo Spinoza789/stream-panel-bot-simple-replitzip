@@ -5,7 +5,8 @@ import {
   useReplyAdminTicket, useSetAdminTicketStatus, getGetAdminOverviewQueryKey,
   type ListAdminTicketsParams, type AdminTicket,
 } from "@workspace/api-client-react";
-import { ChevronLeft, ChevronRight, LifeBuoy, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LifeBuoy, MessageSquarePlus, Search, X } from "lucide-react";
+import { NewTicketDialog } from "@/components/admin/create";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
 import { Bar, CopyId, EmptyState, ErrorState, PageHeader, Panel, StatusBadge } from "@/components/admin/bits";
@@ -42,6 +43,7 @@ function TicketsList() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     clearTimeout(timer.current);
@@ -55,7 +57,8 @@ function TicketsList() {
   const counts = d?.counts;
   return (
     <>
-      <PageHeader title="Tickets" description="Customers and resellers open tickets from the bot's Contact support button or the panel's Support page. Reply here or by replying to the Telegram notification; either way it lands on the ticket and in the customer's chat." />
+      <PageHeader title="Tickets" description="Customers and resellers open tickets from the bot's Contact support button or the panel's Support page. Reply here or by replying to the Telegram notification; either way it lands on the ticket and in the customer's chat. Use New ticket to message a customer or reseller first."
+        actions={<Button onClick={() => setCreating(true)} data-testid="button-new-ticket"><MessageSquarePlus className="mr-1.5 h-4 w-4" /> New ticket</Button>} />
       <Panel flush>
         <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap gap-1">
@@ -118,6 +121,7 @@ function TicketsList() {
           </div>
         )}
       </Panel>
+      <NewTicketDialog open={creating} onClose={() => setCreating(false)} onOpened={(r) => { setStatus("all"); setPage(1); setOpen(r.ticket.id); }} />
       {open && <TicketDialog id={open} onClose={() => { setOpen(null); qc.invalidateQueries({ queryKey: getListAdminTicketsQueryKey() }); }} />}
     </>
   );

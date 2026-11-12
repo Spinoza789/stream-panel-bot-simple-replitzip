@@ -204,10 +204,11 @@ class AdminSubscriptions:
         self.admin(actor)
         if type(telegram_id) is not int or not 0 < telegram_id < 2 ** 63:
             raise CheckoutError('Enter the customer’s numeric Telegram ID.')
-        plan = next((p for p in self.config.get('plans', []) if p['id'] == plan_id and p.get('package_id')), None) if isinstance(plan_id, str) else None
-        if not plan: raise CheckoutError('Choose a plan.')
         if self.config['mode'] == 'live' and not self.config.get('panel_writes'):
             raise CheckoutError('Panel account creation is switched off, so no account can be created. Nothing was added.')
+        if plan_id == 'trial': return self._add_trial(actor, telegram_id, reason)
+        plan = next((p for p in self.config.get('plans', []) if p['id'] == plan_id and p.get('package_id')), None) if isinstance(plan_id, str) else None
+        if not plan: raise CheckoutError('Choose a plan.')
         now = int(time.time()); order_id = secrets.token_hex(12)
         granted = dict(plan, admin_grant=dict(at=now))
         granted.pop('reseller_purchase', None)
@@ -224,6 +225,19 @@ class AdminSubscriptions:
             db.execute('INSERT INTO account_links VALUES(?,?)', (telegram_id, order_id))
             db.execute('INSERT INTO metadata VALUES(?,?)', ('tg_order:' + order_id, '1'))
         return order_id
+
+    def _add_trial(self, actor, telegram_id, reason):
+        """The customer's one 24-hour trial, started by the owner. The bot delivers the login like any other trial."""
+        with self.store.connection() as db:
+            existing = db.execute('SELECT id FROM orders WHERE telegram_id=?', (telegram_id,)).fetchone()
+            if existing: raise CheckoutError('This customer has already had their free trial (order ' + existing[0] + '). Add a subscription instead.')
+            db.execute('BEGIN IMMEDIATE')
+            self.audit(db, actor, 'trial_add', telegram_id, reason, {})
+        plan = dict(id='trial', name='24-hour trial', package_id=str(self.config['trial_package_id']), admin_grant=dict(at=int(time.time())))
+        try:  # the owner is not held to the public daily trial allowance
+            _, order = self.store.create(plan, dict(id='trial', network='none', decimals=0), 0, telegram_id=telegram_id, daily_limit=10 ** 9)
+        except ValueError as exc: raise CheckoutError(str(exc)) from None
+        return order['id']
 
     # ---- delete ----------------------------------------------------------------------------
     def delete(self, actor, source, sid, reason):

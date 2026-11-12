@@ -20,7 +20,7 @@ function Customer({ s }: { s: AdminSubscription }) {
   if (s.source === "retail") {
     return (
       <div>
-        <div className="font-medium">{s.telegramUsername ? "@" + s.telegramUsername : s.telegramId ? "No username yet" : "Website checkout"}</div>
+        <div className="font-medium">{s.telegramUsername ? "@" + s.telegramUsername : s.telegramId ? "No username set" : "Website checkout"}</div>
         {!!s.telegramId && <div className="font-mono text-[11px] text-muted-foreground">{s.telegramId}</div>}
       </div>
     );
@@ -93,7 +93,7 @@ export function SubscriptionDialog({ s, onClose }: { s: AdminSubscription; onClo
               <dl className="divide-y divide-border">
                 {s.source === "retail" ? (
                   <>
-                    <div className="flex justify-between gap-4 py-2"><dt className="text-muted-foreground">Telegram username</dt><dd>{s.telegramUsername ? <CopyId value={"@" + s.telegramUsername} label="Username" /> : <span className="text-muted-foreground">Not seen yet</span>}</dd></div>
+                    <div className="flex justify-between gap-4 py-2"><dt className="text-muted-foreground">Telegram username</dt><dd>{s.telegramUsername ? <CopyId value={"@" + s.telegramUsername} label="Username" /> : <span className="text-muted-foreground">No username set</span>}</dd></div>
                     <div className="flex justify-between gap-4 py-2"><dt className="text-muted-foreground">Telegram ID</dt><dd>{s.telegramId ? <CopyId value={String(s.telegramId)} label="Telegram ID" /> : "Website checkout"}</dd></div>
                   </>
                 ) : (
@@ -161,7 +161,7 @@ function SubscriptionsList() {
       <PageHeader
         title="Subscriptions"
         description="Every account that has been delivered: your own customers' subscriptions and trials, and the ones your resellers created. Click a row for the login details."
-        actions={<Button onClick={() => setAdding(true)} data-testid="button-add-subscription"><Plus className="mr-1.5 h-4 w-4" /> Add subscription</Button>}
+        actions={<Button onClick={() => setAdding(true)} data-testid="button-add-subscription"><Plus className="mr-1.5 h-4 w-4" /> Add trial or subscription</Button>}
       />
       <Panel flush>
         <div className="flex flex-col gap-3 border-b border-border p-3 lg:flex-row lg:items-center">

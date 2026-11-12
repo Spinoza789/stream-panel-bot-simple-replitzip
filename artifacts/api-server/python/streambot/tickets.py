@@ -185,6 +185,21 @@ class Tickets:
             if not row: raise CheckoutError('Ticket not found.')
             return self._ticket(row), self._messages(db, tid)
 
+    def admin_open(self, actor, uid, topic, body):
+        """Support starts the conversation: a new ticket addressed to a customer or reseller, sent to them in Telegram."""
+        self.admin(actor); self.require_ready(); topic = self.topic(topic); body = self.clean(body)
+        if type(uid) is not int or not 0 < uid < 2 ** 63: raise CheckoutError('Enter the recipient’s numeric Telegram ID.')
+        member = self.service.resellers.member(uid)
+        with self.store.connection() as db:
+            username = (member or {}).get('username') or self.service.accounts.usernames(db, [uid]).get(uid, '')
+            tid = self._new_id(db)
+            db.execute('INSERT INTO tk_tickets(id,telegram_id,username,topic,status,channel,reseller,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',
+                       (tid, uid, username if re.fullmatch(r'[A-Za-z0-9_]{1,64}', username or '') else '', topic, 'answered', 'bot', 1 if member else 0, now(), now()))
+            self._add(db, tid, 'support', body, actor)
+            ticket = self._ticket(db.execute('SELECT * FROM tk_tickets WHERE id=?', (tid,)).fetchone())
+        delivered = self._notify_customer(ticket, body, first=True)
+        return ticket, delivered
+
     def admin_reply(self, actor, tid, body):
         self.admin(actor); self.require_ready(); body = self.clean(body)
         with self.store.connection() as db:
@@ -221,9 +236,9 @@ class Tickets:
         try: bot.ticket_to_admin(ticket, body, first)
         except Exception as exc: log.warning('Ticket %s: admin notification failed (%s)', ticket['id'], type(exc).__name__)
 
-    def _notify_customer(self, ticket, body):
+    def _notify_customer(self, ticket, body, first=False):
         bot = self.telegram
         if not bot: return False
-        try: return bool(bot.ticket_to_customer(ticket, body))
+        try: return bool(bot.ticket_to_customer(ticket, body, first=True) if first else bot.ticket_to_customer(ticket, body))
         except Exception as exc:
             log.warning('Ticket %s: customer notification failed (%s)', ticket['id'], type(exc).__name__); return False

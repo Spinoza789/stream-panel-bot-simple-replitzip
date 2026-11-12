@@ -10,6 +10,7 @@ import {
   SetAdminResellerTrialLimitsBody, ListAdminSubscriptionsQueryParams, ListAdminSubscriptionsResponse,
   AddAdminSubscriptionBody, AddAdminSubscriptionResponse, DeleteAdminSubscriptionBody, DeleteAdminSubscriptionResponse,
   ListAdminActivityLogQueryParams, ListAdminActivityLogResponse, ListAdminCreditLogQueryParams, ListAdminCreditLogResponse,
+  CreateAdminResellerBody, OpenAdminTicketBody,
 } from "@workspace/api-zod";
 import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
 import { adminRequest } from "../lib/python-bridge";
@@ -80,6 +81,14 @@ router.use(async (req, res) => {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(parsed.data)) if (value !== undefined) params.set(key, String(value));
       target = "/resellers?" + params.toString(); schema = ListAdminResellersResponse;
+    } else if (req.method === "POST" && req.path === "/resellers") {
+      const parsed = CreateAdminResellerBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Enter a numeric Telegram ID, whole starting credits and a reason." }); return; }
+      target = "/resellers"; schema = GetAdminResellerResponse; body = parsed.data;
+    } else if (req.method === "POST" && req.path === "/tickets") {
+      const parsed = OpenAdminTicketBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Enter a numeric Telegram ID, choose a topic and write a message of up to 2000 characters." }); return; }
+      target = "/tickets"; schema = GetAdminTicketResponse; body = parsed.data;
     } else if (req.method === "GET" && /^\/resellers\/[1-9][0-9]{0,18}$/.test(req.path)) {
       target = req.path; schema = GetAdminResellerResponse;
     } else if (req.method === "POST" && /^\/resellers\/[1-9][0-9]{0,18}\/status$/.test(req.path)) {

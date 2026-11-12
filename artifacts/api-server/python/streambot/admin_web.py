@@ -263,6 +263,19 @@ def register_admin(app, service):
         rows = finance().summary(request.admin_actor, q, page - 1)
         return jsonify(items=[reseller_public(r) for r in rows[:25]], page=page, pageSize=25, more=len(rows) > 25)
 
+    @routes.post('/resellers')
+    def create_reseller():
+        data = request.get_json(silent=True) or {}
+        key = str(data.get('requestKey', ''))
+        if not re.fullmatch(r'[A-Za-z0-9_-]{8,64}', key): raise CheckoutError('A request key is required.')
+        uid = data.get('telegramId')
+        finance().admin_create(request.admin_actor, uid, data.get('username', ''), data.get('credits', 0), str(data.get('reason', '')), key)
+        bot = getattr(service.tickets.telegram, 'bot', None)
+        try:  # tell them in Telegram when the bot is running; never blocks the creation
+            if bot: bot.reseller.announce_status(uid, 'active')
+        except Exception: pass
+        return jsonify(reseller_detail(uid))
+
     @routes.get('/resellers/<telegram_id>')
     def reseller(telegram_id):
         return jsonify(reseller_detail(reseller_id(telegram_id)))
@@ -309,7 +322,8 @@ def register_admin(app, service):
     def add_subscription():
         data = request.get_json(silent=True) or {}
         order_id = accounts.add(request.admin_actor, data.get('telegramId'), data.get('planId'), str(data.get('reason', '')))
-        return jsonify(orderId=order_id, message='Membership queued. The account is created in the background and the login is sent to the customer in Telegram.')
+        what = 'Trial' if data.get('planId') == 'trial' else 'Membership'
+        return jsonify(orderId=order_id, message=what + ' queued. The account is created in the background and the login is sent to the customer in Telegram.')
 
     @routes.post('/subscriptions/<source>/<sid>/delete')
     def delete_subscription(source, sid):
@@ -413,6 +427,12 @@ def register_admin(app, service):
         if not 1 <= page <= 10000: raise CheckoutError('Invalid page.')
         rows = service.tickets.admin_list(request.admin_actor, request.args.get('status', 'open'), request.args.get('q', '')[:80], page - 1)
         return jsonify(items=[ticket_public(t) for t in rows[:25]], page=page, pageSize=25, more=len(rows) > 25, counts=service.tickets.admin_counts())
+
+    @routes.post('/tickets')
+    def open_ticket():
+        data = request.get_json(silent=True) or {}
+        t, delivered = service.tickets.admin_open(request.admin_actor, data.get('telegramId'), data.get('topic'), data.get('body'))
+        return jsonify(delivered=delivered, **ticket_detail(t['id']))
 
     @routes.get('/tickets/<tid>')
     def ticket(tid):

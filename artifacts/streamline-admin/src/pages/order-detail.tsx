@@ -12,8 +12,9 @@ import {
   type RecoveryDraft,
   type RecoveryResult,
 } from "@workspace/api-client-react";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileSearch, KeyRound, LifeBuoy, Lock, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileSearch, KeyRound, LifeBuoy, Lock, MessageSquarePlus, Plus, Trash2 } from "lucide-react";
 import { AccountDetails, AddSubscriptionDialog, DeleteSubscriptionDialog } from "@/components/admin/subscriptions";
+import { NewTicketDialog } from "@/components/admin/create";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
 import { Bar, CopyId, EmptyState, ErrorState, KindTag, PageHeader, Panel, StatusBadge } from "@/components/admin/bits";
@@ -34,6 +35,7 @@ function Detail() {
   const [result, setResult] = useState<RecoveryResult | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [messaging, setMessaging] = useState(false);
 
   const back = (
     <Link href="/orders" className="inline-flex items-center gap-1 hover:text-foreground" data-testid="link-back">
@@ -64,6 +66,7 @@ function Detail() {
         description={d ? <span className="inline-flex flex-wrap items-center gap-2"><StatusBadge status={d.order.status} /><KindTag kind={d.order.kind} /><span>{formatDateTime(d.order.createdAt)}</span></span> : undefined}
         actions={d ? (
           <>
+            {/^[1-9][0-9]*$/.test(d.order.customer) && <Button variant="outline" onClick={() => setMessaging(true)} data-testid="button-message-customer"><MessageSquarePlus className="mr-1.5 h-4 w-4" /> New ticket</Button>}
             {/^[1-9][0-9]*$/.test(d.order.customer) && <Button variant="outline" onClick={() => setAdding(true)} data-testid="button-add-for-customer"><Plus className="mr-1.5 h-4 w-4" /> Add subscription</Button>}
             {d.canDelete && <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleting(true)} data-testid="button-delete-order-subscription"><Trash2 className="mr-1.5 h-4 w-4" /> Delete</Button>}
             {d.recoveryEligible && <Button onClick={() => setOpen(true)} data-testid="button-start-recovery"><LifeBuoy className="mr-1.5 h-4 w-4" /> Recover trial</Button>}
@@ -143,6 +146,7 @@ function Detail() {
             onClose={() => setDeleting(false)}
           />
           <AddSubscriptionDialog open={adding} onClose={() => setAdding(false)} telegramId={/^[1-9][0-9]*$/.test(d.order.customer) ? d.order.customer : undefined} />
+          <NewTicketDialog open={messaging} onClose={() => setMessaging(false)} telegramId={/^[1-9][0-9]*$/.test(d.order.customer) ? d.order.customer : undefined} recipient={d.order.username ? "@" + d.order.username : undefined} />
         </>
       )}
       {d && (
@@ -161,7 +165,7 @@ function Facts({ o }: { o: AdminOrder }) {
   const rows: [string, React.ReactNode][] = [
     ["Order ID", <CopyId value={o.id} label="Order ID" />],
     ["Customer", o.customer ? <CopyId value={o.customer} label="Customer" /> : "—"],
-    ["Telegram username", o.username ? <CopyId value={"@" + o.username} label="Username" /> : <span className="text-muted-foreground">{/^[1-9][0-9]*$/.test(o.customer) ? "Not seen yet" : "—"}</span>],
+    ["Telegram username", o.username ? <CopyId value={"@" + o.username} label="Username" /> : <span className="text-muted-foreground">{/^[1-9][0-9]*$/.test(o.customer) ? "No username set" : "—"}</span>],
     ["Plan", o.plan || "—"],
     ["Kind", <KindTag kind={o.kind} />],
     ["Amount", <span className="font-mono">{o.amount} <span className="font-sans font-medium">{o.symbol}</span></span>],

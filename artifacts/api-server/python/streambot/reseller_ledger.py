@@ -104,6 +104,24 @@ class Ledger:
         db.execute('INSERT INTO rs_audit VALUES(?,?,?,?,?,?,?)',
                    (identifier(),actor,action,str(subject),reason.strip(),json.dumps(details),now()))
 
+    def admin_create(self, actor, uid, username, credits, reason, request_key):
+        """Owner sets someone up as an active reseller, optionally with starting credits, without a pack purchase."""
+        self.admin(actor)
+        if type(uid) is not int or not 0<uid<2**63:raise CheckoutError('Enter the reseller’s numeric Telegram ID.')
+        if type(credits) is not int or not 0<=credits<=100000:raise CheckoutError('Starting credits must be a whole number from 0 to 100000.')
+        if not isinstance(reason,str) or not 3<=len(reason.strip())<=500:raise CheckoutError('A reason of 3–500 characters is required.')
+        username=(username or '').strip().lstrip('@') if isinstance(username,str) else ''
+        if username and not re.fullmatch(r'[A-Za-z0-9_]{1,64}',username):raise CheckoutError('That Telegram username is not valid. Leave it empty if unsure.')
+        existing=self.member(uid)
+        if existing and existing['status']=='active':raise CheckoutError('This Telegram user is already an active reseller.')
+        if existing and existing['status']=='suspended':raise CheckoutError('This reseller is suspended. Open them and reactivate instead.')
+        self.register(uid,username or (existing or {}).get('username',''))
+        self.account_status(actor,uid,'active',reason)
+        if credits:self.adjust(actor,uid,credits,reason,request_key)
+        member=self.member(uid)
+        self.store.metadata('rs_onboard:'+member['id'],'due')  # the bot walks them through it the next time they open it
+        return member
+
     def account_status(self, actor, uid, status, reason):
         self.admin(actor)
         if status not in ('active','suspended'):raise CheckoutError('Invalid account status.')

@@ -229,6 +229,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminResellerPage" }
+    post:
+      operationId: createAdminReseller
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResellerCreateInput" }
+      responses:
+        "200":
+          description: Reseller account created and activated by the owner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminResellerDetail" }
   /admin/resellers/{id}:
     get:
       operationId: getAdminReseller
@@ -386,6 +399,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminTicketPage" }
+    post:
+      operationId: openAdminTicket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TicketCreateInput" }
+      responses:
+        "200":
+          description: Ticket opened by support and sent to the recipient in Telegram
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminTicketDetail" }
   /admin/tickets/{id}:
     get:
       operationId: getAdminTicket
@@ -627,6 +653,24 @@ components:
         ticket: { $ref: "#/components/schemas/AdminTicket" }
         messages: { type: array, items: { $ref: "#/components/schemas/TicketMessage" } }
         delivered: { type: boolean }
+    TicketCreateInput:
+      type: object
+      required: [telegramId, topic, body]
+      additionalProperties: false
+      properties:
+        telegramId: { type: integer, minimum: 1 }
+        topic: { type: string, enum: [payment, login, playback, reseller, other] }
+        body: { type: string, minLength: 1, maxLength: 2000 }
+    ResellerCreateInput:
+      type: object
+      required: [telegramId, credits, reason, requestKey]
+      additionalProperties: false
+      properties:
+        telegramId: { type: integer, minimum: 1 }
+        username: { type: string, maxLength: 65 }
+        credits: { type: integer, minimum: 0, maximum: 100000 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        requestKey: { type: string, minLength: 8, maxLength: 64, pattern: "^[A-Za-z0-9_-]+$" }
     TicketReplyInput:
       type: object
       required: [body]
