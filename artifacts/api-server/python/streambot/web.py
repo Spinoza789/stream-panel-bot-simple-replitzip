@@ -30,7 +30,9 @@ def create_app(service,ready=None):
                 return jsonify(status='standby',workers_active=False,mode=service.config['mode'],
                                message='The service is starting. Please retry shortly.'),200,{'Retry-After':'3'}
             return jsonify(error='The service is starting. Please retry shortly.'),503,{'Retry-After':'3'}
-        if request.path.startswith('/api/'):
+        # The private admin bridge is authenticated by a per-process HMAC key before it touches any
+        # state, and sign-in attempts have their own persistent limits, so it skips this shared bucket.
+        if request.path.startswith('/api/') and not request.path.startswith('/api/_admin/'):
             bucket='web:'+str(request.remote_addr)
             if not service.store.limit(bucket,180,60): return jsonify(error='Too many requests. Please wait a minute.'),429
         if request.method=='POST' and not request.path.startswith('/api/_admin/'):

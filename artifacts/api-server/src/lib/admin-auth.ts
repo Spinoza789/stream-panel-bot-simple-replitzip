@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { getSessionId } from "./auth";
-import { adminRequest } from "./python-bridge";
+import { adminRequest, authEpoch } from "./python-bridge";
 
 export function ownerEmails(): string[] {
   return (process.env.STREAMBOT_WEB_ADMIN_EMAILS ?? "").split(",")
@@ -22,7 +22,22 @@ export function bootstrapMatches(value: unknown): boolean {
   return timingSafeEqual(createHash("sha256").update(expected).digest(),
     createHash("sha256").update(value).digest());
 }
+// A confirmed owner session is remembered briefly so each page does not repeat the check. Only a
+// positive answer is kept, keyed by the exact session, and any sign-in change clears it (authEpoch).
+const OWNER_TTL_MS = 15_000;
+const confirmedOwners = new Map<string, { epoch: number; until: number }>();
 export async function ownerState(actor: string): Promise<{ claimed: boolean; matches: boolean }> {
+  const hit = confirmedOwners.get(actor);
+  if (hit && hit.epoch === authEpoch() && hit.until > Date.now()) return { claimed: true, matches: true };
+  const epoch = authEpoch();
+  const value = await fetchOwnerState(actor);
+  if (value.matches) {
+    if (confirmedOwners.size > 100) confirmedOwners.clear();
+    confirmedOwners.set(actor, { epoch, until: Date.now() + OWNER_TTL_MS });
+  } else confirmedOwners.delete(actor);
+  return value;
+}
+async function fetchOwnerState(actor: string): Promise<{ claimed: boolean; matches: boolean }> {
   const response = await adminRequest(actor, "GET", "/api/_admin/owner/status");
   if (!response.ok) throw new Error("Owner state unavailable");
   const value = await response.json() as { claimed: boolean; matches: boolean };

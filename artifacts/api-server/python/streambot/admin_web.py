@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import threading
 import time
 from types import SimpleNamespace
 
@@ -20,7 +21,6 @@ WARNING = ('Verify from provisioning logs that account creation never started. '
            'been submitted, cancel and reconcile the existing panel account. '
            'Confirmation queues this original trial only; it may create one account.')
 ACTOR_PATTERN = r'(?:replit|local):[A-Za-z0-9_-]{1,128}:[a-f0-9]{64}'
-NONCE_PRUNE_SQL = 'DELETE FROM metadata WHERE key LIKE ? AND value<?'
 
 
 class WebTrialRecovery(TrialRecovery):
@@ -54,6 +54,11 @@ def register_admin(app, service):
     routes = Blueprint('admin_internal', __name__)
     recovery = WebTrialRecovery(service)
     store = service.store
+    # One-use request nonces. The signing key lives only in this process and its supervising gateway
+    # and is regenerated on every start, and a signature is accepted for 30 seconds, so remembering
+    # nonces in memory for a minute gives the same replay protection as a database row per request.
+    seen_nonces = {}
+    seen_lock = threading.Lock()
     from .web_password_auth import register_password_routes
     register_password_routes(routes, store)
 
@@ -77,16 +82,11 @@ def register_admin(app, service):
         expected = hmac.new(key.encode(), '\n'.join(parts).encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(signature, expected):
             return jsonify(error='Unauthorized.'), 401
-        with store.connection() as db:
-            db.execute('BEGIN IMMEDIATE')
-            replay_key = 'admin_bridge_nonce:' + nonce
-            if db.execute('SELECT value FROM metadata WHERE key=?', (replay_key,)).fetchone():
-                return jsonify(error='Request already used.'), 409
-            # Only gateway-generated integer timestamps live under this namespace.
-            # The LIKE percent must be a bound value: psycopg interprets a raw
-            # percent in SQL with parameters as its own placeholder syntax.
-            db.execute(NONCE_PRUNE_SQL, ('admin_bridge_nonce:%', str(int(time.time()) - 60)))
-            db.execute('INSERT INTO metadata VALUES(?,?)', (replay_key, timestamp))
+        with seen_lock:
+            now = time.time()
+            for used in [n for n, at in seen_nonces.items() if at < now - 60]: del seen_nonces[used]
+            if nonce in seen_nonces: return jsonify(error='Request already used.'), 409
+            seen_nonces[nonce] = now
         request.admin_actor = actor
 
     @routes.get('/owner/status')

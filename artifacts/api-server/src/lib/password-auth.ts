@@ -1,5 +1,5 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import { adminRequest } from "./python-bridge";
+import { adminRequest, authEpoch } from "./python-bridge";
 
 const options = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 let hashing = 0;
@@ -33,10 +33,19 @@ export interface PasswordProfile {
 export function serviceActor(id = "auth_service"): string {
   return `local:${id}:${randomBytes(32).toString("hex")}`;
 }
+// The owner's profile is needed on every request to validate the session. Fetching it means a round
+// trip to the backend and the database, so it is kept for a few seconds. Every change to it goes
+// through this gateway and bumps authEpoch, which drops the cached copy at once.
+const PROFILE_TTL_MS = 10_000;
+let cachedProfile: { profile: PasswordProfile; epoch: number; until: number } | null = null;
 export async function passwordProfile(): Promise<PasswordProfile | null> {
+  if (cachedProfile && cachedProfile.epoch === authEpoch() && cachedProfile.until > Date.now()) return cachedProfile.profile;
+  const epoch = authEpoch();
   const response = await adminRequest(serviceActor(), "GET", "/api/_admin/auth/credentials");
   if (!response.ok) throw new Error("Password account unavailable");
-  return (await response.json() as { profile: PasswordProfile | null }).profile;
+  const profile = (await response.json() as { profile: PasswordProfile | null }).profile;
+  cachedProfile = profile ? { profile, epoch, until: Date.now() + PROFILE_TTL_MS } : null;
+  return profile;
 }
 export async function passwordStatus(): Promise<boolean> {
   const response = await adminRequest(serviceActor(), "GET", "/api/_admin/auth/status");

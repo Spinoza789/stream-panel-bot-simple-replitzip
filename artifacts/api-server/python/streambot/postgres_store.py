@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import threading
+import time
 
 import psycopg
 from cryptography.fernet import Fernet
@@ -114,6 +115,10 @@ class PostgresStore(Store):
         self._url = url
         self.cipher = Fernet(key.encode() if isinstance(key, str) else key)
         self._slots = threading.BoundedSemaphore(8)
+        # Idle connections kept for reuse. Opening one is a full TLS and authentication
+        # handshake with a remote database; reusing one costs nothing.
+        self._pool = []
+        self._pool_lock = threading.Lock()
         self._transaction_lock = self._lock_id('transaction')
         self._instance_lock = self._lock_id('instance')
         self._instance_lock_lost = threading.Event()
@@ -152,25 +157,83 @@ class PostgresStore(Store):
         if not self.instance_lock_healthy():
             raise RuntimeError('PostgreSQL instance lock was lost. Restart the application.')
 
+    POOL_SIZE = 6          # idle connections kept; at most 8 are ever in use at once
+    POOL_PROBE_AFTER = 5   # seconds idle before a connection is tested with a round trip
+    POOL_MAX_IDLE = 240    # seconds idle before a connection is closed instead of reused
+    POOL_MAX_AGE = 1800    # seconds after which a connection is retired regardless
+
+    @staticmethod
+    def _close(connection):
+        with contextlib.suppress(Exception):
+            connection.close()
+
+    def _checkout(self):
+        """An open connection with no transaction in progress: a pooled one if it is still good, else a new one."""
+        while True:
+            with self._pool_lock:
+                item = self._pool.pop() if self._pool else None
+            if item is None:
+                return self._connect(), time.monotonic()
+            connection, born, idle_since = item
+            now = time.monotonic()
+            if connection.closed or now - born > self.POOL_MAX_AGE or now - idle_since > self.POOL_MAX_IDLE:
+                self._close(connection); continue
+            if now - idle_since > self.POOL_PROBE_AFTER:
+                # The server or a proxy may have dropped it while idle; one round trip tells.
+                try:
+                    connection.execute('SELECT 1'); connection.rollback()
+                except Exception:
+                    self._close(connection); continue
+            return connection, born
+
+    def _checkin(self, connection, born):
+        if connection.closed or connection.broken or connection.info.transaction_status != psycopg.pq.TransactionStatus.IDLE:
+            self._close(connection); return
+        with self._pool_lock:
+            if len(self._pool) < self.POOL_SIZE:
+                self._pool.append((connection, born, time.monotonic())); return
+        self._close(connection)
+
+    def _rolled_back(self, connection):
+        """The connection after undoing its transaction, or None if it could not be made clean."""
+        if connection is None: return None
+        try:
+            connection.rollback(); return connection
+        except Exception:
+            self._close(connection); return None
+
+    def close_pool(self):
+        with self._pool_lock:
+            idle, self._pool = self._pool, []
+        for connection, _, _ in idle: self._close(connection)
+
     @contextlib.contextmanager
     def connection(self):
+        """One transaction: committed when the block ends normally, rolled back when it raises."""
         self._check_instance_lock()
         if not self._slots.acquire(timeout=20):
             raise RuntimeError('PostgreSQL state connection capacity reached. Please retry.')
+        connection = born = None
         try:
             stage = 'connect'
             try:
                 self._check_instance_lock()
-                with self._connect() as connection:
-                    stage = 'query'
-                    self._check_instance_lock()
-                    yield _Connection(connection, self._transaction_lock)
-                    stage = 'commit'
-                    self._check_instance_lock()
+                connection, born = self._checkout()
+                stage = 'query'
+                self._check_instance_lock()
+                yield _Connection(connection, self._transaction_lock)
+                stage = 'commit'
+                self._check_instance_lock()
+                connection.commit()
             except psycopg.Error as exc:
+                connection = self._rolled_back(connection)
                 # Connection errors can contain addresses or connection details.
                 raise _state_error(exc, stage) from None
+            except BaseException:
+                connection = self._rolled_back(connection)
+                raise
         finally:
+            if connection is not None: self._checkin(connection, born)
             self._slots.release()
 
     def claim_payment(self, order_id, proof):

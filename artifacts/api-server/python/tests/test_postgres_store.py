@@ -1,7 +1,9 @@
 """PostgreSQL startup checks and opt-in, rollback-only development integration."""
 import contextlib
 import os
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 import unittest
 from unittest.mock import Mock, patch
 
@@ -13,14 +15,14 @@ from streambot.bot import TelegramBot
 from streambot.postgres_store import PostgresStore, InstanceLockBusy, _Connection, _state_error
 from streambot.rates import Rates
 from streambot.service import CheckoutError, CheckoutService
-from streambot.admin_web import NONCE_PRUNE_SQL
 
 
 class PostgresStartupTests(unittest.TestCase):
-    def test_admin_nonce_cleanup_passes_wildcard_as_parameter(self):
+    def test_like_wildcard_is_passed_as_a_parameter(self):
+        # A raw percent in SQL that also has parameters would be read by psycopg as a placeholder.
         db = Mock()
         connection = _Connection(db, 123)
-        connection.execute(NONCE_PRUNE_SQL, ('admin_bridge_nonce:%', '100'))
+        connection.execute('DELETE FROM metadata WHERE key LIKE ? AND value<?', ('admin_bridge_nonce:%', '100'))
         db.execute.assert_called_once_with(
             'DELETE FROM metadata WHERE key LIKE %s AND value<%s',
             ('admin_bridge_nonce:%', '100'))
@@ -73,6 +75,80 @@ class PostgresStartupTests(unittest.TestCase):
                 PostgresStore('unused-test-connection', Fernet.generate_key())
         self.assertEqual(db.execute.call_args.args[0], 'SELECT to_regclass(?)')
 
+
+@unittest.skipUnless(
+    os.environ.get('STREAMBOT_TEST_POSTGRES') == 'true' and not os.environ.get('REPLIT_DEPLOYMENT'),
+    'Opt in against the development database with STREAMBOT_TEST_POSTGRES=true.',
+)
+class PostgresPoolTests(unittest.TestCase):
+    """Real pooled connections. Writes use unique throwaway metadata keys that are removed afterwards."""
+    def setUp(self):
+        self.store = PostgresStore(os.environ['DATABASE_URL'], Fernet.generate_key())
+        self.addCleanup(self.store.close_pool)
+        self.key = 'test:pool:' + uuid.uuid4().hex
+        def remove():
+            with self.store.connection() as db: db.execute('DELETE FROM metadata WHERE key LIKE ?', (self.key + '%',))
+        self.addCleanup(remove)
+
+    def backend(self):
+        with self.store.connection() as db: return db.execute('SELECT pg_backend_pid()').fetchone()[0]
+
+    def test_connections_are_reused_and_each_block_commits(self):
+        first = self.backend()
+        with patch.object(PostgresStore, '_connect', side_effect=AssertionError('opened a second connection')):
+            self.assertEqual(self.backend(), first)
+            self.store.metadata(self.key, 'saved')
+            self.assertEqual(self.store.metadata(self.key), 'saved')
+        self.assertEqual(len(self.store._pool), 1)
+
+    def test_a_failed_block_rolls_back_and_the_connection_stays_clean(self):
+        first = self.backend()
+        with self.assertRaisesRegex(ValueError, 'caller failed'):
+            with self.store.connection() as db:
+                db.execute('INSERT INTO metadata VALUES(?,?)', (self.key, 'never committed'))
+                raise ValueError('caller failed')
+        self.assertIsNone(self.store.metadata(self.key))
+        # A database error is reported without driver text, undone, and does not poison the next user.
+        with self.assertRaisesRegex(RuntimeError, 'PostgreSQL query failed'):
+            with self.store.connection() as db:
+                db.execute('INSERT INTO metadata VALUES(?,?)', (self.key + ':a', 'also undone'))
+                db.execute('SELECT * FROM table_that_does_not_exist')
+        self.assertIsNone(self.store.metadata(self.key + ':a'))
+        self.assertEqual(self.backend(), first)
+
+    def test_transaction_lock_is_released_between_blocks(self):
+        with self.store.connection() as db:
+            db.execute('BEGIN IMMEDIATE'); db.execute('INSERT INTO metadata VALUES(?,?)', (self.key, '1'))
+        other = PostgresStore(os.environ['DATABASE_URL'], Fernet.generate_key()); self.addCleanup(other.close_pool)
+        with other.connection() as db:   # would wait out lock_timeout if the pooled session still held the lock
+            db.execute('BEGIN IMMEDIATE')
+            self.assertEqual(db.execute('SELECT value FROM metadata WHERE key=?', (self.key,)).fetchone()[0], '1')
+
+    def test_dead_idle_connections_are_replaced(self):
+        first = self.backend()
+        self.store._pool[0][0].close()                                # dropped while idle
+        second = self.backend()
+        self.assertNotEqual(second, first)
+        # One that still looks open but was terminated by the server is caught by the probe after sitting idle.
+        victim, born, _ = self.store._pool[0]
+        self.store._pool[0] = (victim, born, time.monotonic() - 60)
+        killer = self.store._connect(autocommit=True); self.addCleanup(killer.close)
+        killer.execute('SELECT pg_terminate_backend(%s)', (second,))
+        third = self.backend()
+        self.assertNotIn(third, (first, second))
+        # Long-idle connections are retired rather than reused.
+        kept, born, _ = self.store._pool[0]
+        self.store._pool[0] = (kept, born, time.monotonic() - self.store.POOL_MAX_IDLE - 1)
+        self.assertNotEqual(self.backend(), third)
+        self.assertTrue(kept.closed)
+
+    def test_concurrent_use_stays_within_the_pool_limits(self):
+        def work(_):
+            with self.store.connection() as db:
+                db.execute('SELECT pg_sleep(0.05)'); return db.execute('SELECT pg_backend_pid()').fetchone()[0]
+        with ThreadPoolExecutor(max_workers=12) as pool: pids = list(pool.map(work, range(36)))
+        self.assertLessEqual(len(set(pids)), 8)
+        self.assertLessEqual(len(self.store._pool), self.store.POOL_SIZE)
 
 @unittest.skipUnless(
     os.environ.get('STREAMBOT_TEST_POSTGRES') == 'true' and not os.environ.get('REPLIT_DEPLOYMENT'),

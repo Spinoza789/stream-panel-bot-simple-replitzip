@@ -78,6 +78,22 @@ production data with demo state or copy development sessions into production.
 
 ## Gateway and verification
 
+Speed: the backend keeps up to six PostgreSQL connections open and reuses them (each
+block is still one transaction, committed or rolled back before the connection is
+reused; idle ones are probed, and replaced if the server dropped them). The gateway
+remembers the owner's sign-in profile for 10 seconds and a confirmed owner session for
+15 seconds; every sign-in change (setup, password, username, two-factor) goes through
+the gateway and clears both at once, and logout deletes the session row, which is read
+on every request. Bridge replay protection keeps its one-use nonces in memory instead
+of a database row per request, and bridge requests skip the shared web rate-limit bucket.
+
+In the browser, once a page has loaded the dashboard fetches the screens most often
+opened next (Orders, Subscriptions, Trials, Resellers, Tickets) one at a time in the
+background, and fetches any other screen when its sidebar link is hovered, so the
+first click shows data at once. Copies live in memory only (never browser storage),
+are dropped after five minutes unused, and each screen still refreshes itself when
+opened and every 30 seconds.
+
 Node supervises one loopback-only Python backend. Narrow internal requests use a
 fresh process-only HMAC key, binding method/path/body/actor/timestamp/one-use nonce.
 External requests cannot reach those routes or forge role headers. Only server

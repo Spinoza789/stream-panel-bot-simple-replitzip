@@ -175,9 +175,9 @@ class AdminWebTests(unittest.TestCase):
     def test_signed_read_is_real_and_sanitized(self):
         with patch.object(self.store, 'connection', wraps=self.store.connection) as connections:
             overview = self.call('/overview').json
-        # One rate-limit check, one bridge-auth transaction and one overview connection,
-        # including ticket metrics, reseller metrics and recent-order owners.
-        self.assertEqual(connections.call_count, 3)
+        # A single overview connection, including ticket metrics, reseller metrics and recent-order
+        # owners. Bridge authentication and replay protection no longer touch the database.
+        self.assertEqual(connections.call_count, 1)
         self.assertEqual((overview['total'], overview['review'], overview['trials']), (1, 1, 1))
         page = self.call('/orders?kind=trial&page=1').json
         self.assertEqual(page['total'], 1)

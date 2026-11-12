@@ -30,7 +30,14 @@ export function legacyProxy(req: Request, res: Response) {
   req.pipe(upstream);
 }
 
+// Bumped whenever the gateway changes anything about the owner's sign-in (setup, password,
+// username, two-factor, a counted attempt). Short-lived caches of sign-in state compare against it,
+// so a change made here takes effect on the very next request.
+let authEpochValue = 0;
+export function authEpoch(): number { return authEpochValue; }
+
 export async function adminRequest(actor: string, method: string, path: string, body?: unknown) {
+  if (method !== "GET" && (path.startsWith("/api/_admin/auth/") || path.startsWith("/api/_admin/owner/"))) authEpochValue += 1;
   const raw = body === undefined ? "" : JSON.stringify(body);
   const time = String(Math.floor(Date.now() / 1000));
   const nonce = randomBytes(16).toString("hex");

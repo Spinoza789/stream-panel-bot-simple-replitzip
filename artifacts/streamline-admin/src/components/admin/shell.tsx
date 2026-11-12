@@ -3,7 +3,9 @@ import { Link, useLocation } from "wouter";
 import { useAuth, displayName } from "@/lib/auth";
 import { useGetAdminOverview, getGetAdminOverviewQueryKey } from "@workspace/api-client-react";
 import { BarChart3, Home, Hourglass, LifeBuoy, LogOut, Menu, Moon, Package, ScrollText, Search, Settings2, Sun, Tv, Users, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { prefetchLikelyScreens, prefetchScreen } from "@/lib/prefetch";
 import { Logo } from "./bits";
 import { AccessGate, LIVE, useAdminReady } from "./access";
 
@@ -98,6 +100,18 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
   const [loc] = useLocation();
   const ready = useAdminReady();
   const ov = useGetAdminOverview({ query: { enabled: ready, queryKey: getGetAdminOverviewQueryKey(), ...LIVE } });
+  const qc = useQueryClient();
+  // Once this page has its own data, fetch the screens most often opened next so the first click
+  // on each shows straight away. Hovering a link fetches that screen too.
+  const loaded = ready && ov.isSuccess;
+  useEffect(() => {
+    if (!loaded) return;
+    let stop = false;
+    const timer = setTimeout(() => { void prefetchLikelyScreens(qc, loc, () => stop); }, 400);
+    return () => { stop = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, qc]);
+  const warm = (href: string) => { if (ready) void prefetchScreen(qc, href); };
   const items = [
     { href: "/dashboard", label: "Home", icon: Home, count: undefined as number | undefined, hot: false },
     { href: "/orders", label: "Orders", icon: Package, count: ov.data?.review, hot: true },
@@ -118,6 +132,8 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
             key={it.href}
             href={it.href}
             onClick={onNavigate}
+            onMouseEnter={() => warm(it.href)}
+            onFocus={() => warm(it.href)}
             data-testid={`link-nav-${it.label.toLowerCase()}`}
             className={cn(
               "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
