@@ -110,7 +110,7 @@ function OrdersList({ trialsOnly }: { trialsOnly?: boolean }) {
                 value={text}
                 maxLength={80}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Order ID, Telegram ID or @username"
+                placeholder="Order ID, Telegram ID, @username or TXID"
                 className="h-8 pl-8 pr-8 text-[13px]"
                 data-testid="input-search"
               />

@@ -187,6 +187,9 @@ export const GetAdminOverviewResponse = zod.object({
   pending: zod.number().int(),
   recent: zod.array(
     zod.object({
+      txid: zod
+        .string()
+        .describe("Blockchain transaction ID submitted for this order"),
       username: zod
         .string()
         .describe("Telegram username of the customer when known"),
@@ -221,6 +224,9 @@ export const ListAdminOrdersQueryParams = zod.object({
 export const ListAdminOrdersResponse = zod.object({
   items: zod.array(
     zod.object({
+      txid: zod
+        .string()
+        .describe("Blockchain transaction ID submitted for this order"),
       username: zod
         .string()
         .describe("Telegram username of the customer when known"),
@@ -260,6 +266,9 @@ export const GetAdminOrderResponse = zod.object({
   removedAt: zod.number().int(),
   canDelete: zod.boolean(),
   order: zod.object({
+    txid: zod
+      .string()
+      .describe("Blockchain transaction ID submitted for this order"),
     username: zod
       .string()
       .describe("Telegram username of the customer when known"),

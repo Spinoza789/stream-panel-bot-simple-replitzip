@@ -50,8 +50,29 @@ function ResellersList() {
             {q ? "Try a Telegram ID or username." : "Anyone who buys a credit pack in the bot becomes a reseller and appears here."}
           </EmptyState>
         ) : (
-          <div className={cn("overflow-x-auto transition-opacity", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
-            <table className="w-full min-w-[760px] text-sm">
+          <>
+          <ul className={cn("divide-y divide-border border-t border-border transition-opacity md:hidden", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
+            {list.isLoading && Array.from({ length: 4 }).map((_, i) => <li key={i} className="space-y-2 p-4"><Bar className="h-4 w-1/2" /><Bar className="h-3.5 w-3/4" /></li>)}
+            {!list.isLoading && d?.items.map((r) => (
+              <li key={r.telegramId}>
+                <div role="button" tabIndex={0} onClick={() => setLocation(`/resellers/${r.telegramId}`)} onKeyDown={(e) => { if (e.key === "Enter") setLocation(`/resellers/${r.telegramId}`); }}
+                  data-testid={`row-reseller-${r.telegramId}`} className="cursor-pointer space-y-2 p-4 transition-colors active:bg-[#f1f1f1] dark:active:bg-white/10">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><div className="truncate text-[15px] font-semibold">{r.username ? "@" + r.username : "ID " + r.telegramId}</div><div className="font-mono text-xs text-muted-foreground">{r.telegramId}</div></div>
+                    <StatusBadge status={r.status} tone={r.status === "active" ? "success" : r.status === "pending" ? "attention" : "critical"} />
+                  </div>
+                  <dl className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-lg bg-muted/60 px-2 py-1.5"><dt className="text-[11px] text-muted-foreground">Credits</dt><dd className="num text-sm font-semibold">{r.available}</dd></div>
+                    <div className="rounded-lg bg-muted/60 px-2 py-1.5"><dt className="text-[11px] text-muted-foreground">Customers</dt><dd className="num text-sm font-semibold">{r.activeCustomers}<span className="font-normal text-muted-foreground"> / {r.customers}</span></dd></div>
+                    <div className="rounded-lg bg-muted/60 px-2 py-1.5"><dt className="text-[11px] text-muted-foreground">Bought</dt><dd className="num text-sm font-semibold">{r.creditsBought}</dd></div>
+                  </dl>
+                  <div className="text-xs text-muted-foreground">Last active {relativeTime(r.lastActivity)}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className={cn("hidden overflow-x-auto transition-opacity md:block", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
                   <th className="px-4 py-2 font-medium">Reseller</th>
@@ -81,6 +102,7 @@ function ResellersList() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {d && (d.more || page > 1) && (
           <div className="flex items-center justify-end gap-1 border-t border-border px-4 py-2.5 text-sm">

@@ -125,7 +125,9 @@ def register_admin(app, service):
                     amount=display_units(row['amount_units'], asset.get('decimals', 0)),
                     symbol=asset.get('symbol', ''), network=asset.get('network', ''),
                     customer=str(owner) if owner else 'Website checkout',
-                    username=names.get(int(owner), '') if owner else '')
+                    username=names.get(int(owner), '') if owner else '',
+                    # The transaction the customer submitted; verified on-chain once the order is paid or fulfilled.
+                    txid=row['txid'] or '')
 
     def safe_rows(rows, db=None):
         if db is None:
@@ -193,6 +195,7 @@ def register_admin(app, service):
                 ids = accounts.username_ids(db, q)[:20]
             if q.isdigit() and len(q) <= 19: ids.append(int(q))
             match = ['id LIKE ?']; params.append('%' + q.replace('%', '').replace('_', '') + '%')
+            if len(q) >= 32: match.append('txid=?'); params.append(q)  # a pasted transaction ID finds its order
             if ids:
                 marks = ','.join('?' * len(ids))
                 match.append('telegram_id IN (' + marks + ')')

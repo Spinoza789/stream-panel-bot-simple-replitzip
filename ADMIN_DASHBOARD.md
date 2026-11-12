@@ -62,7 +62,9 @@ production data with demo state or copy development sessions into production.
 ## Operational scope and safeguards
 
 - Overview is stored order counts, not revenue or active-subscription estimates.
-- Orders are paginated/searchable by ID, exact Telegram ID or exact Telegram @username.
+- Orders are paginated/searchable by ID, exact Telegram ID, exact Telegram @username or
+  the full transaction ID. An order's page shows its TXID with a link to the public
+  block explorer, marked verified once the order is paid or fulfilled.
   Details show the delivered login (username, password, server, expiry) at the owner's
   request; checkout tokens, payment proofs and raw provider errors are still excluded.
 - Readiness shows configuration and optional-schema availability, not an upstream
@@ -154,11 +156,16 @@ goes into the audit log, and changes apply to new orders only.
   active/expired, or search by account username, Telegram ID, @username or the
   reseller's customer note. Renewals and trial upgrades are shown once, as the login
   they extend.
-- **Trials and Subscriptions pages** share one layout: a search box, then collapsible
-  sections for direct customers and for each reseller (by name), then an Expired
-  section at the bottom holding everything past its expiry or disabled. Searching
-  opens every section with a match. Trial orders that never produced a login (queued
-  or in review) stay under Orders, filtered to trials.
+- **Trials and Subscriptions pages** share one layout that keeps your own customers
+  and resellers' customers visibly apart: filters for All / Your customers / Resellers /
+  Expired, a search box, a green "Direct customers" section, then one violet section per
+  reseller (folded by default when there are several, with Expand all), then a grey
+  Expired section. Rows in mixed lists carry a Direct or Reseller badge in the same
+  colours, which the logs use too. Trial orders that never produced a login (queued or
+  in review) stay under Orders, filtered to trials.
+- **Screen sizes**: below 1024px the sidebar is a slide-in drawer (with order search
+  inside it on phones); below 768px every list (orders, accounts, resellers, tickets,
+  both logs) is shown as cards instead of a table; page actions wrap onto their own row.
 - **A reseller is a full page** (`/resellers/<telegram id>`): credits, activity, trial
   usage and limits, credit adjustment, suspend, recent credit history, and their own
   Subscriptions and Trials lists with search and an Expired section.

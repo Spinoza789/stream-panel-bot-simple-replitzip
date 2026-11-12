@@ -161,6 +161,27 @@ function Detail() {
   );
 }
 
+const EXPLORERS: Record<string, string> = {
+  ethereum: "https://etherscan.io/tx/",
+  solana: "https://solscan.io/tx/",
+  bitcoin: "https://mempool.space/tx/",
+};
+
+/** The payment's transaction ID: copyable, with a link to the public block explorer for its network. */
+function Txid({ o }: { o: AdminOrder }) {
+  const explorer = EXPLORERS[o.network];
+  const verified = ["paid", "provisioning", "fulfilled"].includes(o.status);
+  return (
+    <span className="inline-flex flex-col items-end gap-0.5">
+      <CopyId value={o.txid} label="TXID" short />
+      <span className="text-xs text-muted-foreground">
+        {verified ? "Verified on-chain" : "Submitted, not verified yet"}
+        {explorer && /^[A-Za-z0-9]+$/.test(o.txid) && <> · <a href={explorer + o.txid} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline" data-testid="link-txid-explorer">View on explorer</a></>}
+      </span>
+    </span>
+  );
+}
+
 function Facts({ o }: { o: AdminOrder }) {
   const rows: [string, React.ReactNode][] = [
     ["Order ID", <CopyId value={o.id} label="Order ID" />],
@@ -170,6 +191,7 @@ function Facts({ o }: { o: AdminOrder }) {
     ["Kind", <KindTag kind={o.kind} />],
     ["Amount", <span className="font-mono">{o.amount} <span className="font-sans font-medium">{o.symbol}</span></span>],
     ["Network", o.network || "—"],
+    ["TXID", o.txid ? <Txid o={o} /> : <span className="text-muted-foreground">{o.network && o.network !== "none" ? "None submitted" : "No payment"}</span>],
     ["Created", <span><span className="num">{formatDateTime(o.createdAt)}</span><span className="block text-xs text-muted-foreground">{relativeTime(o.createdAt)}</span></span>],
   ];
   return (

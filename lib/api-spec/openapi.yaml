@@ -1016,8 +1016,9 @@ components:
         canClaimOwner: { type: boolean }
     AdminOrder:
       type: object
-      required: [id, kind, status, plan, createdAt, amount, symbol, network, customer, username]
+      required: [id, kind, status, plan, createdAt, amount, symbol, network, customer, username, txid]
       properties:
+        txid: { type: string, description: Blockchain transaction ID submitted for this order, empty when there is none }
         username: { type: string, description: Telegram username of the customer when known }
         id: { type: string }
         kind: { type: string }

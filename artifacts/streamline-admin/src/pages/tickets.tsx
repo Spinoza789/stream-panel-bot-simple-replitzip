@@ -85,8 +85,25 @@ function TicketsList() {
             {q ? "Try the ticket number, a username or a Telegram ID." : "New tickets from the bot and the reseller panel appear here, and you also get a Telegram notification."}
           </EmptyState>
         ) : (
-          <div className={cn("overflow-x-auto transition-opacity", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
-            <table className="w-full min-w-[760px] text-sm">
+          <>
+          <ul className={cn("divide-y divide-border border-t border-border transition-opacity md:hidden", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
+            {list.isLoading && Array.from({ length: 3 }).map((_, i) => <li key={i} className="space-y-2 p-4"><Bar className="h-4 w-1/2" /><Bar className="h-3.5 w-3/4" /></li>)}
+            {!list.isLoading && d?.items.map((t) => (
+              <li key={t.id}>
+                <div role="button" tabIndex={0} onClick={() => setOpen(t.id)} onKeyDown={(e) => { if (e.key === "Enter") setOpen(t.id); }} data-testid={`row-ticket-${t.id}`}
+                  className="cursor-pointer space-y-1.5 p-4 transition-colors active:bg-[#f1f1f1] dark:active:bg-white/10">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><div className="truncate text-[15px] font-semibold">{who(t)}</div><div className="text-xs text-muted-foreground">{t.topicLabel} · {t.reseller ? "Reseller" : "Customer"} · <span className="font-mono">{t.id}</span></div></div>
+                    <StatusBadge status={t.status === "open" ? "needs reply" : t.status} tone={tone(t.status)} />
+                  </div>
+                  <p className="line-clamp-2 text-sm"><span className="text-muted-foreground">{t.lastSender === "support" ? "You: " : ""}</span>{t.preview}</p>
+                  <div className="text-xs text-muted-foreground">{t.messages} message{t.messages === 1 ? "" : "s"} · {relativeTime(t.updatedAt)}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className={cn("hidden overflow-x-auto transition-opacity md:block", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
                   <th className="px-4 py-2 font-medium">Ticket</th>
@@ -112,6 +129,7 @@ function TicketsList() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {d && (d.more || page > 1) && (
           <div className="flex items-center justify-end gap-1 border-t border-border px-4 py-2.5 text-sm">

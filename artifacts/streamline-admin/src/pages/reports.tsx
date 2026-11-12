@@ -29,7 +29,7 @@ function Reports() {
         title="Reports"
         description="Revenue counts verified payments only: retail memberships at their GBP price and credit packs at the pack price. Credits used are deductions from reseller balances."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select value={months} onChange={(e) => setMonths(parseInt(e.target.value, 10))} className="h-8 rounded-lg border border-input bg-card px-2 text-[13px]" data-testid="select-report-months">
               {[3, 6, 12, 24, 36].map((n) => <option key={n} value={n}>Last {n} months</option>)}
             </select>

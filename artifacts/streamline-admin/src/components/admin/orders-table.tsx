@@ -7,8 +7,29 @@ import { Bar, CopyId, KindTag, StatusBadge } from "./bits";
 export function OrdersTable({ orders, loading, rows = 8 }: { orders?: AdminOrder[]; loading?: boolean; rows?: number }) {
   const [, setLocation] = useLocation();
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-sm">
+    <>
+    <ul className="divide-y divide-border md:hidden">
+      {loading && Array.from({ length: Math.min(rows, 4) }).map((_, i) => <li key={i} className="space-y-2 p-4"><Bar className="h-4 w-1/2" /><Bar className="h-3.5 w-3/4" /></li>)}
+      {!loading && orders?.map((o) => (
+        <li key={o.id}>
+          <div role="button" tabIndex={0} data-testid={`row-order-${o.id}`} onClick={() => setLocation(`/orders/${encodeURIComponent(o.id)}`)}
+            onKeyDown={(e) => { if (e.key === "Enter") setLocation(`/orders/${encodeURIComponent(o.id)}`); }}
+            className="flex cursor-pointer items-start justify-between gap-3 p-4 transition-colors active:bg-[#f1f1f1] dark:active:bg-white/10">
+            <div className="min-w-0 space-y-1">
+              <div className="truncate text-[15px] font-semibold">{o.username ? "@" + o.username : o.customer || "—"}</div>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><KindTag kind={o.kind} /><span>{o.plan || "—"}</span></div>
+              <div className="num text-xs text-muted-foreground">{formatDateTime(o.createdAt)} · <span className="font-mono">{o.id.slice(0, 8)}…</span></div>
+            </div>
+            <div className="shrink-0 space-y-1 text-right">
+              <StatusBadge status={o.status} />
+              <div className="num text-sm"><span className="font-mono">{o.amount}</span> <span className="text-xs font-medium">{o.symbol}</span></div>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+    <div className="hidden overflow-x-auto md:block">
+      <table className="w-full min-w-[720px] text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
             <th className="px-4 py-2 font-medium">Order</th>
@@ -64,5 +85,6 @@ export function OrdersTable({ orders, loading, rows = 8 }: { orders?: AdminOrder
         </tbody>
       </table>
     </div>
+    </>
   );
 }

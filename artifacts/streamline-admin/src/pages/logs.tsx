@@ -7,7 +7,7 @@ import {
 import { ChevronLeft, ChevronRight, ScrollText, Search, X } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
-import { Bar, CopyId, EmptyState, ErrorState, PageHeader, Panel, StatusBadge } from "@/components/admin/bits";
+import { Bar, CopyId, EmptyState, ErrorState, PageHeader, Panel, SellerBadge, StatusBadge } from "@/components/admin/bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -56,8 +56,38 @@ function ActivityTable({ reseller, source, q, page, onPage, onResellers }: { res
   if (d && d.items.length === 0) return <EmptyState icon={<ScrollText className="h-5 w-5" />} title="No activity matches">Lines appear here as soon as they are created or extended.</EmptyState>;
   return (
     <>
-      <div className={cn("overflow-x-auto transition-opacity", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
-        <table className="w-full min-w-[940px] text-sm" data-testid="table-activity">
+      <ul className={cn("divide-y divide-border transition-opacity md:hidden", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")} data-testid="cards-activity">
+        {list.isLoading && Array.from({ length: 3 }).map((_, i) => <li key={i} className="space-y-2 p-4"><Bar className="h-4 w-1/2" /><Bar className="h-3.5 w-3/4" /></li>)}
+        {!list.isLoading && d?.items.map((a) => (
+          <li key={a.source + a.id} className="space-y-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[15px] font-semibold">{ACTIONS[a.action] ?? a.action}</div>
+                <div className="text-sm text-muted-foreground">{a.package}</div>
+              </div>
+              <div className="num shrink-0 text-right text-sm">
+                {a.creditsBefore === null || a.creditsAfter === null
+                  ? <span className="text-muted-foreground">{a.source === "retail" ? "" : a.status === "failed" ? "Not charged" : `${a.creditCost} held`}</span>
+                  : <><span className="text-muted-foreground">{a.creditsBefore} →</span> <span className="font-semibold">{a.creditsAfter}</span><div className="text-[11px] text-muted-foreground">credits</div></>}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <SellerBadge source={a.source} name={a.source === "reseller" ? resellerName(a.resellerUsername, a.resellerTelegramId) : undefined} />
+              {a.customer && <span className="truncate">{a.customer}</span>}
+              {a.status !== "succeeded" && <StatusBadge status={a.status} tone={a.status === "failed" ? "critical" : "attention"} />}
+            </div>
+            {a.accountUsername && (
+              <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">Username</dt><dd className="min-w-0 justify-self-end"><CopyId value={a.accountUsername} label="Username" /></dd>
+                {a.accountPassword && <><dt className="text-muted-foreground">Password</dt><dd className="min-w-0 justify-self-end"><CopyId value={a.accountPassword} label="Password" /></dd></>}
+              </dl>
+            )}
+            <div className="num text-xs text-muted-foreground">{formatDateTime(a.date)}</div>
+          </li>
+        ))}
+      </ul>
+      <div className={cn("hidden overflow-x-auto transition-opacity md:block", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
+        <table className="w-full min-w-[860px] text-sm" data-testid="table-activity">
           <thead><tr className="border-b border-border text-left text-xs text-muted-foreground">
             <th className={th}>Date</th><th className={th}>Owner</th><th className={th}>Username</th><th className={th}>Password</th><th className={th}>What happened</th><th className={cn(th, "text-right")}>Credits</th>
           </tr></thead>
@@ -67,8 +97,8 @@ function ActivityTable({ reseller, source, q, page, onPage, onResellers }: { res
               <tr key={a.source + a.id} className={row} data-testid={`row-activity-${a.id}`}>
                 <td className="num whitespace-nowrap px-4 py-2.5">{formatDateTime(a.date)}</td>
                 <td className="px-3 py-2.5">
-                  <div className="font-medium">{a.source === "reseller" ? resellerName(a.resellerUsername, a.resellerTelegramId) : "Direct sale"}</div>
-                  <div className="max-w-[200px] truncate text-[11px] text-muted-foreground">{a.customer || (a.source === "reseller" ? "No customer note" : "")}</div>
+                  <SellerBadge source={a.source} name={a.source === "reseller" ? resellerName(a.resellerUsername, a.resellerTelegramId) : undefined} />
+                  <div className="mt-1 max-w-[200px] truncate text-[11px] text-muted-foreground">{a.customer || (a.source === "reseller" ? "No customer note" : "")}</div>
                 </td>
                 <td className="px-3 py-2.5">{a.accountUsername ? <CopyId value={a.accountUsername} label="Username" /> : <span className="text-muted-foreground">—</span>}</td>
                 <td className="px-3 py-2.5">{a.accountPassword ? <CopyId value={a.accountPassword} label="Password" /> : <span className="text-muted-foreground">—</span>}</td>
@@ -105,8 +135,23 @@ function CreditTable({ reseller, scope, q, page, onPage, onResellers }: { resell
   if (d && d.items.length === 0) return <EmptyState icon={<ScrollText className="h-5 w-5" />} title="No credit movements match">Credit packs and manual adjustments appear here.</EmptyState>;
   return (
     <>
-      <div className={cn("overflow-x-auto transition-opacity", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
-        <table className="w-full min-w-[820px] text-sm" data-testid="table-credits">
+      <ul className={cn("divide-y divide-border transition-opacity md:hidden", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")} data-testid="cards-credits">
+        {list.isLoading && Array.from({ length: 3 }).map((_, i) => <li key={i} className="space-y-2 p-4"><Bar className="h-4 w-1/2" /><Bar className="h-3.5 w-3/4" /></li>)}
+        {!list.isLoading && d?.items.map((c) => (
+          <li key={c.id} className="space-y-1.5 p-4" data-testid={`row-credit-${c.id}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0"><div className="truncate text-[15px] font-semibold">{resellerName(c.resellerUsername, c.resellerTelegramId)}</div><div className="text-sm">{c.reason || "—"}</div></div>
+              <div className="shrink-0 text-right">
+                <div className={cn("num text-[15px] font-semibold", c.movement > 0 ? "text-[#0c5132] dark:text-[#9fe2b8]" : c.movement < 0 ? "text-[#8e1f0b] dark:text-[#f3b0ab]" : "")}>{c.movement > 0 ? "+" : ""}{c.movement}</div>
+                <div className="num text-xs text-muted-foreground">{c.balanceBefore} → {c.balanceAfter}</div>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">{KINDS[c.kind] ?? c.kind} · {c.admin} · <span className="num">{formatDateTime(c.date)}</span></div>
+          </li>
+        ))}
+      </ul>
+      <div className={cn("hidden overflow-x-auto transition-opacity md:block", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
+        <table className="w-full min-w-[720px] text-sm" data-testid="table-credits">
           <thead><tr className="border-b border-border text-left text-xs text-muted-foreground">
             <th className={th}>Date</th><th className={th}>Reseller</th><th className={th}>By</th><th className={th}>Reason</th><th className={cn(th, "text-right")}>Credits</th><th className={cn(th, "text-right")}>Balance</th>
           </tr></thead>
@@ -148,7 +193,7 @@ function Logs() {
     timer.current = setTimeout(() => { setQ(text.trim().slice(0, 80)); setPage(1); }, 300);
     return () => clearTimeout(timer.current);
   }, [text]);
-  const select = "h-8 rounded-lg border border-input bg-card px-2 text-[13px]";
+  const select = "h-9 min-w-0 flex-1 rounded-lg border border-input bg-card px-2 text-[13px] sm:h-8 sm:flex-none";
   return (
     <>
       <PageHeader title="Logs" description="What happened on your own system: every line created or extended, and every change to a reseller's credits. Pick a reseller to see only theirs." />

@@ -12,7 +12,7 @@ export function Logo({ className, withWord = true }: { className?: string; withW
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <img src={`${basePath}/logo.svg`} alt="" className="h-7 w-7 rounded-md" />
       {withWord && (
-        <span className="text-[15px] font-semibold tracking-tight">
+        <span className="whitespace-nowrap text-[15px] font-semibold tracking-tight">
           UKCTV <span className="font-normal opacity-60">Admin</span>
         </span>
       )}
@@ -39,6 +39,21 @@ export function StatusBadge({ status, tone }: { status: string; tone?: Tone }) {
       )}
     >
       {humanize(status)}
+    </span>
+  );
+}
+
+/** Who sold an account: you directly (green) or one of your resellers (violet). Same colours everywhere. */
+export const SELLER_STYLE = {
+  retail: { badge: "bg-[#cdfee1] text-[#0c5132]", accent: "border-l-[#29845a]", dot: "bg-[#29845a]" },
+  reseller: { badge: "bg-[#e9e2ff] text-[#3b2a85]", accent: "border-l-[#7c5cd6]", dot: "bg-[#7c5cd6]" },
+} as const;
+
+export function SellerBadge({ source, name }: { source: "retail" | "reseller"; name?: string }) {
+  return (
+    <span className={cn("inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold", SELLER_STYLE[source].badge)} data-testid={`seller-${source}`}>
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", SELLER_STYLE[source].dot)} />
+      <span className="truncate">{source === "retail" ? "Direct" : name ? `Reseller · ${name}` : "Reseller"}</span>
     </span>
   );
 }
@@ -85,13 +100,13 @@ export function CopyId({ value, label = "ID", short = false }: { value: string; 
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
   return (
-    <div className="rise mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="rise mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
         {eyebrow && <div className="mb-1.5 text-sm text-muted-foreground">{eyebrow}</div>}
         <h1 className="text-xl font-semibold tracking-tight" data-testid="text-page-title">{title}</h1>
         {description && <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 [&>*]:grow sm:[&>*]:grow-0 lg:shrink-0 lg:justify-end">{actions}</div>}
     </div>
   );
 }

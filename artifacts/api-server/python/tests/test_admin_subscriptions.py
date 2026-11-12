@@ -130,6 +130,23 @@ class Scenarios:
         self.bot._username_backfill_at = 0
         self.assertEqual(self.bot.backfill_usernames(), 0)
 
+    def test_paid_order_shows_its_transaction_id_and_can_be_found_by_it(self):
+        quote = self.service.create_order('month-1', next(iter(self.service.config['assets'])), owner_telegram_id=800, request_key='quote-800-a')
+        order_id = quote['order']['id']; txid = 'ab' * 32
+        self.assertEqual(self.call('/orders/' + order_id).json['order']['txid'], '')
+        self.service.submit_telegram_tx(800, order_id, txid)
+        self.assertEqual(self.call('/orders/' + order_id).json['order']['txid'], txid)           # submitted, awaiting verification
+        order = self.store.get(order_id)
+        self.store.claim_payment(order_id, dict(network=order['asset']['network'], txid=txid, amount_units=int(order['amount_units']), block_time=int(time.time()), confirmations=12))
+        self.service.provision_pending()
+        detail = self.call('/orders/' + order_id).json
+        self.assertEqual((detail['order']['status'], detail['order']['txid']), ('fulfilled', txid))
+        found = self.call('/orders?q=' + txid).json
+        self.assertEqual((found['total'], found['items'][0]['id'], found['items'][0]['txid']), (1, order_id, txid))
+        self.assertEqual(self.call('/orders?q=' + 'cd' * 32).json['total'], 0)
+        # Trials and owner-added memberships have no payment, so no transaction.
+        self.assertEqual(self.call('/orders/' + self.trial(700)['id']).json['order']['txid'], '')
+
     def test_order_without_an_account_has_no_login_and_cannot_be_deleted(self):
         order = self.service.create_trial(701)
         detail = self.call('/orders/' + order['id']).json

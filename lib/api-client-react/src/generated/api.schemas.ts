@@ -660,6 +660,8 @@ export interface AdminAccess {
 }
 
 export interface AdminOrder {
+  /** Blockchain transaction ID submitted for this order */
+  txid: string;
   /** Telegram username of the customer when known */
   username: string;
   id: string;

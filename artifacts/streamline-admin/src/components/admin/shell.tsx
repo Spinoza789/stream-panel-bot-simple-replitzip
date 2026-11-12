@@ -42,11 +42,11 @@ function Frame({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-background">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-[#1a1a1a] px-3 text-[#e3e3e3] md:px-4">
-        <button className="rounded-md p-1.5 hover:bg-white/10 md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu" data-testid="button-menu">
+        <button className="rounded-md p-1.5 hover:bg-white/10 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu" data-testid="button-menu">
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
-        <Link href="/dashboard" data-testid="link-logo" className="md:w-56"><Logo /></Link>
-        <form onSubmit={search} role="search" className="relative mx-auto hidden w-full max-w-xl sm:block">
+        <Link href="/dashboard" data-testid="link-logo" className="shrink-0 lg:w-56"><Logo /></Link>
+        <form onSubmit={search} role="search" className="relative mx-auto hidden min-w-0 max-w-xl flex-1 sm:block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b5b5b5]" />
           <input
             value={query}
@@ -81,15 +81,20 @@ function Frame({ children }: { children: ReactNode }) {
       <div className="flex">
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 top-14 z-20 w-60 border-r border-sidebar-border bg-sidebar p-2 transition-transform duration-200 md:sticky md:h-[calc(100dvh-3.5rem)] md:translate-x-0",
+            "fixed inset-y-0 left-0 top-14 z-20 w-64 max-w-[85vw] overflow-y-auto border-r border-sidebar-border bg-sidebar p-2 transition-transform duration-200 lg:sticky lg:h-[calc(100dvh-3.5rem)] lg:w-60 lg:translate-x-0",
             open ? "translate-x-0" : "-translate-x-full",
           )}
         >
+          <form onSubmit={(e) => { search(e); setOpen(false); }} role="search" className="relative mb-2 sm:hidden">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} maxLength={80} placeholder="Search orders" aria-label="Search orders" data-testid="input-drawer-search"
+              className="h-9 w-full rounded-lg border border-input bg-card pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          </form>
           <Nav onNavigate={() => setOpen(false)} />
         </aside>
-        {open && <div className="fixed inset-0 top-14 z-10 bg-black/20 md:hidden" onClick={() => setOpen(false)} />}
-        <main className="min-w-0 flex-1 px-4 py-5 md:px-6 md:py-6">
-          <div className="mx-auto max-w-5xl">{children}</div>
+        {open && <div className="fixed inset-0 top-14 z-10 bg-black/30 lg:hidden" onClick={() => setOpen(false)} />}
+        <main className="min-w-0 flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+          <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>
     </div>
@@ -124,7 +129,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
     { href: "/settings", label: "Settings", icon: Settings2, count: undefined, hot: false },
   ];
   return (
-    <nav className="flex h-full flex-col gap-0.5">
+    <nav className="flex flex-col gap-0.5 lg:h-full">
       {items.map((it) => {
         const active = loc === it.href || ((it.href === "/orders" || it.href === "/resellers") && loc.startsWith(it.href + "/"));
         return (
@@ -136,7 +141,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
             onFocus={() => warm(it.href)}
             data-testid={`link-nav-${it.label.toLowerCase()}`}
             className={cn(
-              "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+              "flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-[14px] font-medium transition-colors lg:py-1.5 lg:text-[13px]",
               active ? "bg-white text-foreground shadow-[0_1px_0_rgba(0,0,0,0.05)] dark:bg-white/10 dark:text-white" : "text-sidebar-foreground hover:bg-black/5 dark:hover:bg-white/5",
             )}
           >
@@ -150,7 +155,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
           </Link>
         );
       })}
-      <p className="mt-auto px-2.5 pb-1 text-[11px] leading-snug text-muted-foreground">Live from the checkout database. Refreshes every 30 seconds and when you return to this tab.</p>
+      <p className="mt-6 px-2.5 pb-1 text-[11px] lg:mt-auto leading-snug text-muted-foreground">Live from the checkout database. Refreshes every 30 seconds and when you return to this tab.</p>
     </nav>
   );
 }

@@ -130,7 +130,7 @@ function ResellerDetail() {
       />
       {!d ? <Panel><div className="space-y-2"><Bar className="h-4" /><Bar className="h-4 w-2/3" /><Bar className="h-4 w-1/2" /></div></Panel> : (
         <div className="space-y-5">
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 lg:gap-5">
             <Panel title="Credits and customers">
               <Stat label="Available credits" value={r!.available} />
               <Stat label="Reserved" value={r!.reserved} />
@@ -150,7 +150,7 @@ function ResellerDetail() {
               {WINDOWS.map(([key, label]) => <Stat key={key} label={label} value={`${d.trials.effective[key] === UNLIMITED ? d.trials.usage[key] + " used · unlimited" : d.trials.usage[key] + " of " + d.trials.effective[key]}${d.trials.limits[key] === null ? "" : " (own limit)"}`} />)}
             </Panel>
           </div>
-          <div className="grid items-start gap-5 lg:grid-cols-3">
+          <div className="grid items-start gap-4 md:grid-cols-2 lg:gap-5 xl:grid-cols-3">
             <TrialLimitsForm id={id} trials={d.trials} onSaved={refresh} />
               <form onSubmit={credit} className="card-shadow rounded-xl bg-card p-3 text-sm">
                 <p className="font-semibold">Adjust credits</p>
