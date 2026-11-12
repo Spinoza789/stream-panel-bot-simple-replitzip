@@ -121,6 +121,47 @@ class AdminWebTests(unittest.TestCase):
         self.assertTrue(qr['qr'].startswith('data:image/png;base64,'))
         self.assertEqual(self.call('/auth/qr', {'uri': 'https://evil.example'}).status_code, 400)
 
+    def test_reseller_pagination_filters_and_exact_detail(self):
+        finance = self.service.resellers.finance
+        for i in range(60):
+            finance.register(7000 + i, 'Shop_%02d' % i)
+        with self.store.connection() as db:
+            db.execute('UPDATE rs_resellers SET created_at=telegram_id')
+        first = self.call('/resellers').json
+        second = self.call('/resellers?page=2').json
+        last = self.call('/resellers?page=3').json
+        self.assertEqual([len(p['items']) for p in (first, second, last)], [25, 25, 10])
+        self.assertEqual([p['more'] for p in (first, second, last)], [True, True, False])
+        ids = [r['telegramId'] for p in (first, second, last) for r in p['items']]
+        self.assertEqual(ids, list(range(7059, 6999, -1)))
+        self.assertEqual(self.call('/resellers?q=@SHOP_59').json['items'][0]['telegramId'], 7059)
+        self.assertEqual(self.call('/resellers?q=%25').json['items'], [])
+        self.assertEqual(len(self.call('/resellers?q=pending').json['items']), 25)
+        self.assertEqual(self.call('/resellers?page=4').json['items'], [])
+        # Exact lookup must not disappear behind 26 newer substring matches.
+        finance.register(7, 'target')
+        self.assertEqual(self.call('/resellers/7').json['reseller']['telegramId'], 7)
+
+    def test_summary_aggregates_do_not_multiply_joined_rows(self):
+        finance = self.service.resellers.finance
+        member = finance.register(777, 'totals')
+        finance.adjust(self.actor, 777, 20, 'Initial balance', 'summary-initial')
+        finance.adjust(self.actor, 777, -3, 'Balance correction', 'summary-correction')
+        clock = int(time.time())
+        with self.store.connection() as db:
+            for i, kind, expires in [(0, 'paid', clock + 500), (1, 'paid', clock - 500), (2, 'trial', clock + 500)]:
+                db.execute(
+                    'INSERT INTO rs_subscriptions '
+                    '(id,reseller_id,provider_id,customer_ref,kind,connections,adult,starts_at,expires_at,status,credentials,confirmed_at,created_at) '
+                    'VALUES(?,?,?,?,?,1,0,?,?,?,?,?,?)',
+                    ('summary-' + str(i), member['id'], 'provider-' + str(i), '', kind,
+                     clock, expires, 'active', '{}', clock, clock + i))
+        row = finance.summary(self.actor)[0]
+        self.assertEqual((row['customers'], row['active_customers'], row['credits_bought']), (3, 1, 20))
+        self.assertEqual(row['available'], 17)
+        self.assertEqual(row['last_activity'], clock + 2)
+        self.assertIsInstance(row['credits_bought'], int)
+
     def test_all_routes_reject_browser_identity_headers(self):
         for method, path in [('GET', '/overview'), ('GET', '/orders'), ('GET', '/status'),
                              ('GET', '/orders/' + self.order['id']),
@@ -132,7 +173,11 @@ class AdminWebTests(unittest.TestCase):
         self.panel.create_account.assert_not_called()
 
     def test_signed_read_is_real_and_sanitized(self):
-        overview = self.call('/overview').json
+        with patch.object(self.store, 'connection', wraps=self.store.connection) as connections:
+            overview = self.call('/overview').json
+        # One rate-limit check, one bridge-auth transaction and one overview connection,
+        # including ticket metrics, reseller metrics and recent-order owners.
+        self.assertEqual(connections.call_count, 3)
         self.assertEqual((overview['total'], overview['review'], overview['trials']), (1, 1, 1))
         page = self.call('/orders?kind=trial&page=1').json
         self.assertEqual(page['total'], 1)

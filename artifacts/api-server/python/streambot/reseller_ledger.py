@@ -349,29 +349,49 @@ class Ledger:
         with self.store.connection() as db:
             return dict(this_month=window(db,since),all_time=window(db,0))
 
-    def summary(self, actor, search='', page=0):
+    def summary(self, actor, search='', page=0, *, telegram_id=None):
         """Administrator list of resellers with balances, customer counts and last activity."""
         self.admin(actor);self.seed();integer(page,0,100000)
         if not isinstance(search,str) or len(search)>80:raise CheckoutError('Invalid search.')
+        # Select the requested page before aggregating its subscriptions/ledger.
+        # Escape LIKE metacharacters: search is a literal substring, not a pattern.
+        needle=search.lower().lstrip('@')
+        clauses=[];params=[]
+        if needle:
+            clauses.append("LOWER(CAST(r.telegram_id AS TEXT)||' '||r.username||' '||r.status) LIKE ? ESCAPE '!'")
+            params.append('%'+needle.replace('!','!!').replace('%','!%').replace('_','!_')+'%')
+        if telegram_id is not None:
+            integer(telegram_id,1,2**63-1)
+            clauses.append('r.telegram_id=?');params.append(telegram_id)
+        where=' WHERE '+' AND '.join(clauses) if clauses else ''
+        params.extend((26,page*25,now()))
         with self.store.connection() as db:
             rows=db.execute(
-                "SELECT r.id,r.telegram_id,r.username,r.status,r.created_at,a.balance,a.reserved,"
-                "(SELECT COUNT(*) FROM rs_subscriptions s WHERE s.reseller_id=r.id) AS customers,"
-                "(SELECT COUNT(*) FROM rs_subscriptions s WHERE s.reseller_id=r.id AND s.kind='paid' AND s.expires_at>?) AS active_customers,"
-                "(SELECT COALESCE(SUM(movement),0) FROM rs_ledger l WHERE l.reseller_id=r.id AND l.movement>0) AS credits_bought,"
-                "(SELECT MAX(created_at) FROM rs_ledger l WHERE l.reseller_id=r.id) AS last_ledger,"
-                "(SELECT MAX(created_at) FROM rs_subscriptions s WHERE s.reseller_id=r.id) AS last_customer "
-                "FROM rs_resellers r JOIN rs_accounts a ON a.reseller_id=r.id ORDER BY r.created_at DESC,r.id",(now(),)).fetchall()
+                "WITH selected AS ("
+                "SELECT r.id,r.telegram_id,r.username,r.status,r.created_at,a.balance,a.reserved "
+                "FROM rs_resellers r JOIN rs_accounts a ON a.reseller_id=r.id"+where+
+                " ORDER BY r.created_at DESC,r.id LIMIT ? OFFSET ?),"
+                "customers AS (SELECT s.reseller_id,COUNT(*) AS customers,"
+                "SUM(CASE WHEN s.kind='paid' AND s.expires_at>? THEN 1 ELSE 0 END) AS active_customers,"
+                "MAX(s.created_at) AS last_customer FROM rs_subscriptions s "
+                "JOIN selected p ON p.id=s.reseller_id GROUP BY s.reseller_id),"
+                "movements AS (SELECT l.reseller_id,"
+                "SUM(CASE WHEN l.movement>0 THEN l.movement ELSE 0 END) AS credits_bought,"
+                "MAX(l.created_at) AS last_ledger FROM rs_ledger l "
+                "JOIN selected p ON p.id=l.reseller_id GROUP BY l.reseller_id) "
+                "SELECT p.*,COALESCE(c.customers,0) AS customers,"
+                "COALESCE(c.active_customers,0) AS active_customers,"
+                "COALESCE(m.credits_bought,0) AS credits_bought,m.last_ledger,c.last_customer "
+                "FROM selected p LEFT JOIN customers c ON c.reseller_id=p.id "
+                "LEFT JOIN movements m ON m.reseller_id=p.id ORDER BY p.created_at DESC,p.id",tuple(params)).fetchall()
         items=[]
-        needle=search.casefold().lstrip('@')
         for row in rows:
             row=dict(row)
-            if needle and needle not in (str(row['telegram_id'])+' '+row['username']+' '+row['status']).casefold():continue
             row['credits_bought']=int(row['credits_bought'] or 0)  # PostgreSQL returns SUM() as Decimal, which the admin API would ship as a string
             row['last_activity']=max(row.pop('last_ledger') or 0,row.pop('last_customer') or 0,row['created_at'])
             row['available']=row['balance']-row['reserved']
             items.append(row)
-        return items[page*25:page*25+26]
+        return items
 
     def report(self, actor, months=12):
         """Revenue and credit movements per month, plus per-reseller totals. Counts come from verified payments only."""

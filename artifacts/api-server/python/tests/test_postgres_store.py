@@ -100,6 +100,24 @@ class PostgresIntegrationTests(unittest.TestCase):
                                        self.panel, rates=Rates(demo=True))
         self.owner = int(uuid.uuid4().hex[:12], 16) + 10**12
 
+    def test_admin_summary_paginates_and_aggregates_on_postgres(self):
+        finance = self.service.resellers.finance
+        actor = 'replit:query_test:' + '1' * 64
+        prefix = 'query-' + uuid.uuid4().hex[:12]
+        members = [finance.register(self.owner + i, prefix + str(i)) for i in range(28)]
+        finance.adjust(actor, self.owner, 20, 'Query regression credit', 'query-' + uuid.uuid4().hex)
+        finance.adjust(actor, self.owner, -3, 'Query regression correction', 'query-' + uuid.uuid4().hex)
+        first = finance.summary(actor, prefix)
+        last = finance.summary(actor, prefix, 1)
+        self.assertEqual((len(first), len(last)), (26, 3))
+        self.assertEqual(len({r['id'] for r in first[:25] + last}), 28)
+        row = finance.summary(actor, telegram_id=self.owner)[0]
+        self.assertEqual(row['id'], members[0]['id'])
+        self.assertEqual((row['customers'], row['active_customers'], row['credits_bought'], row['available']),
+                         (0, 0, 20, 17))
+        self.assertIsInstance(row['credits_bought'], int)
+        self.assertEqual(finance.summary(actor, prefix, 2), [])
+
     def test_admin_trial_recovery_queues_original_and_audits_atomically(self):
         self.config.update(support_admin_id=900, panel_writes=True)
         order = self.service.create_trial(self.owner)

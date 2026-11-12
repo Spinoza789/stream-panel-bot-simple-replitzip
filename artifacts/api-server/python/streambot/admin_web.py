@@ -127,37 +127,51 @@ def register_admin(app, service):
                     customer=str(owner) if owner else 'Website checkout',
                     username=names.get(int(owner), '') if owner else '')
 
-    def safe_rows(rows):
-        with store.connection() as db:
+    def safe_rows(rows, db=None):
+        if db is None:
+            with store.connection() as connection:
+                return safe_rows(rows, connection)
+        if rows:
             owners = accounts.owners(db, [row['id'] for row in rows if not row['telegram_id']])
             names = accounts.usernames(db, [row['telegram_id'] or owners.get(row['id']) for row in rows if row['telegram_id'] or owners.get(row['id'])])
-        return [safe(row, owners, names) for row in rows]
+            return [safe(row, owners, names) for row in rows]
+        return []
 
     @routes.get('/overview')
     def overview():
+        extra = dict(creditsSoldMonth=0, activeResellers=0, testsConverted=0, revenueMonthGbp=0.0, openTickets=0)
+        # Reuse one connection and combine related aggregates; opening a fresh
+        # remote PostgreSQL connection for each helper adds latency on every tab.
         with store.connection() as db:
-            counts = db.execute('SELECT status,COUNT(*) AS n FROM orders GROUP BY status').fetchall()
-            trials = db.execute("SELECT COUNT(*) FROM orders WHERE kind='trial'").fetchone()[0]
+            counts = db.execute("SELECT status,COUNT(*) AS n,"
+                                "SUM(CASE WHEN kind='trial' THEN 1 ELSE 0 END) AS trials "
+                                "FROM orders GROUP BY status").fetchall()
+            trials = sum(row['trials'] for row in counts)
             recent = db.execute('SELECT * FROM orders ORDER BY created_at DESC,id DESC LIMIT 8').fetchall()
-        totals = {row['status']: row['n'] for row in counts}
-        extra = dict(creditsSoldMonth=0, activeResellers=0, testsConverted=0, revenueMonthGbp=0.0, openTickets=service.tickets.admin_counts()['open'])
-        if service.resellers.ready:
-            month = service.resellers.finance.month_start()
-            with store.connection() as db:
-                extra['creditsSoldMonth'] = int(db.execute("SELECT COALESCE(SUM(credits),0) FROM rs_purchases WHERE status='granted' AND created_at>=?", (month,)).fetchone()[0])
-                extra['activeResellers'] = int(db.execute("SELECT COUNT(*) FROM rs_resellers WHERE status='active'").fetchone()[0])
-                extra['testsConverted'] = int(db.execute("SELECT COUNT(*) FROM rs_subscriptions WHERE converted_at IS NOT NULL").fetchone()[0])
-                packs = db.execute("SELECT COALESCE(SUM(amount_pence),0) FROM rs_purchases WHERE status='granted' AND created_at>=?", (month,)).fetchone()[0]
+            if service.tickets.ready:
+                extra['openTickets'] = db.execute("SELECT COUNT(*) FROM tk_tickets WHERE status='open'").fetchone()[0]
+            if service.resellers.ready:
+                month = service.resellers.finance.month_start()
+                metrics = db.execute(
+                    "SELECT COALESCE(SUM(credits),0) AS credits,COALESCE(SUM(amount_pence),0) AS packs,"
+                    "(SELECT COUNT(*) FROM rs_resellers WHERE status='active') AS active,"
+                    "(SELECT COUNT(*) FROM rs_subscriptions WHERE converted_at IS NOT NULL) AS converted "
+                    "FROM rs_purchases WHERE status='granted' AND created_at>=?", (month,)).fetchone()
+                extra['creditsSoldMonth'] = int(metrics['credits'])
+                extra['activeResellers'] = int(metrics['active'])
+                extra['testsConverted'] = int(metrics['converted'])
                 retail = db.execute("SELECT o.plan_json FROM orders o JOIN payments p ON p.order_id=o.id WHERE o.kind='paid' AND o.created_at>=?", (month,)).fetchall()
-            revenue = float(packs or 0) / 100  # PostgreSQL sums arrive as Decimal; keep the maths in float
-            for row in retail:
-                plan = json.loads(row['plan_json'])
-                if not plan.get('reseller_purchase'): revenue += float(plan.get('gbp_price') or 0)
-            extra['revenueMonthGbp'] = round(revenue, 2)
+                revenue = float(metrics['packs']) / 100
+                for row in retail:
+                    plan = json.loads(row['plan_json'])
+                    if not plan.get('reseller_purchase'): revenue += float(plan.get('gbp_price') or 0)
+                extra['revenueMonthGbp'] = round(revenue, 2)
+            recent_public = safe_rows(recent, db)
+        totals = {row['status']: row['n'] for row in counts}
         return jsonify(mode=service.config['mode'], total=sum(totals.values()), trials=trials,
                        fulfilled=totals.get('fulfilled', 0), review=totals.get('review', 0),
                        queued=totals.get('paid', 0) + totals.get('provisioning', 0),
-                       pending=totals.get('pending', 0), recent=safe_rows(recent), **extra)
+                       pending=totals.get('pending', 0), recent=recent_public, **extra)
 
     @routes.get('/orders')
     def orders():
@@ -244,7 +258,7 @@ def register_admin(app, service):
 
     def reseller_detail(telegram_id):
         f = finance()
-        rows = [r for r in f.summary(request.admin_actor, str(telegram_id)) if r['telegram_id'] == telegram_id]
+        rows = f.summary(request.admin_actor, telegram_id=telegram_id)
         if not rows: raise CheckoutError('Reseller not found.')
         history = f.history(telegram_id, 0)[:10]
         return dict(reseller=reseller_public(rows[0]), stats=f.stats(telegram_id), trials=f.trial_summary(telegram_id),
