@@ -198,6 +198,35 @@ class AdminSubscriptions:
         for item in chosen: item.pop('orderIds')
         return dict(items=chosen, page=page, pageSize=PAGE, **counts)
 
+    def groups(self, actor, *, kind='', reseller=None, search=''):
+        """Accounts still running, grouped by who sold them (direct first, then each reseller), with everything
+        that has expired or been disabled gathered separately for the bottom of the page."""
+        self.admin(actor)
+        if kind not in ('', 'trial', 'paid') or not isinstance(search, str) or len(search) > 80 or (reseller is not None and (type(reseller) is not int or reseller <= 0)):
+            raise CheckoutError('Invalid subscription filter.')
+        with self.store.connection() as db:
+            names = self.usernames(db)
+            items = [] if reseller else self._retail_items(db, names)
+            items += self._reseller_items(db, names)
+        needle = search.strip().casefold().lstrip('@')
+        def keep(item):
+            if kind and item['kind'] != kind: return False
+            if reseller and item['resellerTelegramId'] != reseller: return False
+            if not needle: return True
+            text = ' '.join(str(item[k]) for k in ('id', 'customer', 'telegramUsername', 'resellerTelegramId', 'resellerUsername',
+                                                   'customerRef', 'accountUsername', 'plan')) + ' ' + ' '.join(item['orderIds'])
+            return needle in text.casefold()
+        items = sorted((item for item in items if keep(item)), key=lambda item: (item['createdAt'], item['id']), reverse=True)
+        groups = {}; expired = []
+        for item in items:
+            item.pop('orderIds')
+            if item['status'] != 'active': expired.append(item); continue
+            key = 'direct' if item['source'] == 'retail' else 'reseller:%d' % item['resellerTelegramId']
+            groups.setdefault(key, dict(key=key, source=item['source'], resellerTelegramId=item['resellerTelegramId'],
+                                        resellerUsername=item['resellerUsername'], items=[]))['items'].append(item)
+        ordered = sorted(groups.values(), key=lambda g: (g['source'] != 'retail', (g['resellerUsername'] or '~').casefold(), g['resellerTelegramId']))
+        return dict(groups=ordered, expired=expired, total=len(items), active=len(items) - len(expired))
+
     # ---- add: a complimentary membership for a Telegram user ---------------------------------
     def add(self, actor, telegram_id, plan_id, reason):
         """Queue a membership without payment. The provisioning worker creates the account and the bot delivers the login."""

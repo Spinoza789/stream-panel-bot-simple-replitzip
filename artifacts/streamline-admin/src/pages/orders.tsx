@@ -26,7 +26,8 @@ function OrdersList({ trialsOnly }: { trialsOnly?: boolean }) {
   const initialStatus = initialParams.get("status") ?? "";
   const initialQuery = (initialParams.get("q") ?? "").slice(0, 80);
   const [status, setStatus] = useState(STATUSES.includes(initialStatus) ? initialStatus : "");
-  const [kind, setKind] = useState("");
+  const initialKind = initialParams.get("kind") ?? "";
+  const [kind, setKind] = useState(initialKind === "trial" || initialKind === "paid" ? initialKind : "");
   const [text, setText] = useState(initialQuery);
   const [q, setQ] = useState(initialQuery);
   const [page, setPage] = useState(1);

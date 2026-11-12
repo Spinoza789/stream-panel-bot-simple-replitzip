@@ -158,6 +158,30 @@ class Scenarios:
         self.assertEqual(self.call('/subscriptions?q=test-user-1').json['total'], 1)
         self.assertEqual(self.call('/subscriptions?source=nonsense').status_code, 400)
 
+    def test_groups_put_each_reseller_in_a_section_and_expired_accounts_last(self):
+        self.finance.adjust(ADMIN, 42, 20, 'Funding', 'fund-42-g')
+        self.trial(700)
+        self.reseller_trial(42, 'first'); self.reseller_trial(43, 'other')
+        self.ops.reserve(42, 'request-paid', self.ops.preview(42, 'create', 1, 1, False, 'Sam')); self.ops.process()
+        trials = self.call('/subscriptions/groups?kind=trial').json
+        self.assertEqual([(g['key'], g['resellerUsername'], len(g['items'])) for g in trials['groups']],
+                         [('direct', '', 1), ('reseller:42', 'reseller_one', 1), ('reseller:43', 'reseller_two', 1)])
+        self.assertEqual((trials['total'], trials['active'], trials['expired']), (3, 3, []))
+        paid = self.call('/subscriptions/groups?kind=paid').json
+        self.assertEqual([(g['key'], len(g['items'])) for g in paid['groups']], [('reseller:42', 1)])
+        # Expired accounts leave their section and are listed together.
+        with self.store.connection() as db:
+            db.execute("UPDATE rs_subscriptions SET expires_at=? WHERE kind='trial' AND reseller_id=(SELECT id FROM rs_resellers WHERE telegram_id=42)", (int(time.time()) - 10,))
+        trials = self.call('/subscriptions/groups?kind=trial').json
+        self.assertEqual([g['key'] for g in trials['groups']], ['direct', 'reseller:43'])
+        self.assertEqual([(e['resellerTelegramId'], e['status']) for e in trials['expired']], [(42, 'expired')])
+        self.assertEqual((trials['total'], trials['active']), (3, 2))
+        # search and one reseller's own page
+        self.assertEqual(self.call('/subscriptions/groups?kind=trial&q=reseller_two').json['total'], 1)
+        mine = self.call('/subscriptions/groups?reseller=42').json
+        self.assertEqual((mine['total'], [g['key'] for g in mine['groups']], len(mine['expired'])), (2, ['reseller:42'], 1))
+        self.assertEqual(self.call('/subscriptions/groups?kind=nope').status_code, 400)
+
     # ---- add ----
     def test_owner_adds_a_membership_without_payment_and_the_bot_delivers_it(self):
         result = self.call('/subscriptions', {'telegramId': 800, 'planId': 'month-3', 'reason': 'Goodwill for outage'})

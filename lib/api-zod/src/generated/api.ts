@@ -991,6 +991,69 @@ export const AddAdminSubscriptionResponse = zod.object({
   message: zod.string(),
 });
 
+export const listAdminSubscriptionGroupsQueryQMax = 80;
+
+export const ListAdminSubscriptionGroupsQueryParams = zod.object({
+  q: zod.coerce.string().max(listAdminSubscriptionGroupsQueryQMax).optional(),
+  kind: zod.enum(["trial", "paid"]).optional(),
+  reseller: zod.coerce.number().int().min(1).optional(),
+});
+
+export const ListAdminSubscriptionGroupsResponse = zod.object({
+  groups: zod.array(
+    zod.object({
+      key: zod.string(),
+      source: zod.enum(["retail", "reseller"]),
+      resellerTelegramId: zod.number().int(),
+      resellerUsername: zod.string(),
+      items: zod.array(
+        zod.object({
+          id: zod.string(),
+          source: zod.enum(["retail", "reseller"]),
+          kind: zod.string(),
+          status: zod.string(),
+          customer: zod.string(),
+          telegramId: zod.number().int(),
+          telegramUsername: zod.string(),
+          resellerTelegramId: zod.number().int(),
+          resellerUsername: zod.string(),
+          customerRef: zod.string(),
+          accountUsername: zod.string(),
+          accountPassword: zod.string(),
+          serverUrl: zod.string(),
+          plan: zod.string(),
+          connections: zod.number().int(),
+          createdAt: zod.number().int(),
+          expiresAt: zod.number().int(),
+        }),
+      ),
+    }),
+  ),
+  expired: zod.array(
+    zod.object({
+      id: zod.string(),
+      source: zod.enum(["retail", "reseller"]),
+      kind: zod.string(),
+      status: zod.string(),
+      customer: zod.string(),
+      telegramId: zod.number().int(),
+      telegramUsername: zod.string(),
+      resellerTelegramId: zod.number().int(),
+      resellerUsername: zod.string(),
+      customerRef: zod.string(),
+      accountUsername: zod.string(),
+      accountPassword: zod.string(),
+      serverUrl: zod.string(),
+      plan: zod.string(),
+      connections: zod.number().int(),
+      createdAt: zod.number().int(),
+      expiresAt: zod.number().int(),
+    }),
+  ),
+  total: zod.number().int(),
+  active: zod.number().int(),
+});
+
 export const DeleteAdminSubscriptionParams = zod.object({
   source: zod.enum(["retail", "reseller"]),
   id: zod.coerce.string(),

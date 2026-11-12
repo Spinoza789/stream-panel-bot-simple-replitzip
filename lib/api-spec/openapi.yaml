@@ -330,6 +330,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SubscriptionAddResult" }
+  /admin/subscriptions/groups:
+    get:
+      operationId: listAdminSubscriptionGroups
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: kind, in: query, schema: { type: string, enum: [trial, paid] } }
+        - { name: reseller, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Running accounts grouped by seller, with expired ones listed separately
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSubscriptionGroups" }
   /admin/subscriptions/{source}/{id}/delete:
     post:
       operationId: deleteAdminSubscription
@@ -840,6 +853,23 @@ components:
         total: { type: integer }
         active: { type: integer }
         trials: { type: integer }
+    AdminSubscriptionGroup:
+      type: object
+      required: [key, source, resellerTelegramId, resellerUsername, items]
+      properties:
+        key: { type: string }
+        source: { type: string, enum: [retail, reseller] }
+        resellerTelegramId: { type: integer }
+        resellerUsername: { type: string }
+        items: { type: array, items: { $ref: "#/components/schemas/AdminSubscription" } }
+    AdminSubscriptionGroups:
+      type: object
+      required: [groups, expired, total, active]
+      properties:
+        groups: { type: array, items: { $ref: "#/components/schemas/AdminSubscriptionGroup" } }
+        expired: { type: array, items: { $ref: "#/components/schemas/AdminSubscription" } }
+        total: { type: integer }
+        active: { type: integer }
     SubscriptionAddInput:
       type: object
       required: [telegramId, planId, reason]

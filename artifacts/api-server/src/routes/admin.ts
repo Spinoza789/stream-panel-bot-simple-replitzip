@@ -10,7 +10,7 @@ import {
   SetAdminResellerTrialLimitsBody, ListAdminSubscriptionsQueryParams, ListAdminSubscriptionsResponse,
   AddAdminSubscriptionBody, AddAdminSubscriptionResponse, DeleteAdminSubscriptionBody, DeleteAdminSubscriptionResponse,
   ListAdminActivityLogQueryParams, ListAdminActivityLogResponse, ListAdminCreditLogQueryParams, ListAdminCreditLogResponse,
-  CreateAdminResellerBody, OpenAdminTicketBody,
+  CreateAdminResellerBody, OpenAdminTicketBody, ListAdminSubscriptionGroupsQueryParams, ListAdminSubscriptionGroupsResponse,
 } from "@workspace/api-zod";
 import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
 import { adminRequest } from "../lib/python-bridge";
@@ -109,6 +109,12 @@ router.use(async (req, res) => {
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(parsed.data)) if (value !== undefined) params.set(key, String(value));
       target = "/subscriptions?" + params.toString(); schema = ListAdminSubscriptionsResponse;
+    } else if (req.method === "GET" && req.path === "/subscriptions/groups") {
+      const parsed = ListAdminSubscriptionGroupsQueryParams.safeParse(req.query);
+      if (!parsed.success) { res.status(400).json({ error: "Invalid subscription filters." }); return; }
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(parsed.data)) if (value !== undefined) params.set(key, String(value));
+      target = "/subscriptions/groups?" + params.toString(); schema = ListAdminSubscriptionGroupsResponse;
     } else if (req.method === "POST" && req.path === "/subscriptions") {
       const parsed = AddAdminSubscriptionBody.safeParse(req.body);
       if (!parsed.success) { res.status(400).json({ error: "Enter a numeric Telegram ID, choose a plan and give a reason." }); return; }

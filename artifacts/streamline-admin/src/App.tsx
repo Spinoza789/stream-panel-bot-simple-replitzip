@@ -7,11 +7,12 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Welcome from '@/pages/welcome';
 import DashboardPage from '@/pages/dashboard';
-import { OrdersPage, TrialsPage } from '@/pages/orders';
+import { OrdersPage } from '@/pages/orders';
 import OrderDetailPage from '@/pages/order-detail';
 import SettingsPage from '@/pages/settings';
 import ResellersPage from '@/pages/resellers';
-import SubscriptionsPage from '@/pages/subscriptions';
+import SubscriptionsPage, { TrialsPage } from '@/pages/subscriptions';
+import ResellerDetailPage from '@/pages/reseller-detail';
 import LogsPage from '@/pages/logs';
 import ReportsPage from '@/pages/reports';
 import TicketsPage from '@/pages/tickets';
@@ -71,6 +72,7 @@ function Routes() {
         <Route path="/trials"><Protected><TrialsPage /></Protected></Route>
         <Route path="/subscriptions"><Protected><SubscriptionsPage /></Protected></Route>
         <Route path="/resellers"><Protected><ResellersPage /></Protected></Route>
+        <Route path="/resellers/:id"><Protected><ResellerDetailPage /></Protected></Route>
         <Route path="/reports"><Protected><ReportsPage /></Protected></Route>
         <Route path="/logs"><Protected><LogsPage /></Protected></Route>
         <Route path="/tickets"><Protected><TicketsPage /></Protected></Route>

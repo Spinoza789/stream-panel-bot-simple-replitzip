@@ -33,6 +33,7 @@ import type {
   AdminResellerDetail,
   AdminResellerPage,
   AdminStatus,
+  AdminSubscriptionGroups,
   AdminSubscriptionPage,
   AdminTicketDetail,
   AdminTicketPage,
@@ -44,6 +45,7 @@ import type {
   ListAdminCreditLogParams,
   ListAdminOrdersParams,
   ListAdminResellersParams,
+  ListAdminSubscriptionGroupsParams,
   ListAdminSubscriptionsParams,
   ListAdminTicketsParams,
   PasswordAccount,
@@ -3378,6 +3380,190 @@ export const useAddAdminSubscription = <
     queryClient,
   );
 };
+
+export const getListAdminSubscriptionGroupsUrl = (
+  params?: ListAdminSubscriptionGroupsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/subscriptions/groups?${stringifiedParams}`
+    : `/api/admin/subscriptions/groups`;
+};
+
+export const listAdminSubscriptionGroups = async (
+  params?: ListAdminSubscriptionGroupsParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminSubscriptionGroups> => {
+  return customFetch<AdminSubscriptionGroups>(
+    getListAdminSubscriptionGroupsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminSubscriptionGroupsQueryKey = (
+  params?: ListAdminSubscriptionGroupsParams,
+) => {
+  return [
+    `/api/admin/subscriptions/groups`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAdminSubscriptionGroupsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionGroupsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminSubscriptionGroupsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminSubscriptionGroups>>
+  > = ({ signal }) =>
+    listAdminSubscriptionGroups(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListAdminSubscriptionGroupsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminSubscriptionGroups>>
+>;
+export type ListAdminSubscriptionGroupsQueryError = ErrorType<unknown>;
+
+export function useListAdminSubscriptionGroups<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+  TError = ErrorType<unknown>,
+>(
+  params: undefined | ListAdminSubscriptionGroupsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminSubscriptionGroups>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminSubscriptionGroups<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionGroupsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminSubscriptionGroups>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminSubscriptionGroups<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionGroupsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useListAdminSubscriptionGroups<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionGroupsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptionGroups>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListAdminSubscriptionGroupsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getDeleteAdminSubscriptionUrl = (
   source: "retail" | "reseller",

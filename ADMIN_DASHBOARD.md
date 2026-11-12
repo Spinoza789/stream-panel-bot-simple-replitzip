@@ -138,6 +138,14 @@ goes into the audit log, and changes apply to new orders only.
   active/expired, or search by account username, Telegram ID, @username or the
   reseller's customer note. Renewals and trial upgrades are shown once, as the login
   they extend.
+- **Trials and Subscriptions pages** share one layout: a search box, then collapsible
+  sections for direct customers and for each reseller (by name), then an Expired
+  section at the bottom holding everything past its expiry or disabled. Searching
+  opens every section with a match. Trial orders that never produced a login (queued
+  or in review) stay under Orders, filtered to trials.
+- **A reseller is a full page** (`/resellers/<telegram id>`): credits, activity, trial
+  usage and limits, credit adjustment, suspend, recent credit history, and their own
+  Subscriptions and Trials lists with search and an Expired section.
 - **Telegram usernames**: the bot records a customer's current @username whenever they
   message it or tap a button (`tg_username:<id>` in metadata). For customers who have
   not used the bot since, it asks Telegram (`getChat`) in small background batches, so

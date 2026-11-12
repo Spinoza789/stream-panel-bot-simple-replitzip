@@ -440,6 +440,29 @@ export interface AdminSubscriptionPage {
   trials: number;
 }
 
+export type AdminSubscriptionGroupSource =
+  (typeof AdminSubscriptionGroupSource)[keyof typeof AdminSubscriptionGroupSource];
+
+export const AdminSubscriptionGroupSource = {
+  retail: "retail",
+  reseller: "reseller",
+} as const;
+
+export interface AdminSubscriptionGroup {
+  key: string;
+  source: AdminSubscriptionGroupSource;
+  resellerTelegramId: number;
+  resellerUsername: string;
+  items: AdminSubscription[];
+}
+
+export interface AdminSubscriptionGroups {
+  groups: AdminSubscriptionGroup[];
+  expired: AdminSubscription[];
+  total: number;
+  active: number;
+}
+
 export interface SubscriptionAddInput {
   /** @minimum 1 */
   telegramId: number;
@@ -797,6 +820,26 @@ export type ListAdminSubscriptionsStatus =
 export const ListAdminSubscriptionsStatus = {
   active: "active",
   expired: "expired",
+} as const;
+
+export type ListAdminSubscriptionGroupsParams = {
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  kind?: ListAdminSubscriptionGroupsKind;
+  /**
+   * @minimum 1
+   */
+  reseller?: number;
+};
+
+export type ListAdminSubscriptionGroupsKind =
+  (typeof ListAdminSubscriptionGroupsKind)[keyof typeof ListAdminSubscriptionGroupsKind];
+
+export const ListAdminSubscriptionGroupsKind = {
+  trial: "trial",
+  paid: "paid",
 } as const;
 
 export type ListAdminActivityLogParams = {

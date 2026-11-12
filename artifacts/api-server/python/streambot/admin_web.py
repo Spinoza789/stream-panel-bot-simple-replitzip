@@ -332,6 +332,12 @@ def register_admin(app, service):
         return jsonify(accounts.list(request.admin_actor, source=request.args.get('source', ''), kind=request.args.get('kind', ''),
                                      status=request.args.get('status', ''), reseller=reseller, search=request.args.get('q', ''), page=page))
 
+    @routes.get('/subscriptions/groups')
+    def subscription_groups():
+        try: reseller = int(request.args['reseller']) if request.args.get('reseller') else None
+        except ValueError: raise CheckoutError('Invalid subscription filter.') from None
+        return jsonify(accounts.groups(request.admin_actor, kind=request.args.get('kind', ''), reseller=reseller, search=request.args.get('q', '')))
+
     @routes.post('/subscriptions')
     def add_subscription():
         data = request.get_json(silent=True) or {}

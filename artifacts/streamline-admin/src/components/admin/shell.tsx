@@ -101,7 +101,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
   const items = [
     { href: "/dashboard", label: "Home", icon: Home, count: undefined as number | undefined, hot: false },
     { href: "/orders", label: "Orders", icon: Package, count: ov.data?.review, hot: true },
-    { href: "/trials", label: "Trials", icon: Hourglass, count: ov.data?.trials, hot: false },
+    { href: "/trials", label: "Trials", icon: Hourglass, count: undefined, hot: false },
     { href: "/subscriptions", label: "Subscriptions", icon: Tv, count: undefined, hot: false },
     { href: "/resellers", label: "Resellers", icon: Users, count: ov.data?.activeResellers, hot: false },
     { href: "/tickets", label: "Tickets", icon: LifeBuoy, count: ov.data?.openTickets, hot: true },
@@ -112,7 +112,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
   return (
     <nav className="flex h-full flex-col gap-0.5">
       {items.map((it) => {
-        const active = loc === it.href || (it.href === "/orders" && loc.startsWith("/orders/"));
+        const active = loc === it.href || ((it.href === "/orders" || it.href === "/resellers") && loc.startsWith(it.href + "/"));
         return (
           <Link
             key={it.href}

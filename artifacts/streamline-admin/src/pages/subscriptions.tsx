@@ -1,19 +1,17 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useSearch } from "wouter";
-import { useListAdminSubscriptions, getListAdminSubscriptionsQueryKey, type AdminSubscription, type ListAdminSubscriptionsParams } from "@workspace/api-client-react";
-import { ChevronLeft, ChevronRight, Plus, Search, SearchX, Trash2, Tv, X } from "lucide-react";
+import { useState } from "react";
+import { Link } from "wouter";
+import type { AdminSubscription } from "@workspace/api-client-react";
+import { Plus, Trash2 } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell";
-import { LIVE, useAdminReady } from "@/components/admin/access";
-import { Bar, CopyId, EmptyState, ErrorState, KindTag, PageHeader, Panel, StatusBadge } from "@/components/admin/bits";
+import { Bar, CopyId, KindTag, PageHeader, StatusBadge } from "@/components/admin/bits";
+import { AccountGroups } from "@/components/admin/account-groups";
 import { AccountDetails, AddSubscriptionDialog, DeleteSubscriptionDialog } from "@/components/admin/subscriptions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { errorMessage, formatDate, formatDateTime, relativeTime } from "@/lib/format";
+import { formatDate, formatDateTime, relativeTime } from "@/lib/format";
 import { usePageMeta } from "@/lib/meta";
 
-const SOURCES = [["", "All"], ["retail", "Direct customers"], ["reseller", "Resellers"]] as const;
 
 /** Who the account belongs to: a Telegram customer for direct sales, the reseller's own note for resold accounts. */
 function Customer({ s }: { s: AdminSubscription }) {
@@ -124,106 +122,39 @@ export function SubscriptionDialog({ s, onClose }: { s: AdminSubscription; onClo
 }
 
 function SubscriptionsList() {
-  usePageMeta("Subscriptions", "Every delivered account: direct and reseller subscriptions and trials, with login details.");
-  const ready = useAdminReady();
-  const initial = new URLSearchParams(useSearch());
-  const resellerParam = parseInt(initial.get("reseller") ?? "", 10);
-  const [source, setSource] = useState<string>(initial.get("source") === "reseller" || resellerParam > 0 ? "reseller" : "");
-  const [reseller, setReseller] = useState<number | undefined>(resellerParam > 0 ? resellerParam : undefined);
-  const [kind, setKind] = useState("");
-  const [status, setStatus] = useState("");
-  const [text, setText] = useState("");
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
-  const [open, setOpen] = useState<AdminSubscription | null>(null);
+  usePageMeta("Subscriptions", "Every paid subscription, your own and each reseller's, with login details.");
   const [adding, setAdding] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => { setQ(text.trim().slice(0, 80)); setPage(1); }, 300);
-    return () => clearTimeout(timer.current);
-  }, [text]);
-
-  const params: ListAdminSubscriptionsParams = { page };
-  if (q) params.q = q;
-  if (source) params.source = source as "retail" | "reseller";
-  if (kind) params.kind = kind as "trial" | "paid";
-  if (status) params.status = status as "active" | "expired";
-  if (reseller) params.reseller = reseller;
-  const list = useListAdminSubscriptions(params, { query: { enabled: ready, queryKey: getListAdminSubscriptionsQueryKey(params), placeholderData: (p) => p, ...LIVE } });
-  const d = list.data;
-  const pages = d ? Math.max(1, Math.ceil(d.total / Math.max(1, d.pageSize))) : 1;
-  const filtered = !!(q || source || kind || status || reseller);
-  const reset = () => { setText(""); setSource(""); setKind(""); setStatus(""); setReseller(undefined); setPage(1); };
-
   return (
     <>
       <PageHeader
         title="Subscriptions"
-        description="Every account that has been delivered: your own customers' subscriptions and trials, and the ones your resellers created. Click a row for the login details."
+        description="Paid subscriptions that are running: your direct customers first, then a section for each reseller. Expired ones are at the bottom. Click a row for the login details."
         actions={<Button onClick={() => setAdding(true)} data-testid="button-add-subscription"><Plus className="mr-1.5 h-4 w-4" /> Add trial or subscription</Button>}
       />
-      <Panel flush>
-        <div className="flex flex-col gap-3 border-b border-border p-3 lg:flex-row lg:items-center">
-          <div className="flex flex-wrap gap-1" role="tablist">
-            {SOURCES.map(([value, label]) => (
-              <button key={value || "all"} role="tab" aria-selected={source === value} data-testid={`tab-source-${value || "all"}`}
-                onClick={() => { setSource(value); if (value !== "reseller") setReseller(undefined); setPage(1); }}
-                className={cn("rounded-lg px-2.5 py-1 text-[13px] font-medium transition-colors", source === value ? "bg-[#f1f1f1] text-foreground dark:bg-white/10" : "text-muted-foreground hover:bg-[#f7f7f7] hover:text-foreground dark:hover:bg-white/5")}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-1 flex-wrap items-center gap-2 lg:justify-end">
-            <select value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }} className="h-8 rounded-lg border border-input bg-card px-2 text-[13px]" data-testid="select-sub-kind">
-              <option value="">Subscriptions and trials</option><option value="paid">Subscriptions</option><option value="trial">Trials</option>
-            </select>
-            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="h-8 rounded-lg border border-input bg-card px-2 text-[13px]" data-testid="select-sub-status">
-              <option value="">Any status</option><option value="active">Active</option><option value="expired">Expired</option>
-            </select>
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={text} maxLength={80} onChange={(e) => setText(e.target.value)} placeholder="Username, Telegram ID or customer" className="h-8 pl-8 pr-8 text-[13px]" data-testid="input-sub-search" />
-              {text && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setText("")} aria-label="Clear"><X className="h-4 w-4" /></button>}
-            </div>
-          </div>
-        </div>
-        {reseller && (
-          <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-2 text-sm">
-            <span>Showing accounts created by reseller <span className="font-mono">{reseller}</span></span>
-            <button className="font-medium text-primary hover:underline" onClick={() => setReseller(undefined)}>Show all resellers</button>
-          </div>
-        )}
-        {list.isError ? (
-          <div className="p-4"><ErrorState message={errorMessage(list.error)} onRetry={() => list.refetch()} /></div>
-        ) : d && d.items.length === 0 ? (
-          filtered ? (
-            <EmptyState icon={<SearchX className="h-5 w-5" />} title="No accounts match these filters">
-              <button className="font-medium text-primary hover:underline" onClick={reset} data-testid="button-reset-sub-filters">Reset filters</button>
-            </EmptyState>
-          ) : (
-            <EmptyState icon={<Tv className="h-5 w-5" />} title="No accounts delivered yet">Trials and subscriptions appear here once their login has been created.</EmptyState>
-          )
-        ) : (
-          <div className={cn("transition-opacity", list.isFetching && list.isPlaceholderData ? "opacity-60" : "")}>
-            <SubscriptionsTable items={d?.items} loading={list.isLoading} onOpen={setOpen} />
-          </div>
-        )}
-        {d && d.total > 0 && (
-          <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-sm">
-            <span className="num text-muted-foreground" data-testid="text-sub-summary">{d.total.toLocaleString()} account{d.total === 1 ? "" : "s"} · {d.active.toLocaleString()} active · {d.trials.toLocaleString()} trial{d.trials === 1 ? "" : "s"}</span>
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="num px-2 text-muted-foreground">{d.page} / {pages}</span>
-              <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
-            </div>
-          </div>
-        )}
-      </Panel>
-      {open && <SubscriptionDialog s={open} onClose={() => setOpen(null)} />}
+      <AccountGroups kind="paid" />
       <AddSubscriptionDialog open={adding} onClose={() => setAdding(false)} />
     </>
   );
+}
+
+function TrialsList() {
+  usePageMeta("Trials", "Every 24-hour trial, your own and each reseller's, with login details.");
+  const [adding, setAdding] = useState(false);
+  return (
+    <>
+      <PageHeader
+        title="Trials"
+        description={<>24-hour trials that are running: your direct customers first, then a section for each reseller. Expired ones are at the bottom. Trials that got stuck before a login was created are under <Link href="/orders?kind=trial" className="font-medium text-primary hover:underline" data-testid="link-trial-orders">trial orders</Link>.</>}
+        actions={<Button onClick={() => setAdding(true)} data-testid="button-add-trial"><Plus className="mr-1.5 h-4 w-4" /> Add trial or subscription</Button>}
+      />
+      <AccountGroups kind="trial" />
+      <AddSubscriptionDialog open={adding} onClose={() => setAdding(false)} />
+    </>
+  );
+}
+
+export function TrialsPage() {
+  return <AdminShell><TrialsList /></AdminShell>;
 }
 
 export default function SubscriptionsPage() {
