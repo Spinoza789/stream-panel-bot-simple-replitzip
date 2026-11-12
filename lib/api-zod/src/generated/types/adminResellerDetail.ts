@@ -8,9 +8,11 @@
 import type { AdminReseller } from "./adminReseller";
 import type { LedgerEntry } from "./ledgerEntry";
 import type { ResellerStats } from "./resellerStats";
+import type { ResellerTrials } from "./resellerTrials";
 
 export interface AdminResellerDetail {
   reseller: AdminReseller;
   stats: ResellerStats;
+  trials: ResellerTrials;
   history: LedgerEntry[];
 }

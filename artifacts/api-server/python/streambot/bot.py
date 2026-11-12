@@ -44,6 +44,12 @@ class TelegramBot:
         # (chat_id, message_id) of the menu message a callback may edit in place; set per callback only,
         # and per thread: chats are handled on several threads at once.
         self._local=threading.local()
+        self._usernames={}  # Telegram ID -> last @username written, so each customer costs one write, not one per message
+
+    def remember(self,sender):
+        """Keep the sender's @username for the owner's dashboard. Numeric IDs stay the identity."""
+        from .admin_subscriptions import remember_username
+        remember_username(self.store,self._usernames,sender)
 
     @property
     def editing(self):return getattr(self._local,'editing',None)
@@ -289,6 +295,7 @@ class TelegramBot:
         message_id=message.get('message_id')
         current=self.store.metadata(self.nav_key(uid))
         self.editing=(uid,message_id) if type(message_id) is int and current is not None and str(current)==str(message_id) else None
+        self.remember(sender)
         try: self._callback(uid,action,callback_id,sender)
         finally: self.editing=None
 
@@ -368,6 +375,7 @@ class TelegramBot:
             if not self.store.limit('telegram:'+str(uid),20,60):
                 self.send(uid,'Please wait a minute before trying again.');return
             if accepted_key:self.store.metadata(accepted_key,'1')
+        self.remember(sender)
         text=message.get('text','').strip()
         parts=text.split(maxsplit=1);command=(parts[0].split('@')[0].lower() if parts else '')
         try:

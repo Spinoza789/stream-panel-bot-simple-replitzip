@@ -142,6 +142,9 @@ class TelegramCheckout:
             text=membership_ready_text(plan,order['credentials'])
             return ('DEMO — DO NOT SEND FUNDS.\n\n' if demo else '')+text
         e = lambda value: escape(str(value))
+        if plan.get('admin_grant') and order['status'] in ('paid', 'provisioning'):
+            return ('<b>🎁 MEMBERSHIP ADDED BY SUPPORT</b>\n' + e(plan['name'] + ' · ' + plan.get('detail', '')) +
+                    '\n\nPreparing your account now — your login arrives in this chat in a moment. Nothing to pay.\n\n🧾 Order <code>' + e(order['id']) + '</code>')
         expired = time.time() > order['expires_at']
         checking = order['status'] == 'pending' and bool(order.get('txid'))
         banner = '<b>🧪 DEMO — DO NOT SEND FUNDS</b>\n' if demo else ''
@@ -182,6 +185,11 @@ class TelegramCheckout:
         plan, asset = order['plan'], order['asset']
         e = lambda value: escape(str(value))
         demo = self.service.config['mode'] == 'demo'
+        if plan.get('admin_grant'):
+            return '\n'.join(['<b>ℹ️ MEMBERSHIP DETAILS</b>', e(plan['name'] + ' · ' + plan.get('detail', '')), '',
+                              'Added by support — there was no payment for this order.',
+                              '<b>Order ID:</b> <code>' + e(order['id']) + '</code>', '<b>Status:</b> ' + e(order['status'].upper())]
+                             + (['', '<b>Update:</b> ' + e(order['message'])] if order.get('message') else []))
         lines = [('<b>🧪 DEMO — DO NOT SEND FUNDS</b>\n' if demo else '') + '<b>ℹ️ PAYMENT DETAILS</b>',
                  e(plan['name'] + ' · ' + plan.get('detail', '')), '',
                  '<b>Amount:</b> <code>' + e(order['amount']) + '</code> ' + e(asset['symbol']),

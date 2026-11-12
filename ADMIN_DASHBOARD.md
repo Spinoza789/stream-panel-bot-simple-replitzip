@@ -62,8 +62,9 @@ production data with demo state or copy development sessions into production.
 ## Operational scope and safeguards
 
 - Overview is stored order counts, not revenue or active-subscription estimates.
-- Orders are paginated/searchable by ID or exact Telegram ID. Details exclude
-  credentials, checkout tokens and raw provider errors.
+- Orders are paginated/searchable by ID, exact Telegram ID or exact Telegram @username.
+  Details show the delivered login (username, password, server, expiry) at the owner's
+  request; checkout tokens, payment proofs and raw provider errors are still excluded.
 - Readiness shows configuration and optional-schema availability, not an upstream
   panel, blockchain or Telegram health probe.
 - Recovery shares the original validator/fingerprint/atomic confirmation with
@@ -125,7 +126,37 @@ goes into the audit log, and changes apply to new orders only.
   Removed packs stay on past purchases as a snapshot. At least one pack must stay on sale.
 - **Subscription cost in credits**: the credits a reseller spends per duration and
   device count.
-- **Trial limits**: free tests per reseller per day and tests running at once.
+- **Reseller free trial limits**: the default for every reseller, counted per reseller:
+  per day (rolling 24 hours), per week (7 days), per month (30 days) and running at
+  once. Each is unlimited or a number; 0 switches trials off.
+
+## Subscriptions, account details and Telegram usernames
+
+- **Subscriptions** lists every delivered account in one place: direct customers'
+  subscriptions and trials, and the ones resellers created. Each row shows the account
+  username and password; filter by direct/reseller, subscription/trial and
+  active/expired, or search by account username, Telegram ID, @username or the
+  reseller's customer note. Renewals and trial upgrades are shown once, as the login
+  they extend.
+- **Telegram usernames**: the bot records a customer's current @username whenever they
+  message it or tap a button (`tg_username:<id>` in metadata). Customers who have not
+  used the bot since this release show "Not seen yet" until they next do; the numeric
+  Telegram ID remains the identity.
+- **Add subscription** gives a Telegram user a membership without payment: pick the
+  plan and give a reason. The normal worker creates a real panel line and the bot
+  sends the login. It is not counted as revenue, and the customer can renew it later
+  by paying. Refused while panel account creation is switched off.
+- **Delete** asks for confirmation and a reason. It removes the account from the
+  dashboard list and, for a direct subscription, from the customer's bot; a reseller's
+  account also leaves the reseller's list. It never cancels the line on the IPTV panel,
+  refunds no credits, and keeps the order for reports. A deleted trial still counts as
+  the customer's one free trial.
+- **Resellers → open a reseller** shows that reseller's subscriptions and trials, how
+  many trials they have used in each window, and lets the owner give that one reseller
+  its own limits (or leave any window on the default).
+- None of this adds tables or columns: usernames, deletions and per-reseller limits
+  live in the existing `metadata` and `rs_settings` tables, so Publish has no schema
+  change to apply.
 
 ## Support tickets
 

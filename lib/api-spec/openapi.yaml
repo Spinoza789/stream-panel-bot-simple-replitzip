@@ -272,6 +272,68 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminResellerDetail" }
+  /admin/resellers/{id}/trial-limits:
+    post:
+      operationId: setAdminResellerTrialLimits
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResellerTrialLimitsInput" }
+      responses:
+        "200":
+          description: Updated reseller after changing its own trial limits
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminResellerDetail" }
+  /admin/subscriptions:
+    get:
+      operationId: listAdminSubscriptions
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: source, in: query, schema: { type: string, enum: [retail, reseller] } }
+        - { name: kind, in: query, schema: { type: string, enum: [trial, paid] } }
+        - { name: status, in: query, schema: { type: string, enum: [active, expired] } }
+        - { name: reseller, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Delivered retail and reseller accounts with their login details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSubscriptionPage" }
+    post:
+      operationId: addAdminSubscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionAddInput" }
+      responses:
+        "200":
+          description: Membership queued for a Telegram user without payment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionAddResult" }
+  /admin/subscriptions/{source}/{id}/delete:
+    post:
+      operationId: deleteAdminSubscription
+      parameters:
+        - { name: source, in: path, required: true, schema: { type: string, enum: [retail, reseller] } }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionDeleteInput" }
+      responses:
+        "200":
+          description: Subscription removed from the dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionDeleteResult" }
   /admin/reports:
     get:
       operationId: getAdminReports
@@ -581,12 +643,106 @@ components:
         movement: { type: integer }
         reason: { type: string }
         reference: { type: string }
+    TrialLimits:
+      type: object
+      description: Reseller trial allowances. -1 is unlimited, 0 is none.
+      required: [daily, weekly, monthly, active]
+      properties:
+        daily: { type: integer }
+        weekly: { type: integer }
+        monthly: { type: integer }
+        active: { type: integer }
+    TrialLimitOverrides:
+      type: object
+      description: One reseller's own allowances. null follows the default for all resellers.
+      required: [daily, weekly, monthly, active]
+      properties:
+        daily: { type: [integer, "null"] }
+        weekly: { type: [integer, "null"] }
+        monthly: { type: [integer, "null"] }
+        active: { type: [integer, "null"] }
+    ResellerTrials:
+      type: object
+      required: [limits, effective, default, usage]
+      properties:
+        limits: { $ref: "#/components/schemas/TrialLimitOverrides" }
+        effective: { $ref: "#/components/schemas/TrialLimits" }
+        default: { $ref: "#/components/schemas/TrialLimits" }
+        usage: { $ref: "#/components/schemas/TrialLimits" }
+    ResellerTrialLimitsInput:
+      type: object
+      required: [daily, weekly, monthly, active, reason]
+      additionalProperties: false
+      properties:
+        daily: { type: [integer, "null"], minimum: -1, maximum: 100000 }
+        weekly: { type: [integer, "null"], minimum: -1, maximum: 100000 }
+        monthly: { type: [integer, "null"], minimum: -1, maximum: 100000 }
+        active: { type: [integer, "null"], minimum: -1, maximum: 100000 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    AdminSubscription:
+      type: object
+      required: [id, source, kind, status, customer, telegramId, telegramUsername, resellerTelegramId, resellerUsername, customerRef, accountUsername, accountPassword, serverUrl, plan, connections, createdAt, expiresAt]
+      properties:
+        id: { type: string }
+        source: { type: string, enum: [retail, reseller] }
+        kind: { type: string }
+        status: { type: string }
+        customer: { type: string }
+        telegramId: { type: integer }
+        telegramUsername: { type: string }
+        resellerTelegramId: { type: integer }
+        resellerUsername: { type: string }
+        customerRef: { type: string }
+        accountUsername: { type: string }
+        accountPassword: { type: string }
+        serverUrl: { type: string }
+        plan: { type: string }
+        connections: { type: integer }
+        createdAt: { type: integer }
+        expiresAt: { type: integer }
+    AdminSubscriptionPage:
+      type: object
+      required: [items, page, pageSize, total, active, trials]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AdminSubscription" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        active: { type: integer }
+        trials: { type: integer }
+    SubscriptionAddInput:
+      type: object
+      required: [telegramId, planId, reason]
+      additionalProperties: false
+      properties:
+        telegramId: { type: integer, minimum: 1 }
+        planId: { type: string, minLength: 1, maxLength: 40 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    SubscriptionAddResult:
+      type: object
+      required: [orderId, message]
+      properties:
+        orderId: { type: string }
+        message: { type: string }
+    SubscriptionDeleteInput:
+      type: object
+      required: [confirm, reason]
+      additionalProperties: false
+      properties:
+        confirm: { type: boolean, enum: [true] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    SubscriptionDeleteResult:
+      type: object
+      required: [deleted]
+      properties:
+        deleted: { type: boolean }
     AdminResellerDetail:
       type: object
-      required: [reseller, stats, history]
+      required: [reseller, stats, history, trials]
       properties:
         reseller: { $ref: "#/components/schemas/AdminReseller" }
         stats: { $ref: "#/components/schemas/ResellerStats" }
+        trials: { $ref: "#/components/schemas/ResellerTrials" }
         history: { type: array, items: { $ref: "#/components/schemas/LedgerEntry" } }
     ResellerStatusInput:
       type: object
@@ -651,8 +807,9 @@ components:
         active: { type: boolean }
     AdminRateCard:
       type: object
-      required: [packages, plans, costs, trialDaily, trialActive]
+      required: [packages, plans, costs, trialDaily, trialActive, trialLimits]
       properties:
+        trialLimits: { $ref: "#/components/schemas/TrialLimits" }
         packages: { type: array, items: { $ref: "#/components/schemas/RateCardPackage" } }
         plans: { type: array, items: { $ref: "#/components/schemas/RateCardPlan" } }
         costs: { type: array, items: { $ref: "#/components/schemas/RateCardCost" } }
@@ -699,8 +856,9 @@ components:
         canClaimOwner: { type: boolean }
     AdminOrder:
       type: object
-      required: [id, kind, status, plan, createdAt, amount, symbol, network, customer]
+      required: [id, kind, status, plan, createdAt, amount, symbol, network, customer, username]
       properties:
+        username: { type: string, description: Telegram username of the customer when known }
         id: { type: string }
         kind: { type: string }
         status: { type: string }
@@ -737,12 +895,28 @@ components:
         recent: { type: array, items: { $ref: "#/components/schemas/AdminOrder" } }
     AdminOrderDetail:
       type: object
-      required: [order, message, recoveryEligible, recoveryReason]
+      required: [order, message, recoveryEligible, recoveryReason, account, removedAt, canDelete]
       properties:
+        account:
+          oneOf:
+            - { $ref: "#/components/schemas/OrderAccount" }
+            - { type: "null" }
+        removedAt: { type: integer }
+        canDelete: { type: boolean }
         order: { $ref: "#/components/schemas/AdminOrder" }
         message: { type: string }
         recoveryEligible: { type: boolean }
         recoveryReason: { type: string }
+    OrderAccount:
+      type: object
+      description: Login details of the delivered account
+      required: [username, password, serverUrl, panelId, expiresAt]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        serverUrl: { type: string }
+        panelId: { type: string }
+        expiresAt: { type: integer }
     AdminStatus:
       type: object
       required: [mode, workersActive, panelWrites, telegramEnabled, resellerSchema, notificationSchema, panelConfigured, database]

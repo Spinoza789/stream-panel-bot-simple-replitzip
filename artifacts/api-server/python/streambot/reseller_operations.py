@@ -93,12 +93,10 @@ class Operations:
                 if pending:
                     raise CheckoutError('This customer reference already has a pending request: '+pending[0]+'. Use My Balance → Requests. Do not submit a replacement while its result is uncertain.')
             if fresh['kind']=='trial':
-                settings={r['key']:int(r['value']) for r in db.execute('SELECT * FROM rs_settings').fetchall()}
-                daily=db.execute("SELECT count(*) FROM rs_operations WHERE reseller_id=? AND operation_type='trial' AND created_at>=? AND status!='failed'",(member['id'],now()-86400)).fetchone()[0]
-                active=db.execute("SELECT count(*) FROM rs_subscriptions WHERE reseller_id=? AND kind='trial' AND expires_at>? AND status!='disabled'",(member['id'],now())).fetchone()[0]
-                pending=db.execute("SELECT count(*) FROM rs_operations WHERE reseller_id=? AND operation_type='trial' AND reservation='held'",(member['id'],)).fetchone()[0]
-                if daily>=settings['trial_daily'] or active+pending>=settings['trial_active']:
-                    raise CheckoutError('Your reseller trial limit has been reached. Expired trials remain in history.')
+                reached=self.ledger.trial_blocked(db,member['id'])
+                if reached:
+                    raise CheckoutError('Your reseller trial limit has been reached'+
+                                        ('. Expired trials remain in history.' if reached=='active' else ' ('+reached+' allowance). It frees up as earlier trials age out.'))
             cost=fresh['cost']
             changed=db.execute('UPDATE rs_accounts SET reserved=reserved+? WHERE reseller_id=? AND balance-reserved>=?',(cost,member['id'],cost)).rowcount
             if changed!=1:raise CheckoutError('Insufficient available credits.')
@@ -269,10 +267,11 @@ class Operations:
         if not member:raise CheckoutError('Reseller account not found.')
         with self.store.connection() as db:
             row=db.execute(
-                "SELECT SUM(CASE WHEN kind='paid' AND status='active' AND expires_at>? THEN 1 ELSE 0 END),"
-                "SUM(CASE WHEN kind='paid' AND expires_at>? AND expires_at<=? THEN 1 ELSE 0 END),"
-                "SUM(CASE WHEN kind='trial' AND expires_at>? THEN 1 ELSE 0 END),COUNT(*),"
-                "SUM(CASE WHEN expires_at<=? OR status IN ('expired','disabled') THEN 1 ELSE 0 END) "
+                # Named columns: PostgreSQL calls every unnamed SUM "sum" and the row adapter keeps one value per name.
+                "SELECT SUM(CASE WHEN kind='paid' AND status='active' AND expires_at>? THEN 1 ELSE 0 END) AS active,"
+                "SUM(CASE WHEN kind='paid' AND expires_at>? AND expires_at<=? THEN 1 ELSE 0 END) AS expiring,"
+                "SUM(CASE WHEN kind='trial' AND expires_at>? THEN 1 ELSE 0 END) AS trials,COUNT(*) AS total,"
+                "SUM(CASE WHEN expires_at<=? OR status IN ('expired','disabled') THEN 1 ELSE 0 END) AS expired "
                 "FROM rs_subscriptions WHERE reseller_id=? AND deleted_at IS NULL",(now(),now(),now()+7*86400,now(),now(),member['id'])).fetchone()
         return {'active':int(row[0] or 0),'expiring':int(row[1] or 0),'trials':int(row[2] or 0),'total':int(row[3] or 0),'expired':int(row[4] or 0)}
 

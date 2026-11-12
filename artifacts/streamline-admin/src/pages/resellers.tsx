@@ -3,8 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAdminResellers, getListAdminResellersQueryKey, useGetAdminReseller, getGetAdminResellerQueryKey,
   useSetAdminResellerStatus, useAdjustAdminResellerCredits, getGetAdminOverviewQueryKey,
-  type AdminReseller, type ListAdminResellersParams,
+  useSetAdminResellerTrialLimits, useListAdminSubscriptions, getListAdminSubscriptionsQueryKey,
+  type AdminReseller, type AdminSubscription, type ListAdminResellersParams, type ResellerTrials, type TrialLimitOverrides,
 } from "@workspace/api-client-react";
+import { Link } from "wouter";
+import { LimitField, UNLIMITED } from "@/components/admin/subscriptions";
+import { SubscriptionDialog, SubscriptionsTable } from "@/pages/subscriptions";
 import { ChevronLeft, ChevronRight, Search, Users, X } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
@@ -102,6 +106,70 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   return <div className="flex items-center justify-between border-b border-border py-1.5 text-sm last:border-0"><span className="text-muted-foreground">{label}</span><span className="num font-medium">{value}</span></div>;
 }
 
+const WINDOWS = [
+  ["daily", "Per day", "last 24 hours"],
+  ["weekly", "Per week", "last 7 days"],
+  ["monthly", "Per month", "last 30 days"],
+  ["active", "Running at once", "now"],
+] as const;
+
+/** This reseller's own trial allowance. Each window follows the default for all resellers unless set here. */
+function TrialLimitsForm({ id, trials, onSaved }: { id: number; trials: ResellerTrials; onSaved: () => void }) {
+  const { toast } = useToast();
+  const save = useSetAdminResellerTrialLimits();
+  const [draft, setDraft] = useState<TrialLimitOverrides>(trials.limits);
+  const [reason, setReason] = useState("");
+  useEffect(() => { setDraft(trials.limits); }, [trials.limits.daily, trials.limits.weekly, trials.limits.monthly, trials.limits.active]); // eslint-disable-line react-hooks/exhaustive-deps
+  const changed = WINDOWS.some(([k]) => draft[k] !== trials.limits[k]);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!changed || reason.trim().length < 3) return;
+    save.mutate({ id: String(id), data: { ...draft, reason: reason.trim() } }, {
+      onSuccess: () => { toast({ title: "Trial limits saved" }); setReason(""); onSaved(); },
+    });
+  };
+  return (
+    <form onSubmit={submit} className="card-shadow rounded-xl bg-card p-3 text-sm" data-testid="form-trial-limits">
+      <p className="font-semibold">Free trial limits</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">Leave a row on Default to follow the limit for all resellers (Settings › Rate card), or set this reseller's own: unlimited, a number, or 0 to switch trials off.</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {WINDOWS.map(([key, label, span]) => {
+          const cap = trials.effective[key];
+          return (
+            <LimitField key={key} label={label} testId={`trial-${key}`} value={draft[key]} fallback={trials.default[key]}
+              onChange={(v) => setDraft({ ...draft, [key]: v })}
+              hint={`Used ${trials.usage[key]}${cap === UNLIMITED ? "" : " of " + cap} (${span})`} />
+          );
+        })}
+      </div>
+      {changed && <Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} placeholder="Reason (kept in the audit log)" className="mt-3 h-9" data-testid="input-trial-limit-reason" />}
+      {save.isError && <p className="mt-2 text-xs text-destructive">{errorMessage(save.error)}</p>}
+      <Button type="submit" size="sm" className="mt-2" disabled={save.isPending || !changed || reason.trim().length < 3} data-testid="button-save-trial-limits">{save.isPending ? "Saving…" : "Save limits"}</Button>
+    </form>
+  );
+}
+
+/** The accounts this reseller created: subscriptions and trials, newest first. */
+function ResellerAccounts({ id }: { id: number }) {
+  const params = { reseller: id, page: 1 };
+  const list = useListAdminSubscriptions(params, { query: { queryKey: getListAdminSubscriptionsQueryKey(params) } });
+  const [open, setOpen] = useState<AdminSubscription | null>(null);
+  const d = list.data;
+  return (
+    <div className="md:col-span-2">
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subscriptions and trials{d ? ` (${d.total})` : ""}</h3>
+        {d && d.total > d.items.length && <Link href={`/subscriptions?reseller=${id}`} className="text-xs font-medium text-primary hover:underline">View all {d.total}</Link>}
+      </div>
+      {list.isError ? <ErrorState message={errorMessage(list.error)} onRetry={() => list.refetch()} />
+        : d && d.items.length === 0 ? <p className="text-sm text-muted-foreground">This reseller has not created any accounts yet.</p>
+        : <div className="card-shadow overflow-hidden rounded-xl bg-card"><SubscriptionsTable items={d?.items} loading={list.isLoading} onOpen={setOpen} compact /></div>}
+      {d && d.total > 0 && <p className="mt-1 text-xs text-muted-foreground">{d.active} active · {d.trials} trial{d.trials === 1 ? "" : "s"} · {d.total - d.trials} subscription{d.total - d.trials === 1 ? "" : "s"}</p>}
+      {open && <SubscriptionDialog s={open} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
 function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -136,7 +204,7 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
   };
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{r ? (r.username ? "@" + r.username : "Reseller " + r.telegramId) : "Reseller"}</DialogTitle>
           <DialogDescription>Telegram ID <CopyId value={String(id)} label="Telegram ID" /></DialogDescription>
@@ -157,6 +225,8 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
               <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">All time</h3>
               <Stat label="Credits used" value={d.stats.all_time.credits_used} />
               <Stat label="Tests converted" value={`${d.stats.all_time.tests_converted} of ${d.stats.all_time.tests_created}`} />
+              <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Free trials allowed</h3>
+              {WINDOWS.map(([key, label]) => <Stat key={key} label={label} value={`${d.trials.effective[key] === UNLIMITED ? d.trials.usage[key] + " used · unlimited" : d.trials.usage[key] + " of " + d.trials.effective[key]}${d.trials.limits[key] === null ? "" : " (own limit)"}`} />)}
             </div>
             <div className="space-y-4">
               <form onSubmit={suspend} className="card-shadow rounded-xl bg-card p-3 text-sm">
@@ -168,6 +238,7 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
                   {status.isPending ? "Saving…" : r!.status === "suspended" ? "Reactivate" : "Suspend"}
                 </Button>
               </form>
+              <TrialLimitsForm id={id} trials={d.trials} onSaved={refresh} />
               <form onSubmit={credit} className="card-shadow rounded-xl bg-card p-3 text-sm">
                 <p className="font-semibold">Adjust credits</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">Positive adds, negative removes. Reserved credits cannot be removed. Use this for bank transfers or goodwill.</p>
@@ -192,6 +263,7 @@ function ResellerDialog({ id, onClose }: { id: number; onClose: () => void }) {
                 )}
               </div>
             </div>
+            <ResellerAccounts id={id} />
           </div>
         )}
       </DialogContent>

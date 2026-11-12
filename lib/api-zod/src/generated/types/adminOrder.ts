@@ -7,6 +7,8 @@
  */
 
 export interface AdminOrder {
+  /** Telegram username of the customer when known */
+  username: string;
   id: string;
   kind: string;
   status: string;

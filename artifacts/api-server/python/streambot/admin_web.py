@@ -112,15 +112,26 @@ def register_admin(app, service):
                     store.seal(dict(actor=subject, at=int(time.time()), proof='workspace_secret'))))
         return jsonify(claimed=True, matches=True)
 
-    def safe(row):
+    accounts = service.accounts
+
+    def safe(row, owners, names):
         plan = json.loads(row['plan_json'])
         asset = json.loads(row['asset_json'])
+        # Trials carry their Telegram ID on the order; paid bot orders are linked through account_links.
+        owner = row['telegram_id'] or owners.get(row['id'])
         return dict(id=row['id'], kind=row['kind'], status=row['status'],
                     plan=plan.get('name', plan.get('id', 'Membership')),
                     createdAt=row['created_at'],
                     amount=display_units(row['amount_units'], asset.get('decimals', 0)),
                     symbol=asset.get('symbol', ''), network=asset.get('network', ''),
-                    customer=str(row['telegram_id']) if row['telegram_id'] else 'Website checkout')
+                    customer=str(owner) if owner else 'Website checkout',
+                    username=names.get(int(owner), '') if owner else '')
+
+    def safe_rows(rows):
+        with store.connection() as db:
+            owners = accounts.owners(db, [row['id'] for row in rows if not row['telegram_id']])
+            names = accounts.usernames(db, [row['telegram_id'] or owners.get(row['id']) for row in rows if row['telegram_id'] or owners.get(row['id'])])
+        return [safe(row, owners, names) for row in rows]
 
     @routes.get('/overview')
     def overview():
@@ -146,7 +157,7 @@ def register_admin(app, service):
         return jsonify(mode=service.config['mode'], total=sum(totals.values()), trials=trials,
                        fulfilled=totals.get('fulfilled', 0), review=totals.get('review', 0),
                        queued=totals.get('paid', 0) + totals.get('provisioning', 0),
-                       pending=totals.get('pending', 0), recent=[safe(row) for row in recent], **extra)
+                       pending=totals.get('pending', 0), recent=safe_rows(recent), **extra)
 
     @routes.get('/orders')
     def orders():
@@ -162,9 +173,18 @@ def register_admin(app, service):
         if kind and kind not in ('trial', 'paid'): raise CheckoutError('Invalid order type.')
         clauses, params = [], []
         if q:
-            # Identifier search, not pattern injection or decryption of private data.
-            clauses.append("(id LIKE ? OR CAST(telegram_id AS TEXT)=?)")
-            params.extend(['%' + q.replace('%', '').replace('_', '') + '%', q])
+            # Order ID fragment, exact Telegram ID, or exact Telegram @username (trials carry the ID
+            # on the order; paid bot orders are linked through account_links).
+            with store.connection() as db:
+                ids = accounts.username_ids(db, q)[:20]
+            if q.isdigit() and len(q) <= 19: ids.append(int(q))
+            match = ['id LIKE ?']; params.append('%' + q.replace('%', '').replace('_', '') + '%')
+            if ids:
+                marks = ','.join('?' * len(ids))
+                match.append('telegram_id IN (' + marks + ')')
+                match.append('id IN (SELECT order_id FROM account_links WHERE telegram_id IN (' + marks + '))')
+                params.extend(ids + ids)
+            clauses.append('(' + ' OR '.join(match) + ')')
         if status == 'queued': clauses.append("status IN ('paid','provisioning')")
         elif status: clauses.append('status=?'); params.append(status)
         if kind: clauses.append('kind=?'); params.append(kind)
@@ -174,7 +194,7 @@ def register_admin(app, service):
             rows = db.execute('SELECT * FROM orders' + where +
                               ' ORDER BY created_at DESC,id DESC LIMIT 25 OFFSET ?',
                               tuple(params + [(page - 1) * 25])).fetchall()
-        return jsonify(items=[safe(row) for row in rows], page=page, pageSize=25, total=total)
+        return jsonify(items=safe_rows(rows), page=page, pageSize=25, total=total)
 
     @routes.get('/orders/<order_id>')
     def detail(order_id):
@@ -196,8 +216,21 @@ def register_admin(app, service):
             'provisioning': 'Account preparation is in progress.',
             'expired': 'The payment quote has expired.',
         }
-        return jsonify(order=safe(row), message=messages.get(row['status'], 'Check order status.'),
-                       recoveryEligible=eligible, recoveryReason=reason)
+        # The owner asked to see the delivered login here. Checkout tokens, payment proofs and raw
+        # provider errors still never leave this boundary.
+        plan = json.loads(row['plan_json'])
+        months = None if row['kind'] == 'trial' else int(plan.get('months') or 1)
+        account = accounts.account(row['created_at'], store.unseal(row['credentials']), months) if row['status'] == 'fulfilled' else None
+        with store.connection() as db:
+            removed = accounts.removed(db, order_id)
+        order = safe_rows([row])[0]
+        if removed and removed.get('telegram_id') and order['customer'] == 'Website checkout':
+            order['customer'] = str(removed['telegram_id'])  # the link was dropped on delete; the record remembers who it was
+        message = messages.get(row['status'], 'Check order status.')
+        if removed: message = 'This subscription was deleted from the dashboard. The order is kept for your records.'
+        return jsonify(order=order, message=message, recoveryEligible=eligible, recoveryReason=reason,
+                       account=account, removedAt=int(removed['at']) if removed else 0,
+                       canDelete=bool(account) and not removed and not plan.get('reseller_purchase'))
 
     # ---- resellers, reports, rate card (website owner acts through the bridge actor) ----
     def finance():
@@ -214,7 +247,7 @@ def register_admin(app, service):
         rows = [r for r in f.summary(request.admin_actor, str(telegram_id)) if r['telegram_id'] == telegram_id]
         if not rows: raise CheckoutError('Reseller not found.')
         history = f.history(telegram_id, 0)[:10]
-        return dict(reseller=reseller_public(rows[0]), stats=f.stats(telegram_id),
+        return dict(reseller=reseller_public(rows[0]), stats=f.stats(telegram_id), trials=f.trial_summary(telegram_id),
                     history=[dict(createdAt=h['created_at'], movement=h['movement'], reason=h['reason'], reference=h['reference']) for h in history])
 
     def reseller_id(value):
@@ -252,6 +285,39 @@ def register_admin(app, service):
         finance().adjust(request.admin_actor, uid, movement, str(data.get('reason', '')), key)
         return jsonify(reseller_detail(uid))
 
+    @routes.post('/resellers/<telegram_id>/trial-limits')
+    def reseller_trial_limits(telegram_id):
+        uid = reseller_id(telegram_id)
+        data = request.get_json(silent=True) or {}
+        limits = {name: data.get(name) for name in ('daily', 'weekly', 'monthly', 'active')}
+        if any(value is not None and type(value) is not int for value in limits.values()):
+            raise CheckoutError('Trial limits must be whole numbers.')
+        finance().set_trial_limits(request.admin_actor, uid, limits, str(data.get('reason', '')))
+        return jsonify(reseller_detail(uid))
+
+    # ---- subscriptions and trials: retail and reseller accounts in one list ----
+    @routes.get('/subscriptions')
+    def subscriptions():
+        try:
+            page = int(request.args.get('page', '1'))
+            reseller = int(request.args['reseller']) if request.args.get('reseller') else None
+        except ValueError: raise CheckoutError('Invalid subscription filter.') from None
+        return jsonify(accounts.list(request.admin_actor, source=request.args.get('source', ''), kind=request.args.get('kind', ''),
+                                     status=request.args.get('status', ''), reseller=reseller, search=request.args.get('q', ''), page=page))
+
+    @routes.post('/subscriptions')
+    def add_subscription():
+        data = request.get_json(silent=True) or {}
+        order_id = accounts.add(request.admin_actor, data.get('telegramId'), data.get('planId'), str(data.get('reason', '')))
+        return jsonify(orderId=order_id, message='Membership queued. The account is created in the background and the login is sent to the customer in Telegram.')
+
+    @routes.post('/subscriptions/<source>/<sid>/delete')
+    def delete_subscription(source, sid):
+        data = request.get_json(silent=True) or {}
+        if data.get('confirm') is not True: raise CheckoutError('Confirm the deletion first.')
+        accounts.delete(request.admin_actor, source, sid, str(data.get('reason', '')))
+        return jsonify(deleted=True)
+
     @routes.get('/reports')
     def reports():
         try: months = int(request.args.get('months', '12'))
@@ -267,10 +333,10 @@ def register_admin(app, service):
         with store.connection() as db:
             costs = [dict(months=r['months'], connections=r['connections'], credits=r['credits']) for r in
                      db.execute('SELECT months,connections,credits FROM rs_costs ORDER BY months,connections').fetchall()]
-            settings = {r['key']: r['value'] for r in db.execute('SELECT key,value FROM rs_settings').fetchall()}
+            limits = f.trial_limits(db)[0]
         return dict(packages=[dict(id=p['id'], pricePence=p['price_pence'], credits=p['credits'], active=bool(p['active'])) for p in f.packages()],
                     plans=service.pricing.public(),
-                    costs=costs, trialDaily=int(settings.get('trial_daily', 0)), trialActive=int(settings.get('trial_active', 0)))
+                    costs=costs, trialDaily=limits['daily'], trialActive=limits['active'], trialLimits=limits)
 
     @routes.get('/faq')
     def get_faq():
@@ -308,8 +374,9 @@ def register_admin(app, service):
             if len(values) != 3: raise CheckoutError('Invalid values.')
             finance().configure(request.admin_actor, 'cost', (int(values[0]), int(values[1]), int(values[2])), reason)
         elif category == 'trials':
-            if len(values) != 2: raise CheckoutError('Invalid values.')
-            finance().configure(request.admin_actor, 'trials', (int(values[0]), int(values[1])), reason)
+            # (daily, active) or (daily, weekly, monthly, active); -1 means unlimited.
+            if len(values) not in (2, 4) or any(type(v) is not int for v in values): raise CheckoutError('Invalid values.')
+            finance().configure(request.admin_actor, 'trials', tuple(values), reason)
         else: raise CheckoutError('Unknown configuration option.')
         return jsonify(rate_card())
 

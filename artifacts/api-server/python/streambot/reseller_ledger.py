@@ -24,6 +24,16 @@ def integer(value, minimum=0, maximum=10**9):
     return value
 
 
+# Reseller free-trial allowances. Each cap is a whole number; -1 means unlimited and 0 means none.
+# daily/weekly/monthly are rolling windows (24 hours, 7 days, 30 days); active is trials running at once.
+UNLIMITED=-1
+TRIAL_MAX=100000
+TRIAL_WINDOWS=('daily','weekly','monthly','active')
+TRIAL_KEYS={name:'trial_'+name for name in TRIAL_WINDOWS}
+TRIAL_SECONDS={'daily':86400,'weekly':7*86400,'monthly':30*86400}
+TRIAL_DEFAULTS={'daily':1,'weekly':UNLIMITED,'monthly':UNLIMITED,'active':1}
+
+
 class Ledger:
     def __init__(self, service):
         self.service=service
@@ -46,7 +56,8 @@ class Ledger:
                 for connections,cost in enumerate(costs,1):
                     db.execute('INSERT INTO rs_costs VALUES(?,?,?,?) ON CONFLICT(months,connections) DO NOTHING',
                                (months,connections,cost,now()))
-            for key,value in (('trial_daily','1'),('trial_active','1')):
+            # Weekly and monthly caps start unlimited (-1) so existing installs keep their daily/active behaviour.
+            for key,value in (('trial_daily','1'),('trial_active','1'),('trial_weekly','-1'),('trial_monthly','-1')):
                 db.execute('INSERT INTO rs_settings VALUES(?,?) ON CONFLICT(key) DO NOTHING',(key,value))
         self._seeded=True
 
@@ -131,7 +142,7 @@ class Ledger:
         with self.store.connection() as db:
             return dict(packages=[dict(r) for r in db.execute('SELECT * FROM rs_packages ORDER BY price_pence').fetchall()],
                         costs=[dict(r) for r in db.execute('SELECT * FROM rs_costs ORDER BY months,connections').fetchall()],
-                        settings={r['key']:r['value'] for r in db.execute('SELECT * FROM rs_settings').fetchall()})
+                        settings={r['key']:r['value'] for r in db.execute('SELECT * FROM rs_settings').fetchall() if r['key'] in TRIAL_KEYS.values()})
 
     def configure(self, actor, category, values, reason):
         self.admin(actor);self.seed()
@@ -159,12 +170,76 @@ class Ledger:
                 integer(connections,1,3);integer(cost,1)
                 db.execute('UPDATE rs_costs SET credits=?,updated_at=? WHERE months=? AND connections=?',(cost,now(),months,connections))
             elif category=='trials':
-                daily,active=values
-                integer(daily,0,1000);integer(active,0,1000)
-                db.execute("UPDATE rs_settings SET value=? WHERE key='trial_daily'",(str(daily),))
-                db.execute("UPDATE rs_settings SET value=? WHERE key='trial_active'",(str(active),))
+                # (daily, active) from the Telegram command, or (daily, weekly, monthly, active) from the website. -1 = unlimited.
+                if len(values)==2:limits=dict(daily=values[0],active=values[1])
+                elif len(values)==4:limits=dict(zip(TRIAL_WINDOWS,values))
+                else:raise CheckoutError('Invalid trial limits.')
+                for name,value in limits.items():
+                    integer(value,UNLIMITED,TRIAL_MAX)
+                    db.execute('INSERT INTO rs_settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(TRIAL_KEYS[name],str(value)))
             else:raise CheckoutError('Unknown configuration option.')
             self.audit(db,actor,'configuration',category,reason,{'values':values})
+
+    # ---- reseller trial limits: one default for everyone, optional override per reseller ----
+    @staticmethod
+    def _override_key(reseller_id):
+        return 'trial_limits:'+reseller_id
+
+    def trial_limits(self, db, reseller_id=None):
+        """(effective, override, default). `override` holds only the windows set for this reseller."""
+        default=dict(TRIAL_DEFAULTS)
+        for name,key in TRIAL_KEYS.items():
+            row=db.execute('SELECT value FROM rs_settings WHERE key=?',(key,)).fetchone()
+            if row and re.fullmatch(r'-?[0-9]{1,6}',str(row[0])):default[name]=int(row[0])
+        override={}
+        if reseller_id:
+            row=db.execute('SELECT value FROM rs_settings WHERE key=?',(self._override_key(reseller_id),)).fetchone()
+            try:saved=json.loads(row[0]) if row else {}
+            except ValueError:saved={}
+            if isinstance(saved,dict):
+                override={k:v for k,v in saved.items() if k in TRIAL_WINDOWS and type(v) is int and UNLIMITED<=v<=TRIAL_MAX}
+        return dict(default,**override),override,default
+
+    def trial_usage(self, db, reseller_id):
+        """Trials this reseller has used in each rolling window, and how many are running or pending now."""
+        clock=now()
+        usage={name:int(db.execute("SELECT count(*) FROM rs_operations WHERE reseller_id=? AND operation_type='trial' AND created_at>=? AND status!='failed'",
+                                   (reseller_id,clock-seconds)).fetchone()[0]) for name,seconds in TRIAL_SECONDS.items()}
+        running=db.execute("SELECT count(*) FROM rs_subscriptions WHERE reseller_id=? AND kind='trial' AND expires_at>? AND status!='disabled'",(reseller_id,clock)).fetchone()[0]
+        pending=db.execute("SELECT count(*) FROM rs_operations WHERE reseller_id=? AND operation_type='trial' AND reservation='held'",(reseller_id,)).fetchone()[0]
+        usage['active']=int(running)+int(pending)
+        return usage
+
+    def trial_blocked(self, db, reseller_id):
+        """Name of the first limit this reseller has reached, or None when another trial is allowed."""
+        limits,_,_=self.trial_limits(db,reseller_id)
+        usage=self.trial_usage(db,reseller_id)
+        return next((name for name in TRIAL_WINDOWS if limits[name]!=UNLIMITED and usage[name]>=limits[name]),None)
+
+    def trial_summary(self, uid):
+        member=self.member(uid)
+        if not member:raise CheckoutError('Reseller account not found.')
+        self.seed()
+        with self.store.connection() as db:
+            effective,override,default=self.trial_limits(db,member['id'])
+            return dict(limits={name:override.get(name) for name in TRIAL_WINDOWS},effective=effective,default=default,usage=self.trial_usage(db,member['id']))
+
+    def set_trial_limits(self, actor, uid, limits, reason):
+        """Per-reseller override. A window left as None follows the default for all resellers."""
+        self.admin(actor);self.seed()
+        if not isinstance(limits,dict) or set(limits)!=set(TRIAL_WINDOWS):raise CheckoutError('Invalid trial limits.')
+        override={}
+        for name,value in limits.items():
+            if value is None:continue
+            override[name]=integer(value,UNLIMITED,TRIAL_MAX)
+        with self.transaction() as db:
+            member=self.member(uid,db)
+            if not member:raise CheckoutError('Reseller account not found.')
+            self.audit(db,actor,'trial_limits',uid,reason,{'limits':override})
+            key=self._override_key(member['id'])
+            db.execute('DELETE FROM rs_settings WHERE key=?',(key,))
+            if override:db.execute('INSERT INTO rs_settings VALUES(?,?)',(key,json.dumps(override)))
+        return self.trial_summary(uid)
 
     def quote_purchase(self, uid, package_id, asset, request_key, with_token=False):
         self.seed()
@@ -245,9 +320,10 @@ class Ledger:
         def window(db,start):
             bought=db.execute('SELECT COALESCE(SUM(movement),0) FROM rs_ledger WHERE reseller_id=? AND movement>0 AND created_at>=?',(member['id'],start)).fetchone()[0]
             used=db.execute('SELECT COALESCE(-SUM(movement),0) FROM rs_ledger WHERE reseller_id=? AND movement<0 AND created_at>=?',(member['id'],start)).fetchone()[0]
-            row=db.execute("SELECT SUM(CASE WHEN kind='trial' OR converted_at IS NOT NULL THEN 1 ELSE 0 END),"
-                           "SUM(CASE WHEN kind='paid' AND converted_at IS NULL THEN 1 ELSE 0 END),"
-                           "SUM(CASE WHEN converted_at IS NOT NULL AND converted_at>=? THEN 1 ELSE 0 END) "
+            # Each column needs its own name: PostgreSQL calls every unnamed SUM "sum" and the row adapter keeps one value per name.
+            row=db.execute("SELECT SUM(CASE WHEN kind='trial' OR converted_at IS NOT NULL THEN 1 ELSE 0 END) AS tests,"
+                           "SUM(CASE WHEN kind='paid' AND converted_at IS NULL THEN 1 ELSE 0 END) AS subscriptions,"
+                           "SUM(CASE WHEN converted_at IS NOT NULL AND converted_at>=? THEN 1 ELSE 0 END) AS converted "
                            "FROM rs_subscriptions WHERE reseller_id=? AND created_at>=?",(start,member['id'],start)).fetchone()
             tests=int(row[0] or 0);converted=int(row[2] or 0)
             return dict(credits_bought=int(bought),credits_used=int(used),tests_created=tests,subscriptions_created=int(row[1] or 0),

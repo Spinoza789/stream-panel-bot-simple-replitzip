@@ -441,8 +441,8 @@ class Scenarios:
         # bulk: two expired, one active; the list offers "Delete all expired"
         a=self.create('request-0002')['result_id'];b=self.create('request-0003')['result_id'];self.create('request-0004')
         with self.store.connection() as db:
-            for pid, in db.execute('SELECT provider_id FROM rs_subscriptions WHERE id IN (?,?)',(a,b)).fetchall():
-                self.provider.accounts[pid]['expires_at']=now()-60
+            for row in db.execute('SELECT provider_id FROM rs_subscriptions WHERE id IN (?,?)',(a,b)).fetchall():
+                self.provider.accounts[row[0]]['expires_at']=now()-60  # row[0] works for SQLite and PostgreSQL rows alike
             db.execute('UPDATE rs_subscriptions SET expires_at=? WHERE id IN (?,?)',(now()-60,a,b))
         self.click(42,'rs:list:all:0')
         self.assertIn('Delete all expired (2)',str(self.calls[-1][1]['reply_markup']))

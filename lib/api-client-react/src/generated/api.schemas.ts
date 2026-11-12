@@ -232,9 +232,143 @@ export interface LedgerEntry {
   reference: string;
 }
 
+/**
+ * Reseller trial allowances. -1 is unlimited, 0 is none.
+ */
+export interface TrialLimits {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  active: number;
+}
+
+/**
+ * One reseller's own allowances. null follows the default for all resellers.
+ */
+export interface TrialLimitOverrides {
+  /** @nullable */
+  daily: number | null;
+  /** @nullable */
+  weekly: number | null;
+  /** @nullable */
+  monthly: number | null;
+  /** @nullable */
+  active: number | null;
+}
+
+export interface ResellerTrials {
+  limits: TrialLimitOverrides;
+  effective: TrialLimits;
+  default: TrialLimits;
+  usage: TrialLimits;
+}
+
+export interface ResellerTrialLimitsInput {
+  /**
+   * @minimum -1
+   * @maximum 100000
+   * @nullable
+   */
+  daily: number | null;
+  /**
+   * @minimum -1
+   * @maximum 100000
+   * @nullable
+   */
+  weekly: number | null;
+  /**
+   * @minimum -1
+   * @maximum 100000
+   * @nullable
+   */
+  monthly: number | null;
+  /**
+   * @minimum -1
+   * @maximum 100000
+   * @nullable
+   */
+  active: number | null;
+  /**
+   * @minLength 3
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export type AdminSubscriptionSource =
+  (typeof AdminSubscriptionSource)[keyof typeof AdminSubscriptionSource];
+
+export const AdminSubscriptionSource = {
+  retail: "retail",
+  reseller: "reseller",
+} as const;
+
+export interface AdminSubscription {
+  id: string;
+  source: AdminSubscriptionSource;
+  kind: string;
+  status: string;
+  customer: string;
+  telegramId: number;
+  telegramUsername: string;
+  resellerTelegramId: number;
+  resellerUsername: string;
+  customerRef: string;
+  accountUsername: string;
+  accountPassword: string;
+  serverUrl: string;
+  plan: string;
+  connections: number;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface AdminSubscriptionPage {
+  items: AdminSubscription[];
+  page: number;
+  pageSize: number;
+  total: number;
+  active: number;
+  trials: number;
+}
+
+export interface SubscriptionAddInput {
+  /** @minimum 1 */
+  telegramId: number;
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  planId: string;
+  /**
+   * @minLength 3
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface SubscriptionAddResult {
+  orderId: string;
+  message: string;
+}
+
+export interface SubscriptionDeleteInput {
+  confirm: true;
+  /**
+   * @minLength 3
+   * @maxLength 500
+   */
+  reason: string;
+}
+
+export interface SubscriptionDeleteResult {
+  deleted: boolean;
+}
+
 export interface AdminResellerDetail {
   reseller: AdminReseller;
   stats: ResellerStats;
+  trials: ResellerTrials;
   history: LedgerEntry[];
 }
 
@@ -316,6 +450,7 @@ export interface RateCardPlan {
 }
 
 export interface AdminRateCard {
+  trialLimits: TrialLimits;
   packages: RateCardPackage[];
   plans: RateCardPlan[];
   costs: RateCardCost[];
@@ -394,6 +529,8 @@ export interface AdminAccess {
 }
 
 export interface AdminOrder {
+  /** Telegram username of the customer when known */
+  username: string;
   id: string;
   kind: string;
   status: string;
@@ -428,7 +565,21 @@ export interface AdminOverview {
   recent: AdminOrder[];
 }
 
+/**
+ * Login details of the delivered account
+ */
+export interface OrderAccount {
+  username: string;
+  password: string;
+  serverUrl: string;
+  panelId: string;
+  expiresAt: number;
+}
+
 export interface AdminOrderDetail {
+  account: OrderAccount | null;
+  removedAt: number;
+  canDelete: boolean;
   order: AdminOrder;
   message: string;
   recoveryEligible: boolean;
@@ -497,6 +648,48 @@ export type ListAdminResellersParams = {
    */
   page?: number;
 };
+
+export type ListAdminSubscriptionsParams = {
+  /**
+   * @maxLength 80
+   */
+  q?: string;
+  source?: ListAdminSubscriptionsSource;
+  kind?: ListAdminSubscriptionsKind;
+  status?: ListAdminSubscriptionsStatus;
+  /**
+   * @minimum 1
+   */
+  reseller?: number;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type ListAdminSubscriptionsSource =
+  (typeof ListAdminSubscriptionsSource)[keyof typeof ListAdminSubscriptionsSource];
+
+export const ListAdminSubscriptionsSource = {
+  retail: "retail",
+  reseller: "reseller",
+} as const;
+
+export type ListAdminSubscriptionsKind =
+  (typeof ListAdminSubscriptionsKind)[keyof typeof ListAdminSubscriptionsKind];
+
+export const ListAdminSubscriptionsKind = {
+  trial: "trial",
+  paid: "paid",
+} as const;
+
+export type ListAdminSubscriptionsStatus =
+  (typeof ListAdminSubscriptionsStatus)[keyof typeof ListAdminSubscriptionsStatus];
+
+export const ListAdminSubscriptionsStatus = {
+  active: "active",
+  expired: "expired",
+} as const;
 
 export type GetAdminReportsParams = {
   /**

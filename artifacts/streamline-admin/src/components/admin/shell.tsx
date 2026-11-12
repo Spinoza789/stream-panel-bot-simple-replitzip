@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth, displayName } from "@/lib/auth";
 import { useGetAdminOverview, getGetAdminOverviewQueryKey } from "@workspace/api-client-react";
-import { BarChart3, Home, Hourglass, LifeBuoy, LogOut, Menu, Moon, Package, Search, Settings2, Sun, Users, X } from "lucide-react";
+import { BarChart3, Home, Hourglass, LifeBuoy, LogOut, Menu, Moon, Package, Search, Settings2, Sun, Tv, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./bits";
 import { AccessGate, LIVE, useAdminReady } from "./access";
@@ -50,7 +50,7 @@ function Frame({ children }: { children: ReactNode }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             maxLength={80}
-            placeholder="Search orders by ID or Telegram ID"
+            placeholder="Search orders by ID, Telegram ID or @username"
             aria-label="Search orders"
             data-testid="input-global-search"
             className="h-8 w-full rounded-lg border border-[#4a4a4a] bg-[#303030] pl-9 pr-3 text-sm text-white placeholder:text-[#b5b5b5] focus:border-white focus:outline-none"
@@ -102,6 +102,7 @@ function Nav({ onNavigate }: { onNavigate: () => void }) {
     { href: "/dashboard", label: "Home", icon: Home, count: undefined as number | undefined, hot: false },
     { href: "/orders", label: "Orders", icon: Package, count: ov.data?.review, hot: true },
     { href: "/trials", label: "Trials", icon: Hourglass, count: ov.data?.trials, hot: false },
+    { href: "/subscriptions", label: "Subscriptions", icon: Tv, count: undefined, hot: false },
     { href: "/resellers", label: "Resellers", icon: Users, count: ov.data?.activeResellers, hot: false },
     { href: "/tickets", label: "Tickets", icon: LifeBuoy, count: ov.data?.openTickets, hot: true },
     { href: "/reports", label: "Reports", icon: BarChart3, count: undefined, hot: false },

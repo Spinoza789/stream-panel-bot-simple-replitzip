@@ -4,11 +4,12 @@ import { useGetAdminRateCard, getGetAdminRateCardQueryKey, useUpdateAdminRateCar
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Bar, ErrorState, Panel } from "./bits";
+import { LimitField } from "./subscriptions";
 import { useAdminReady } from "./access";
 import { useToast } from "@/hooks/use-toast";
 import { errorMessage, gbp } from "@/lib/format";
 
-/** Subscription prices, credit packs (add, edit, remove), credit costs and trial limits, edited in place. Every change needs a reason and is audited. */
+/** Subscription prices, credit packs (add, edit, remove), credit costs and the default reseller trial limits, edited in place. Every change needs a reason and is audited. */
 export function RateCardPanel() {
   const ready = useAdminReady();
   const qc = useQueryClient();
@@ -17,12 +18,13 @@ export function RateCardPanel() {
   const upd = useUpdateAdminRateCard();
   const [reason, setReason] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [limits, setLimits] = useState<Record<string, number> | null>(null);
   const d = q.data;
   const value = (key: string, fallback: number | string) => (key in draft ? draft[key] : String(fallback));
   const save = (category: "package" | "package_add" | "package_delete" | "plan" | "cost" | "trials", values: (string | number | boolean)[]) => {
     if (reason.trim().length < 3) { toast({ title: "Give a reason first", description: "A short note goes into the audit log with every price change.", variant: "destructive" }); return; }
     upd.mutate({ data: { category, values, reason: reason.trim() } }, {
-      onSuccess: (card: AdminRateCard) => { qc.setQueryData(getGetAdminRateCardQueryKey(), card); setDraft({}); toast({ title: "Rate card updated" }); },
+      onSuccess: (card: AdminRateCard) => { qc.setQueryData(getGetAdminRateCardQueryKey(), card); setDraft({}); setLimits(null); toast({ title: "Rate card updated" }); },
       onError: (e) => toast({ title: "Not saved", description: errorMessage(e), variant: "destructive" }),
     });
   };
@@ -126,10 +128,16 @@ export function RateCardPanel() {
               </table>
             </div>
           </div>
-          <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); save("trials", [parseInt(value("t-daily", d.trialDaily), 10), parseInt(value("t-active", d.trialActive), 10)]); }}>
-            <div><label className="text-xs font-medium text-muted-foreground">Free tests per reseller per day</label><Input value={value("t-daily", d.trialDaily)} onChange={(e) => setDraft({ ...draft, "t-daily": e.target.value })} inputMode="numeric" className="mt-1 h-8 w-24" data-testid="input-trial-daily" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Tests running at once</label><Input value={value("t-active", d.trialActive)} onChange={(e) => setDraft({ ...draft, "t-active": e.target.value })} inputMode="numeric" className="mt-1 h-8 w-24" data-testid="input-trial-active" /></div>
-            <Button type="submit" size="sm" variant="outline" disabled={upd.isPending}>Save limits</Button>
+          <form onSubmit={(e) => { e.preventDefault(); const l = { ...d.trialLimits, ...(limits ?? {}) }; save("trials", [l.daily, l.weekly, l.monthly, l.active]); }}>
+            <h3 className="mb-1 font-semibold">Reseller free trial limits</h3>
+            <p className="mb-2 text-xs text-muted-foreground">The default for every reseller, counted per reseller. Set each one to unlimited or a number; 0 switches trials off. A single reseller can be given different limits from Resellers › open the reseller.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([["daily", "Per day", "Rolling 24 hours"], ["weekly", "Per week", "Rolling 7 days"], ["monthly", "Per month", "Rolling 30 days"], ["active", "Running at once", "Trials not yet expired"]] as const).map(([key, label, hint]) => (
+                <LimitField key={key} label={label} hint={hint} testId={`default-trial-${key}`} value={(limits ?? d.trialLimits)[key] ?? d.trialLimits[key]}
+                  onChange={(v) => setLimits({ ...d.trialLimits, ...(limits ?? {}), [key]: v ?? -1 })} />
+              ))}
+            </div>
+            <Button type="submit" size="sm" variant="outline" className="mt-3" disabled={upd.isPending || !limits} data-testid="button-save-trial-limits-default">Save limits</Button>
           </form>
         </div>
       )}

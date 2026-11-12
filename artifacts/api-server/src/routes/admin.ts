@@ -7,6 +7,8 @@ import {
   SetAdminResellerStatusBody, AdjustAdminResellerCreditsBody, GetAdminReportsQueryParams, GetAdminReportsResponse,
   GetAdminRateCardResponse, UpdateAdminRateCardBody, GetAdminFaqResponse, UpdateAdminFaqBody,
   ListAdminTicketsQueryParams, ListAdminTicketsResponse, GetAdminTicketResponse, ReplyAdminTicketBody, SetAdminTicketStatusBody,
+  SetAdminResellerTrialLimitsBody, ListAdminSubscriptionsQueryParams, ListAdminSubscriptionsResponse,
+  AddAdminSubscriptionBody, AddAdminSubscriptionResponse, DeleteAdminSubscriptionBody, DeleteAdminSubscriptionResponse,
 } from "@workspace/api-zod";
 import { authConfigured, sessionActor, ownerState, requireOwner } from "../lib/admin-auth";
 import { adminRequest } from "../lib/python-bridge";
@@ -87,6 +89,24 @@ router.use(async (req, res) => {
       const parsed = AdjustAdminResellerCreditsBody.safeParse(req.body);
       if (!parsed.success) { res.status(400).json({ error: "Enter whole credits, a reason and a request key." }); return; }
       target = req.path; schema = GetAdminResellerResponse; body = parsed.data;
+    } else if (req.method === "POST" && /^\/resellers\/[1-9][0-9]{0,18}\/trial-limits$/.test(req.path)) {
+      const parsed = SetAdminResellerTrialLimitsBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Each limit is a whole number, -1 for unlimited or empty for the default, with a reason." }); return; }
+      target = req.path; schema = GetAdminResellerResponse; body = parsed.data;
+    } else if (req.method === "GET" && req.path === "/subscriptions") {
+      const parsed = ListAdminSubscriptionsQueryParams.safeParse(req.query);
+      if (!parsed.success) { res.status(400).json({ error: "Invalid subscription filters." }); return; }
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(parsed.data)) if (value !== undefined) params.set(key, String(value));
+      target = "/subscriptions?" + params.toString(); schema = ListAdminSubscriptionsResponse;
+    } else if (req.method === "POST" && req.path === "/subscriptions") {
+      const parsed = AddAdminSubscriptionBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Enter a numeric Telegram ID, choose a plan and give a reason." }); return; }
+      target = "/subscriptions"; schema = AddAdminSubscriptionResponse; body = parsed.data;
+    } else if (req.method === "POST" && /^\/subscriptions\/(retail|reseller)\/[a-f0-9]{24}\/delete$/.test(req.path)) {
+      const parsed = DeleteAdminSubscriptionBody.safeParse(req.body);
+      if (!parsed.success) { res.status(400).json({ error: "Confirm the deletion and give a reason." }); return; }
+      target = req.path; schema = DeleteAdminSubscriptionResponse; body = parsed.data;
     } else if (req.method === "GET" && req.path === "/reports") {
       const parsed = GetAdminReportsQueryParams.safeParse(req.query);
       if (!parsed.success) { res.status(400).json({ error: "Invalid report range." }); return; }

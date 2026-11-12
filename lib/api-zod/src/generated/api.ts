@@ -187,6 +187,9 @@ export const GetAdminOverviewResponse = zod.object({
   pending: zod.number().int(),
   recent: zod.array(
     zod.object({
+      username: zod
+        .string()
+        .describe("Telegram username of the customer when known"),
       id: zod.string(),
       kind: zod.string(),
       status: zod.string(),
@@ -218,6 +221,9 @@ export const ListAdminOrdersQueryParams = zod.object({
 export const ListAdminOrdersResponse = zod.object({
   items: zod.array(
     zod.object({
+      username: zod
+        .string()
+        .describe("Telegram username of the customer when known"),
       id: zod.string(),
       kind: zod.string(),
       status: zod.string(),
@@ -239,7 +245,24 @@ export const GetAdminOrderParams = zod.object({
 });
 
 export const GetAdminOrderResponse = zod.object({
+  account: zod.union([
+    zod
+      .object({
+        username: zod.string(),
+        password: zod.string(),
+        serverUrl: zod.string(),
+        panelId: zod.string(),
+        expiresAt: zod.number().int(),
+      })
+      .describe("Login details of the delivered account"),
+    zod.null(),
+  ]),
+  removedAt: zod.number().int(),
+  canDelete: zod.boolean(),
   order: zod.object({
+    username: zod
+      .string()
+      .describe("Telegram username of the customer when known"),
     id: zod.string(),
     kind: zod.string(),
     status: zod.string(),
@@ -412,6 +435,42 @@ export const GetAdminResellerResponse = zod.object({
       conversion_rate: zod.number().int(),
     }),
   }),
+  trials: zod.object({
+    limits: zod
+      .object({
+        daily: zod.number().int().nullable(),
+        weekly: zod.number().int().nullable(),
+        monthly: zod.number().int().nullable(),
+        active: zod.number().int().nullable(),
+      })
+      .describe(
+        "One reseller's own allowances. null follows the default for all resellers.",
+      ),
+    effective: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    default: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    usage: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+  }),
   history: zod.array(
     zod.object({
       createdAt: zod.number().int(),
@@ -468,6 +527,42 @@ export const SetAdminResellerStatusResponse = zod.object({
       tests_converted: zod.number().int(),
       conversion_rate: zod.number().int(),
     }),
+  }),
+  trials: zod.object({
+    limits: zod
+      .object({
+        daily: zod.number().int().nullable(),
+        weekly: zod.number().int().nullable(),
+        monthly: zod.number().int().nullable(),
+        active: zod.number().int().nullable(),
+      })
+      .describe(
+        "One reseller's own allowances. null follows the default for all resellers.",
+      ),
+    effective: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    default: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    usage: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
   }),
   history: zod.array(
     zod.object({
@@ -545,6 +640,42 @@ export const AdjustAdminResellerCreditsResponse = zod.object({
       conversion_rate: zod.number().int(),
     }),
   }),
+  trials: zod.object({
+    limits: zod
+      .object({
+        daily: zod.number().int().nullable(),
+        weekly: zod.number().int().nullable(),
+        monthly: zod.number().int().nullable(),
+        active: zod.number().int().nullable(),
+      })
+      .describe(
+        "One reseller's own allowances. null follows the default for all resellers.",
+      ),
+    effective: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    default: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    usage: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+  }),
   history: zod.array(
     zod.object({
       createdAt: zod.number().int(),
@@ -553,6 +684,219 @@ export const AdjustAdminResellerCreditsResponse = zod.object({
       reference: zod.string(),
     }),
   ),
+});
+
+export const SetAdminResellerTrialLimitsParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const setAdminResellerTrialLimitsBodyDailyMin = -1;
+export const setAdminResellerTrialLimitsBodyDailyMax = 100000;
+
+export const setAdminResellerTrialLimitsBodyWeeklyMin = -1;
+export const setAdminResellerTrialLimitsBodyWeeklyMax = 100000;
+
+export const setAdminResellerTrialLimitsBodyMonthlyMin = -1;
+export const setAdminResellerTrialLimitsBodyMonthlyMax = 100000;
+
+export const setAdminResellerTrialLimitsBodyActiveMin = -1;
+export const setAdminResellerTrialLimitsBodyActiveMax = 100000;
+
+export const setAdminResellerTrialLimitsBodyReasonMin = 3;
+export const setAdminResellerTrialLimitsBodyReasonMax = 500;
+
+export const SetAdminResellerTrialLimitsBody = zod.object({
+  daily: zod
+    .number()
+    .int()
+    .min(setAdminResellerTrialLimitsBodyDailyMin)
+    .max(setAdminResellerTrialLimitsBodyDailyMax)
+    .nullable(),
+  weekly: zod
+    .number()
+    .int()
+    .min(setAdminResellerTrialLimitsBodyWeeklyMin)
+    .max(setAdminResellerTrialLimitsBodyWeeklyMax)
+    .nullable(),
+  monthly: zod
+    .number()
+    .int()
+    .min(setAdminResellerTrialLimitsBodyMonthlyMin)
+    .max(setAdminResellerTrialLimitsBodyMonthlyMax)
+    .nullable(),
+  active: zod
+    .number()
+    .int()
+    .min(setAdminResellerTrialLimitsBodyActiveMin)
+    .max(setAdminResellerTrialLimitsBodyActiveMax)
+    .nullable(),
+  reason: zod
+    .string()
+    .min(setAdminResellerTrialLimitsBodyReasonMin)
+    .max(setAdminResellerTrialLimitsBodyReasonMax),
+});
+
+export const SetAdminResellerTrialLimitsResponse = zod.object({
+  reseller: zod.object({
+    telegramId: zod.number().int(),
+    username: zod.string(),
+    status: zod.string(),
+    createdAt: zod.number().int(),
+    balance: zod.number().int(),
+    reserved: zod.number().int(),
+    available: zod.number().int(),
+    customers: zod.number().int(),
+    activeCustomers: zod.number().int(),
+    creditsBought: zod.number().int(),
+    lastActivity: zod.number().int(),
+  }),
+  stats: zod.object({
+    this_month: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+    all_time: zod.object({
+      credits_bought: zod.number().int(),
+      credits_used: zod.number().int(),
+      tests_created: zod.number().int(),
+      subscriptions_created: zod.number().int(),
+      tests_converted: zod.number().int(),
+      conversion_rate: zod.number().int(),
+    }),
+  }),
+  trials: zod.object({
+    limits: zod
+      .object({
+        daily: zod.number().int().nullable(),
+        weekly: zod.number().int().nullable(),
+        monthly: zod.number().int().nullable(),
+        active: zod.number().int().nullable(),
+      })
+      .describe(
+        "One reseller's own allowances. null follows the default for all resellers.",
+      ),
+    effective: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    default: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+    usage: zod
+      .object({
+        daily: zod.number().int(),
+        weekly: zod.number().int(),
+        monthly: zod.number().int(),
+        active: zod.number().int(),
+      })
+      .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
+  }),
+  history: zod.array(
+    zod.object({
+      createdAt: zod.number().int(),
+      movement: zod.number().int(),
+      reason: zod.string(),
+      reference: zod.string(),
+    }),
+  ),
+});
+
+export const listAdminSubscriptionsQueryQMax = 80;
+
+export const listAdminSubscriptionsQueryPageDefault = 1;
+
+export const ListAdminSubscriptionsQueryParams = zod.object({
+  q: zod.coerce.string().max(listAdminSubscriptionsQueryQMax).optional(),
+  source: zod.enum(["retail", "reseller"]).optional(),
+  kind: zod.enum(["trial", "paid"]).optional(),
+  status: zod.enum(["active", "expired"]).optional(),
+  reseller: zod.coerce.number().int().min(1).optional(),
+  page: zod.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(listAdminSubscriptionsQueryPageDefault),
+});
+
+export const ListAdminSubscriptionsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      source: zod.enum(["retail", "reseller"]),
+      kind: zod.string(),
+      status: zod.string(),
+      customer: zod.string(),
+      telegramId: zod.number().int(),
+      telegramUsername: zod.string(),
+      resellerTelegramId: zod.number().int(),
+      resellerUsername: zod.string(),
+      customerRef: zod.string(),
+      accountUsername: zod.string(),
+      accountPassword: zod.string(),
+      serverUrl: zod.string(),
+      plan: zod.string(),
+      connections: zod.number().int(),
+      createdAt: zod.number().int(),
+      expiresAt: zod.number().int(),
+    }),
+  ),
+  page: zod.number().int(),
+  pageSize: zod.number().int(),
+  total: zod.number().int(),
+  active: zod.number().int(),
+  trials: zod.number().int(),
+});
+
+export const addAdminSubscriptionBodyPlanIdMax = 40;
+
+export const addAdminSubscriptionBodyReasonMin = 3;
+export const addAdminSubscriptionBodyReasonMax = 500;
+
+export const AddAdminSubscriptionBody = zod.object({
+  telegramId: zod.number().int().min(1),
+  planId: zod.string().min(1).max(addAdminSubscriptionBodyPlanIdMax),
+  reason: zod
+    .string()
+    .min(addAdminSubscriptionBodyReasonMin)
+    .max(addAdminSubscriptionBodyReasonMax),
+});
+
+export const AddAdminSubscriptionResponse = zod.object({
+  orderId: zod.string(),
+  message: zod.string(),
+});
+
+export const DeleteAdminSubscriptionParams = zod.object({
+  source: zod.enum(["retail", "reseller"]),
+  id: zod.coerce.string(),
+});
+
+export const deleteAdminSubscriptionBodyReasonMin = 3;
+export const deleteAdminSubscriptionBodyReasonMax = 500;
+
+export const DeleteAdminSubscriptionBody = zod.object({
+  confirm: zod.literal(true),
+  reason: zod
+    .string()
+    .min(deleteAdminSubscriptionBodyReasonMin)
+    .max(deleteAdminSubscriptionBodyReasonMax),
+});
+
+export const DeleteAdminSubscriptionResponse = zod.object({
+  deleted: zod.boolean(),
 });
 
 export const getAdminReportsQueryMonthsDefault = 12;
@@ -751,6 +1095,14 @@ export const SetAdminTicketStatusResponse = zod.object({
 });
 
 export const GetAdminRateCardResponse = zod.object({
+  trialLimits: zod
+    .object({
+      daily: zod.number().int(),
+      weekly: zod.number().int(),
+      monthly: zod.number().int(),
+      active: zod.number().int(),
+    })
+    .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
   packages: zod.array(
     zod.object({
       id: zod.string(),
@@ -813,6 +1165,14 @@ export const UpdateAdminRateCardBody = zod.object({
 });
 
 export const UpdateAdminRateCardResponse = zod.object({
+  trialLimits: zod
+    .object({
+      daily: zod.number().int(),
+      weekly: zod.number().int(),
+      monthly: zod.number().int(),
+      active: zod.number().int(),
+    })
+    .describe("Reseller trial allowances. -1 is unlimited, 0 is none."),
   packages: zod.array(
     zod.object({
       id: zod.string(),

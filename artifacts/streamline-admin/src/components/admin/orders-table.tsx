@@ -36,7 +36,7 @@ export function OrdersTable({ orders, loading, rows = 8 }: { orders?: AdminOrder
                 key={o.id}
                 data-testid={`row-order-${o.id}`}
                 onClick={() => setLocation(`/orders/${encodeURIComponent(o.id)}`)}
-                className="group cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-[#f7f7f7]"
+                className="group cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-[#f7f7f7] dark:hover:bg-white/5"
               >
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
@@ -48,7 +48,10 @@ export function OrdersTable({ orders, loading, rows = 8 }: { orders?: AdminOrder
                   <div className="num">{formatDateTime(o.createdAt)}</div>
                   <div className="text-xs text-muted-foreground">{relativeTime(o.createdAt)}</div>
                 </td>
-                <td className="max-w-[180px] truncate px-3 py-2.5 font-mono text-[12.5px]">{o.customer || "—"}</td>
+                <td className="max-w-[180px] truncate px-3 py-2.5">
+                  {o.username && <div className="font-medium">@{o.username}</div>}
+                  <div className={o.username ? "font-mono text-[11px] text-muted-foreground" : "font-mono text-[12.5px]"}>{o.customer || "—"}</div>
+                </td>
                 <td className="px-3 py-2.5">{o.plan || "—"}</td>
                 <td className="px-3 py-2.5"><StatusBadge status={o.status} /></td>
                 <td className="num px-3 py-2.5 text-right whitespace-nowrap">

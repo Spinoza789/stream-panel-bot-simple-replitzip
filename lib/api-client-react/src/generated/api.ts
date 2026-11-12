@@ -32,6 +32,7 @@ import type {
   AdminResellerDetail,
   AdminResellerPage,
   AdminStatus,
+  AdminSubscriptionPage,
   AdminTicketDetail,
   AdminTicketPage,
   AuthUserEnvelope,
@@ -39,6 +40,7 @@ import type {
   HealthStatus,
   ListAdminOrdersParams,
   ListAdminResellersParams,
+  ListAdminSubscriptionsParams,
   ListAdminTicketsParams,
   PasswordAccount,
   PasswordAccountInput,
@@ -53,6 +55,11 @@ import type {
   RecoveryResult,
   ResellerCreditsInput,
   ResellerStatusInput,
+  ResellerTrialLimitsInput,
+  SubscriptionAddInput,
+  SubscriptionAddResult,
+  SubscriptionDeleteInput,
+  SubscriptionDeleteResult,
   TicketReplyInput,
   TicketStatusInput,
   TotpCodeInput,
@@ -2830,6 +2837,549 @@ export const useAdjustAdminResellerCredits = <
 > => {
   return useMutation(
     getAdjustAdminResellerCreditsMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getSetAdminResellerTrialLimitsUrl = (id: string) => {
+  return `/api/admin/resellers/${id}/trial-limits`;
+};
+
+export const setAdminResellerTrialLimits = async (
+  id: string,
+  resellerTrialLimitsInput: ResellerTrialLimitsInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminResellerDetail> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<AdminResellerDetail>(
+    getSetAdminResellerTrialLimitsUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(resellerTrialLimitsInput),
+    },
+  );
+};
+
+export const getSetAdminResellerTrialLimitsMutationKey = () =>
+  ["setAdminResellerTrialLimits"] as const;
+
+export const getSetAdminResellerTrialLimitsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAdminResellerTrialLimits>>,
+    TError,
+    SetAdminResellerTrialLimitsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setAdminResellerTrialLimits>>,
+  TError,
+  SetAdminResellerTrialLimitsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetAdminResellerTrialLimitsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setAdminResellerTrialLimits>>,
+    SetAdminResellerTrialLimitsMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setAdminResellerTrialLimits(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetAdminResellerTrialLimitsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAdminResellerTrialLimits>>
+>;
+export type SetAdminResellerTrialLimitsMutationBody =
+  BodyType<ResellerTrialLimitsInput>;
+export type SetAdminResellerTrialLimitsMutationError = ErrorType<unknown>;
+export type SetAdminResellerTrialLimitsMutationVariables = {
+  id: string;
+  data: BodyType<ResellerTrialLimitsInput>;
+};
+
+export const useSetAdminResellerTrialLimits = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setAdminResellerTrialLimits>>,
+      TError,
+      SetAdminResellerTrialLimitsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setAdminResellerTrialLimits>>,
+  TError,
+  SetAdminResellerTrialLimitsMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getSetAdminResellerTrialLimitsMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getListAdminSubscriptionsUrl = (
+  params?: ListAdminSubscriptionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/subscriptions?${stringifiedParams}`
+    : `/api/admin/subscriptions`;
+};
+
+export const listAdminSubscriptions = async (
+  params?: ListAdminSubscriptionsParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<AdminSubscriptionPage> => {
+  return customFetch<AdminSubscriptionPage>(
+    getListAdminSubscriptionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminSubscriptionsQueryKey = (
+  params?: ListAdminSubscriptionsParams,
+) => {
+  return [`/api/admin/subscriptions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminSubscriptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminSubscriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptions>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminSubscriptionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminSubscriptions>>
+  > = ({ signal }) =>
+    listAdminSubscriptions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSubscriptions>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListAdminSubscriptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminSubscriptions>>
+>;
+export type ListAdminSubscriptionsQueryError = ErrorType<unknown>;
+
+export function useListAdminSubscriptions<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: undefined | ListAdminSubscriptionsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptions>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminSubscriptions>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminSubscriptions>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminSubscriptions<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptions>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminSubscriptions>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminSubscriptions>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListAdminSubscriptions<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptions>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useListAdminSubscriptions<
+  TData = Awaited<ReturnType<typeof listAdminSubscriptions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminSubscriptionsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listAdminSubscriptions>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListAdminSubscriptionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getAddAdminSubscriptionUrl = () => {
+  return `/api/admin/subscriptions`;
+};
+
+export const addAdminSubscription = async (
+  subscriptionAddInput: SubscriptionAddInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<SubscriptionAddResult> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<SubscriptionAddResult>(getAddAdminSubscriptionUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(subscriptionAddInput),
+  });
+};
+
+export const getAddAdminSubscriptionMutationKey = () =>
+  ["addAdminSubscription"] as const;
+
+export const getAddAdminSubscriptionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAdminSubscription>>,
+    TError,
+    AddAdminSubscriptionMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addAdminSubscription>>,
+  TError,
+  AddAdminSubscriptionMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAddAdminSubscriptionMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addAdminSubscription>>,
+    AddAdminSubscriptionMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return addAdminSubscription(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddAdminSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addAdminSubscription>>
+>;
+export type AddAdminSubscriptionMutationBody = BodyType<SubscriptionAddInput>;
+export type AddAdminSubscriptionMutationError = ErrorType<unknown>;
+export type AddAdminSubscriptionMutationVariables = {
+  data: BodyType<SubscriptionAddInput>;
+};
+
+export const useAddAdminSubscription = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof addAdminSubscription>>,
+      TError,
+      AddAdminSubscriptionMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof addAdminSubscription>>,
+  TError,
+  AddAdminSubscriptionMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAddAdminSubscriptionMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getDeleteAdminSubscriptionUrl = (
+  source: "retail" | "reseller",
+  id: string,
+) => {
+  return `/api/admin/subscriptions/${source}/${id}/delete`;
+};
+
+export const deleteAdminSubscription = async (
+  source: "retail" | "reseller",
+  id: string,
+  subscriptionDeleteInput: SubscriptionDeleteInput,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<SubscriptionDeleteResult> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return customFetch<SubscriptionDeleteResult>(
+    getDeleteAdminSubscriptionUrl(source, id),
+    {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(subscriptionDeleteInput),
+    },
+  );
+};
+
+export const getDeleteAdminSubscriptionMutationKey = () =>
+  ["deleteAdminSubscription"] as const;
+
+export const getDeleteAdminSubscriptionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminSubscription>>,
+    TError,
+    DeleteAdminSubscriptionMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAdminSubscription>>,
+  TError,
+  DeleteAdminSubscriptionMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDeleteAdminSubscriptionMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAdminSubscription>>,
+    DeleteAdminSubscriptionMutationVariables
+  > = (props) => {
+    const { source, id, data } = props ?? {};
+
+    return deleteAdminSubscription(source, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAdminSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminSubscription>>
+>;
+export type DeleteAdminSubscriptionMutationBody =
+  BodyType<SubscriptionDeleteInput>;
+export type DeleteAdminSubscriptionMutationError = ErrorType<unknown>;
+export type DeleteAdminSubscriptionMutationVariables = {
+  source: "retail" | "reseller";
+  id: string;
+  data: BodyType<SubscriptionDeleteInput>;
+};
+
+export const useDeleteAdminSubscription = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof deleteAdminSubscription>>,
+      TError,
+      DeleteAdminSubscriptionMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAdminSubscription>>,
+  TError,
+  DeleteAdminSubscriptionMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getDeleteAdminSubscriptionMutationOptions(options),
     queryClient,
   );
 };

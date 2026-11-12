@@ -6,8 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AdminOrder } from "./adminOrder";
+import type { OrderAccount } from "./orderAccount";
 
 export interface AdminOrderDetail {
+  account: OrderAccount | null;
+  removedAt: number;
+  canDelete: boolean;
   order: AdminOrder;
   message: string;
   recoveryEligible: boolean;

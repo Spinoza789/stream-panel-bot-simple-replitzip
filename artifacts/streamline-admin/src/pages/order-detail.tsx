@@ -12,7 +12,8 @@ import {
   type RecoveryDraft,
   type RecoveryResult,
 } from "@workspace/api-client-react";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileSearch, LifeBuoy, Lock } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileSearch, KeyRound, LifeBuoy, Lock, Plus, Trash2 } from "lucide-react";
+import { AccountDetails, AddSubscriptionDialog, DeleteSubscriptionDialog } from "@/components/admin/subscriptions";
 import { AdminShell } from "@/components/admin/shell";
 import { LIVE, useAdminReady } from "@/components/admin/access";
 import { Bar, CopyId, EmptyState, ErrorState, KindTag, PageHeader, Panel, StatusBadge } from "@/components/admin/bits";
@@ -31,6 +32,8 @@ function Detail() {
   const q = useGetAdminOrder(id, { query: { enabled: ready && !!id, queryKey: getGetAdminOrderQueryKey(id), ...LIVE } });
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<RecoveryResult | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const back = (
     <Link href="/orders" className="inline-flex items-center gap-1 hover:text-foreground" data-testid="link-back">
@@ -59,8 +62,12 @@ function Detail() {
         eyebrow={back}
         title={d ? `Order ${d.order.id.length > 16 ? d.order.id.slice(0, 8) + "…" : d.order.id}` : "Loading order"}
         description={d ? <span className="inline-flex flex-wrap items-center gap-2"><StatusBadge status={d.order.status} /><KindTag kind={d.order.kind} /><span>{formatDateTime(d.order.createdAt)}</span></span> : undefined}
-        actions={d?.recoveryEligible ? (
-          <Button onClick={() => setOpen(true)} data-testid="button-start-recovery"><LifeBuoy className="mr-1.5 h-4 w-4" /> Recover trial</Button>
+        actions={d ? (
+          <>
+            {/^[1-9][0-9]*$/.test(d.order.customer) && <Button variant="outline" onClick={() => setAdding(true)} data-testid="button-add-for-customer"><Plus className="mr-1.5 h-4 w-4" /> Add subscription</Button>}
+            {d.canDelete && <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleting(true)} data-testid="button-delete-order-subscription"><Trash2 className="mr-1.5 h-4 w-4" /> Delete</Button>}
+            {d.recoveryEligible && <Button onClick={() => setOpen(true)} data-testid="button-start-recovery"><LifeBuoy className="mr-1.5 h-4 w-4" /> Recover trial</Button>}
+          </>
         ) : undefined}
       />
 
@@ -82,6 +89,21 @@ function Detail() {
               <div className="space-y-2"><Bar className="h-3.5 w-full" /><Bar className="h-3.5 w-4/5" /></div>
             ) : (
               <p className="text-[15px] leading-relaxed" data-testid="text-order-message">{d.message || "No explanation available for this status."}</p>
+            )}
+          </Panel>
+          <Panel title="Account details" aside={d && d.removedAt > 0 ? <span className="text-xs text-muted-foreground">Deleted {formatDateTime(d.removedAt)}</span> : undefined}>
+            {q.isLoading || !d ? (
+              <div className="space-y-2"><Bar className="h-4 w-full" /><Bar className="h-4 w-2/3" /></div>
+            ) : d.account ? (
+              <AccountDetails username={d.account.username} password={d.account.password} serverUrl={d.account.serverUrl} expiresAt={d.account.expiresAt} />
+            ) : (
+              <div className="flex gap-3 text-sm">
+                <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">No login yet</p>
+                  <p className="text-muted-foreground">{d.order.status === "fulfilled" ? "This order did not create an account of its own (credit packs and renewals extend an existing one)." : "The username and password appear here once the account has been created."}</p>
+                </div>
+              </div>
             )}
           </Panel>
           <Panel title="Trial recovery">
@@ -115,6 +137,15 @@ function Detail() {
       </div>
 
       {d && (
+        <>
+          <DeleteSubscriptionDialog
+            target={deleting && d.account ? { source: "retail", id: d.order.id, kind: d.order.kind, label: d.account.username } : null}
+            onClose={() => setDeleting(false)}
+          />
+          <AddSubscriptionDialog open={adding} onClose={() => setAdding(false)} telegramId={/^[1-9][0-9]*$/.test(d.order.customer) ? d.order.customer : undefined} />
+        </>
+      )}
+      {d && (
         <RecoveryDialog
           open={open}
           onOpenChange={setOpen}
@@ -130,6 +161,7 @@ function Facts({ o }: { o: AdminOrder }) {
   const rows: [string, React.ReactNode][] = [
     ["Order ID", <CopyId value={o.id} label="Order ID" />],
     ["Customer", o.customer ? <CopyId value={o.customer} label="Customer" /> : "—"],
+    ["Telegram username", o.username ? <CopyId value={"@" + o.username} label="Username" /> : <span className="text-muted-foreground">{/^[1-9][0-9]*$/.test(o.customer) ? "Not seen yet" : "—"}</span>],
     ["Plan", o.plan || "—"],
     ["Kind", <KindTag kind={o.kind} />],
     ["Amount", <span className="font-mono">{o.amount} <span className="font-sans font-medium">{o.symbol}</span></span>],

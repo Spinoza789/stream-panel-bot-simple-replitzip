@@ -8,8 +8,10 @@
 import type { RateCardCost } from "./rateCardCost";
 import type { RateCardPackage } from "./rateCardPackage";
 import type { RateCardPlan } from "./rateCardPlan";
+import type { TrialLimits } from "./trialLimits";
 
 export interface AdminRateCard {
+  trialLimits: TrialLimits;
   packages: RateCardPackage[];
   plans: RateCardPlan[];
   costs: RateCardCost[];
