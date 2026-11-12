@@ -62,7 +62,7 @@ STREAMBOT_DATABASE_SOURCE = "managed"
 STREAMBOT_LIVE_PAYMENTS_ENABLED = "true"
 STREAMBOT_MODE = "live"
 STREAMBOT_PANEL_WRITE_ENABLED = "true"
-STREAMBOT_PUBLIC_URL = "https://panelbot775.replit.app"
+STREAMBOT_PUBLIC_URL = "https://flexandflix.com"
 STREAMBOT_TELEGRAM_ENABLED = "true"
 
 [userenv.shared]
